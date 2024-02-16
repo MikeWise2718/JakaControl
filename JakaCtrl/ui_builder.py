@@ -14,6 +14,7 @@ import omni.timeline
 import omni.ui as ui
 from omni.isaac.core.articulations import Articulation
 from omni.isaac.core.objects.cuboid import FixedCuboid
+from omni.isaac.core.objects import GroundPlane
 from omni.isaac.core.prims import XFormPrim
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.core.utils.prims import is_prim_path_valid
@@ -86,8 +87,10 @@ class UIBuilder:
     dkyellow = uiclr("#404000")
     dkpurple = uiclr("#400040")
     dkcyan = uiclr("#004040")
-    _robot_names = ["ur10e", "jaka", "franka"]
+    _robot_names = ["ur3e", "ur5e", "ur10e", "jaka", "rs007n", "franka", "jetbot"]
     _robot_name = "jaka"
+    _ground_opts = ["none", "default", "groundplane", "groundplane-blue"]
+    _ground_opt = "default"
 
     def __init__(self):
         # Frames are sub-windows that can contain multiple UI elements
@@ -178,12 +181,19 @@ class UIBuilder:
         with world_config_frame:
             with ui.VStack(style=get_style(), spacing=5, height=0):
                 with ui.HStack(style=get_style(), spacing=5, height=0):
-                    ui.Label("Robot: ",
+                    ui.Label("Robot:",
                             style={'color': self.btyellow},
                             width=50)
                     self._robot_btn = Button(
                         self._robot_name, clicked_fn=self._change_robot_name,
-                        style={'background_color': self.dkgreen},
+                        style={'background_color': self.dkblue}
+                    )
+                    ui.Label("Ground:",
+                            style={'color': self.btyellow},
+                            width=50)
+                    self._ground_btn = Button(
+                        self._ground_opt, clicked_fn=self._change_ground_opt,
+                        style={'background_color': self.dkblue}
                     )
                 # self.wrapped_ui_elements.append(self._robot_btn)
 
@@ -240,89 +250,40 @@ class UIBuilder:
         sphereLight.CreateIntensityAttr(100000)
         XFormPrim(str(sphereLight.GetPath())).set_world_pose([6.5, 0, 12])
 
-    # def _setup_scene(self):
-    #     """
-    #     This function is attached to the Load Button as the setup_scene_fn callback.
-    #     On pressing the Load Button, a new instance of World() is created and then this function is called.
-    #     The user should now load their assets onto the stage and add them to the World Scene.
-
-    #     In this example, a new stage is loaded explicitly, and all assets are reloaded.
-    #     If the user is relying on hot-reloading and does not want to reload assets every time,
-    #     they may perform a check here to see if their desired assets are already on the stage,
-    #     and avoid loading anything if they are.  In this case, the user would still need to add
-    #     their assets to the World (which has low overhead).  See commented code section in this function.
-    #     """
-    #     # Load the UR10e
-    #     robot_prim_path = "/ur10e"
-    #     path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur10e/ur10e.usd"
-    #     print("Loading ur10e")
-
-    #     create_new_stage()
-    #     self._add_light_to_stage()
-    #     add_reference_to_stage(path_to_robot_usd, robot_prim_path)
-
-    #     # Create a cuboid
-    #     self._cuboid = FixedCuboid(
-    #         "/Scenario/cuboid", position=np.array([0.3, 0.3, 0.5]), size=0.05, color=np.array([255, 0, 0])
-    #     )
-
-    #     self._articulation = Articulation(robot_prim_path)
-
-    #     # Add user-loaded objects to the World
-    #     world = World.instance()
-    #     world.scene.add(self._articulation)
-    #     world.scene.add(self._cuboid)
-
-    # def _setup_scene_jaka(self):
-    #     """
-    #     This function is attached to the Load Button as the setup_scene_fn callback.
-    #     On pressing the Load Button, a new instance of World() is created and then this function is called.
-    #     The user should now load their assets onto the stage and add them to the World Scene.
-
-    #     In this example, a new stage is loaded explicitly, and all assets are reloaded.
-    #     If the user is relying on hot-reloading and does not want to reload assets every time,
-    #     they may perform a check here to see if their desired assets are already on the stage,
-    #     and avoid loading anything if they are.  In this case, the user would still need to add
-    #     their assets to the World (which has low overhead).  See commented code section in this function.
-    #     """
-
-    #     robot_prim_path = "/World/minicobo_v1_4/world"
-    #     path_to_robot_usd = "d:/nv/ov/exts/JakaControl/usd/jaka1_blue.usda"
-    #     print("Loading Jaka ")
-
-
-    #     create_new_stage()
-    #     self._add_light_to_stage()
-    #     add_reference_to_stage(path_to_robot_usd, robot_prim_path)
-
-    #     # Create a cuboid
-    #     self._cuboid = FixedCuboid(
-    #         "/Scenario/cuboid", position=np.array([0.3, 0.3, 0.5]), size=0.05, color=np.array([255, 0, 0])
-    #     )
-    #     prim = get_current_stage().GetPrimAtPath(robot_prim_path)
-    #     UsdPhysics.ArticulationRootAPI.Apply(prim)
-
-    #     self._articulation = Articulation(robot_prim_path)
-    #     print("Jaka Articulation: ", self._articulation)
-
-    #     # Add user-loaded objects to the World
-    #     world = World.instance()
-    #     world.scene.add(self._articulation)
-    #     print("Jaka added articulation to world")
-    #     world.scene.add(self._cuboid)
 
     def _setup_scene_gen(self):
 
+        print("Assets root path: ", get_assets_root_path())
+        need_to_add_articulation = False
         match self._robot_name:
+            case "ur3e":
+                robot_prim_path = "/ur3e"
+                artpath = robot_prim_path
+                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur3e/ur3e.usd"
+            case "ur5e":
+                robot_prim_path = "/ur5e"
+                artpath = robot_prim_path
+                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur5e/ur5e.usd"
             case "ur10e":
                 robot_prim_path = "/ur10e"
+                artpath = robot_prim_path
                 path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur10e/ur10e.usd"
             case "jaka":
-                robot_prim_path = "/World/minicobo_v1_4/world"
-                path_to_robot_usd = "d:/nv/ov/exts/JakaControl/usd/jaka1_blue.usda"
+                robot_prim_path = "/minicobo_v1_4"
+                artpath = f"{robot_prim_path}/world"
+                path_to_robot_usd = "d:/nv/ov/exts/JakaControl/usd/jaka2.usda"
+            case "rs007n":
+                robot_prim_path = "/khi_rs007n"
+                artpath = robot_prim_path
+                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Kawasaki/RS007N/rs007n_onrobot_rg2.usd"
             case "franka":
-                robot_prim_path = "/ur10e"
-                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur10e/ur10e.usd"
+                robot_prim_path = "/franka"
+                artpath = robot_prim_path
+                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Franka/franka.usd"
+            case "jetbot":
+                robot_prim_path = "/jetbot"
+                artpath = robot_prim_path
+                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Jetbot/jetbot.usd"
             case _:
                 self.error(f"Unknown robot name {self._robot_name}")
 
@@ -338,16 +299,32 @@ class UIBuilder:
         self._cuboid = FixedCuboid(
             "/Scenario/cuboid", position=np.array([0.3, 0.3, 0.5]), size=0.05, color=np.array([255, 0, 0])
         )
-        if self._robot_name == "jaka":
-            prim = get_current_stage().GetPrimAtPath(robot_prim_path)
+
+        if need_to_add_articulation:
+            prim = get_current_stage().GetPrimAtPath(artpath)
             UsdPhysics.ArticulationRootAPI.Apply(prim)
 
-        self._articulation = Articulation(robot_prim_path)
+        self._articulation = Articulation(artpath)
 
         # Add user-loaded objects to the World
         world = World.instance()
         world.scene.add(self._articulation)
         world.scene.add(self._cuboid)
+
+        if self._ground_opt == "default":
+            world.scene.add_default_ground_plane()
+            # ground = FixedCuboid("/Scenario/ground", position=np.array([0, 0, -0.1]), size=10, color=np.array([64, 64, 64]))
+            # world.scene.add(ground)
+
+        elif self._ground_opt == "groundplane":
+            ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.5, 0.5, 0.5]))
+            world.scene.add(ground)
+
+        elif self._ground_opt == "groundplane-blue":
+            ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]))
+            world.scene.add(ground)
+
+
 
 
     def _change_robot_name(self):
@@ -355,6 +332,12 @@ class UIBuilder:
         idx = (idx + 1) % len(self._robot_names)
         self._robot_name = self._robot_names[idx]
         self._robot_btn.text = self._robot_name
+
+    def _change_ground_opt(self):
+        idx = self._ground_opts.index(self._ground_opt)
+        idx = (idx + 1) % len(self._ground_opts)
+        self._ground_opt = self._ground_opts[idx]
+        self._ground_btn.text = self._ground_opt
 
     def _setup_scenario(self):
         """
