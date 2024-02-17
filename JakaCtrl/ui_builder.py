@@ -28,6 +28,9 @@ from omni.isaac.ui.ui_utils import get_style
 from omni.usd import StageEventType
 from pxr import Sdf, UsdLux, UsdPhysics, Usd
 
+import omni.isaac.franka.controllers as franka_controllers
+
+
 from .scenario import ExampleScenario
 
 import carb.settings
@@ -73,7 +76,6 @@ def truncf(number, digits) -> float:
     return math.trunc(stepper * number) / stepper
 
 
-
 class UIBuilder:
     btgreen = uiclr("#00ff00")
     btblue = uiclr("#0000ff")
@@ -87,10 +89,14 @@ class UIBuilder:
     dkyellow = uiclr("#404000")
     dkpurple = uiclr("#400040")
     dkcyan = uiclr("#004040")
-    _robot_names = ["ur3e", "ur5e", "ur10e", "jaka", "rs007n", "franka", "jetbot"]
+    _robot_names = ["ur3e", "ur5e", "ur10e", "jaka", "rs007n", "franka", "fancy_franka", "jetbot"]
     _robot_name = "jaka"
     _ground_opts = ["none", "default", "groundplane", "groundplane-blue"]
     _ground_opt = "default"
+    _modes = ["circling-cube","pick-and-place"]
+    _mode = "circling-cube"
+    _choices = ["choice 1","choice 2"]
+    _choice = "choice 1"
 
     def __init__(self):
         # Frames are sub-windows that can contain multiple UI elements
@@ -195,16 +201,29 @@ class UIBuilder:
                         self._ground_opt, clicked_fn=self._change_ground_opt,
                         style={'background_color': self.dkblue}
                     )
+                with ui.HStack(style=get_style(), spacing=5, height=0):
+                    ui.Label("Mode:",
+                            style={'color': self.btyellow},
+                            width=50)
+                    self._mode_btn = Button(
+                        self._mode, clicked_fn=self._change_mode,
+                        style={'background_color': self.dkred}
+                    )
+                    ui.Label("Choice:",
+                            style={'color': self.btyellow},
+                            width=50)
+                    self._choice_btn = Button(
+                        self._choice, clicked_fn=self._change_choice,
+                        style={'background_color': self.dkred}
+                    )
                 # self.wrapped_ui_elements.append(self._robot_btn)
-
-
 
         world_controls_frame = CollapsableFrame("World Controls", collapsed=False)
 
         with world_controls_frame:
             with ui.VStack(style=get_style(), spacing=5, height=0):
                 self._load_btn = LoadButton(
-                    "Load/Create Scene", "Create", setup_scene_fn=self._setup_scene_gen, setup_post_load_fn=self._setup_scenario
+                    "Load/Create Scene", "Create", setup_scene_fn=self._setup_scene_gen, setup_post_load_fn=self._setup_post_load
                 )
                 self._load_btn.set_world_settings(physics_dt=1 / 60.0, rendering_dt=1 / 60.0)
                 self.wrapped_ui_elements.append(self._load_btn)
@@ -235,6 +254,7 @@ class UIBuilder:
     # Functions Below This Point Support The Provided Example And Can Be Deleted/Replaced
     ######################################################################################
 
+
     def _on_init(self):
         self._articulation = None
         self._cuboid = None
@@ -249,7 +269,6 @@ class UIBuilder:
         sphereLight.CreateRadiusAttr(2)
         sphereLight.CreateIntensityAttr(100000)
         XFormPrim(str(sphereLight.GetPath())).set_world_pose([6.5, 0, 12])
-
 
     def _setup_scene_gen(self):
 
@@ -280,6 +299,10 @@ class UIBuilder:
                 robot_prim_path = "/franka"
                 artpath = robot_prim_path
                 path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Franka/franka.usd"
+            case "fancy_franka":
+                robot_prim_path = "/fancy_franka"
+                artpath = robot_prim_path
+                path_to_robot_usd = None
             case "jetbot":
                 robot_prim_path = "/jetbot"
                 artpath = robot_prim_path
@@ -290,21 +313,42 @@ class UIBuilder:
 
         print(f"Loading {self._robot_name}")
 
-
         create_new_stage()
         self._add_light_to_stage()
-        add_reference_to_stage(path_to_robot_usd, robot_prim_path)
 
-        # Create a cuboid
-        self._cuboid = FixedCuboid(
-            "/Scenario/cuboid", position=np.array([0.3, 0.3, 0.5]), size=0.05, color=np.array([255, 0, 0])
-        )
+        if path_to_robot_usd is not None:
+            add_reference_to_stage(path_to_robot_usd, robot_prim_path)
+        else:
+            pass
+
 
         if need_to_add_articulation:
             prim = get_current_stage().GetPrimAtPath(artpath)
             UsdPhysics.ArticulationRootAPI.Apply(prim)
 
-        self._articulation = Articulation(artpath)
+        if self._robot_name == "fancy_franka":
+            from omni.isaac.franka import Franka
+            self._fancy_robot = Franka(prim_path="/World/Fancy_Franka", name="fancy_franka")
+            self._articulation = self._fancy_robot
+        else:
+            self._articulation = Articulation(artpath)
+
+
+        # mode specific initialization
+        if self._mode == "circling-cube":
+            self._cuboid = FixedCuboid(
+                "/Scenario/cuboid", position=np.array([0.3, 0.3, 0.5]), size=0.05, color=np.array([128, 0, 0])
+            )
+        elif self._mode == "pick-and-place":
+            self._cuboid = FixedCuboid(
+                "/Scenario/cuboid", position=np.array([0.3, 0.3, 0.15]), size=0.05, color=np.array([128, 0, 128])
+            )
+            self._controller = franka_controllers.PickPlaceController(
+                name="pick_place_controller",
+                gripper=self._fancy_robot.gripper,
+                robot_articulation=self._fancy_robot,
+            )
+
 
         # Add user-loaded objects to the World
         world = World.instance()
@@ -325,7 +369,17 @@ class UIBuilder:
             world.scene.add(ground)
 
 
+    def _change_choice(self):
+        idx = self._choices.index(self._choice)
+        idx = (idx + 1) % len(self._choices)
+        self._choice = self._choices[idx]
+        self._choice_btn.text = self._choice
 
+    def _change_mode(self):
+        idx = self._modes.index(self._mode)
+        idx = (idx + 1) % len(self._modes)
+        self._mode = self._modes[idx]
+        self._mode_btn.text = self._mode
 
     def _change_robot_name(self):
         idx = self._robot_names.index(self._robot_name)
@@ -339,7 +393,7 @@ class UIBuilder:
         self._ground_opt = self._ground_opts[idx]
         self._ground_btn.text = self._ground_opt
 
-    def _setup_scenario(self):
+    def _setup_post_load(self):
         """
         This function is attached to the Load Button as the setup_post_load_fn callback.
         The user may assume that their assets have been loaded by their setup_scene_fn callback, that
