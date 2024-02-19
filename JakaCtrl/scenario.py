@@ -1,3 +1,4 @@
+import math
 import numpy as np
 
 from pxr import Sdf, UsdLux, UsdPhysics
@@ -7,8 +8,10 @@ from omni.isaac.core.utils.stage import add_reference_to_stage, create_new_stage
 
 from omni.isaac.core.articulations import Articulation
 from omni.isaac.core.objects.cuboid import FixedCuboid
+from omni.isaac.core.objects import DynamicCuboid
 from omni.isaac.core.objects import GroundPlane
-import omni.isaac.franka.controllers as franka_controllers
+from omni.isaac.franka import Franka
+from omni.isaac.franka.controllers import PickPlaceController
 
 from omni.isaac.core.utils.types import ArticulationAction
 from omni.isaac.core.world import World
@@ -52,6 +55,12 @@ class ScenarioTemplate:
     def setup_scenario(self):
         pass
 
+    def post_load_scenario(self):
+        pass
+
+    def reset_scenario(self):
+        pass
+
     def teardown_scenario(self):
         pass
 
@@ -84,7 +93,62 @@ class PickAndPlaceScenario(ScenarioTemplate):
             ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]))
             world.scene.add(ground)
 
-        pass
+
+        world.scene.add(Franka(prim_path="/World/Fancy_Franka", name="fancy_franka"))
+        # add a cube for franka to pick up
+        world.scene.add(
+            DynamicCuboid(
+                prim_path="/World/random_cube",
+                name="fancy_cube",
+                position=np.array([0.3, 0.3, 0.3]),
+                scale=np.array([0.0515, 0.0515, 0.0515]),
+                color=np.array([0, 0, 1.0]),
+            )
+        )
+
+        self._world = world
+
+    def post_load_scenario(self):
+        self._franka = self._world.scene.get_object("fancy_franka")
+        print("self._franka", self._franka)
+        print("self._franka.gripper", self._franka.gripper)
+        self._fancy_cube = self._world.scene.get_object("fancy_cube")
+        self._controller = PickPlaceController(
+            name="pick_place_controller",
+            gripper=self._franka.gripper,
+            robot_articulation=self._franka,
+        )
+        print("gripper.joint_opened_positions",self._franka.gripper.joint_opened_positions)
+
+        self._world.add_physics_callback("sim_step", callback_fn=self.physics_step)
+        print("self._franka.gripper.set_joint_positions",self._franka.gripper.set_joint_positions)
+        self._franka.gripper.set_joint_positions(self._franka.gripper.joint_opened_positions)
+
+    def reset_scenario(self):
+        self._franka = self._world.scene.get_object("fancy_franka")
+        self._controller = PickPlaceController(
+            name="pick_place_controller",
+            gripper=self._franka.gripper,
+            robot_articulation=self._franka,
+        )
+        self._franka.gripper.set_joint_positions(self._franka.gripper.joint_opened_positions)
+
+
+    def physics_step(self, step_size):
+        cube_position, _ = self._fancy_cube.get_world_pose()
+        goal_position = np.array([-0.3, -0.3, 0.0515 / 2.0])
+        current_joint_positions = self._franka.get_joint_positions()
+        actions = self._controller.forward(
+            picking_position=cube_position,
+            placing_position=goal_position,
+            current_joint_positions=current_joint_positions,
+        )
+        self._franka.apply_action(actions)
+        # Only for the pick and place controller, indicating if the state
+        # machine reached the final state.
+        if self._controller.is_done():
+            self._world.pause()
+        return
 
     def setup_scenario(self):
         pass

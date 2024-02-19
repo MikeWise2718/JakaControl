@@ -267,6 +267,7 @@ class UIBuilder:
 
 
     def _setup_scene(self):
+        print("ui_builder._setup_scene")
         self.pick_scenario(self._scenario_name)
 
         create_new_stage()
@@ -313,7 +314,10 @@ class UIBuilder:
         In this example, a scenario is initialized which will move each robot joint one at a time in a loop while moving the
         provided prim in a circle around the robot.
         """
+        print("ui_builder._setup_post_load")
         self._reset_scenario()
+
+        self._cur_scenario.post_load_scenario()
 
         # UI management
         self._scenario_state_btn.reset()
@@ -323,6 +327,9 @@ class UIBuilder:
     def _reset_scenario(self):
         self._cur_scenario.teardown_scenario()
         self._cur_scenario.setup_scenario()
+
+        self._cur_scenario.reset_scenario()
+
 
     def _on_post_reset_btn(self):
         """
