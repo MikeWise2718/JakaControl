@@ -71,8 +71,8 @@ class UIBuilder:
     dkcyan = uiclr("#004040")
     _scenario_names = ["sinusoid-joint", "pick-and-place", "rmpflow"]
     _scenario_name = "sinusoid-joint"
-    _robot_names = ["ur3e", "ur5e", "ur10e", "jaka", "rs007n", "franka", "fancy_franka", "jetbot"]
-    _robot_name = "jaka"
+    _robot_names = ["ur3e", "ur5e", "ur10e", "jaka-minicobo", "rs007n", "franka", "fancy_franka", "jetbot"]
+    _robot_name = "jaka-minicobo"
     _ground_opts = ["none", "default", "groundplane", "groundplane-blue"]
     _ground_opt = "default"
     _modes = ["mode1","mode2"]
