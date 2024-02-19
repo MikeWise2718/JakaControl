@@ -1,3 +1,6 @@
+import numpy as np
+from omni.isaac.core.utils.types import ArticulationAction
+
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
@@ -22,8 +25,25 @@ class ScenarioTemplate:
         pass
 
 
-import numpy as np
-from omni.isaac.core.utils.types import ArticulationAction
+
+class PickAndPlaceScenario(ScenarioTemplate):
+    _running_scenario = False
+    def __init__(self):
+        pass
+
+    def load_scenario(self, robot_name, ground_opt):
+        pass
+
+    def setup_scenario(self, articulation, object_prim):
+        pass
+
+    def teardown_scenario(self):
+        pass
+
+    def update_scenario(self, step: float):
+        if not self._running_scenario:
+            return
+
 
 """
 This scenario takes in a robot Articulation and makes it move through its joint DOFs.
@@ -34,6 +54,7 @@ recomendation to the user about how to structure their code.  In the simple exam
 in this template, this particular structure served to improve code readability and separate
 the logic that runs the example from the UI design.
 """
+
 
 
 class SinusoidJointScenario(ScenarioTemplate):
@@ -160,9 +181,15 @@ class SinusoidJointScenario(ScenarioTemplate):
 
         if self._joint_time > self._path_duration:
             self._joint_time = 0
+            ojidx = self._joint_index
             self._joint_index = (self._joint_index + 1) % self._articulation.num_dof
             print(f"Changing to joint {self._joint_index} at time {self._time:.3f}")
             self._derive_sinusoid_params(self._joint_index)
+            action = ArticulationAction(
+                np.array([0]),
+                np.array([0]),
+                joint_indices=np.array([ojidx])
+            )
 
         joint_position_target = self._calculate_position_new(self._joint_time, self._path_duration, )
         joint_velocity_target = self._calculate_velocity(self._joint_time, self._path_duration)
@@ -176,6 +203,6 @@ class SinusoidJointScenario(ScenarioTemplate):
         action = ArticulationAction(
             np.array([joint_position_target]),
             np.array([joint_velocity_target]),
-            joint_indices=np.array([self._joint_index]),
+            joint_indices=np.array([self._joint_index])
         )
         self._articulation.apply_action(action)

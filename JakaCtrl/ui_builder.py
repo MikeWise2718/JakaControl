@@ -31,7 +31,7 @@ from pxr import Sdf, UsdLux, UsdPhysics, Usd
 import omni.isaac.franka.controllers as franka_controllers
 
 
-from .scenario import SinusoidJointScenario
+from .scenario import SinusoidJointScenario, PickAndPlaceScenario
 
 import carb.settings
 
@@ -45,25 +45,30 @@ def _init_settings():
         _settings = carb.settings.get_settings()
     return _settings
 
+SETTING_NAME = "/persistent/omni/jaka_control"
 
 def get_setting(name, default, db=False):
-    settings = _init_settings()
-    key = f"/persistent/omni/sphereflake/{name}"
-    val = settings.get(key)
-    if db:
-        oval = val
-        if oval is None:
-            oval = "None"
-    if val is None:
+    try:
+        settings = _init_settings()
+        key = f"{SETTING_NAME}/{name}"
+        val = settings.get(key)
+        if db:
+            oval = val
+            if oval is None:
+                oval = "None"
+        if val is None:
+            val = default
+        if db:
+            print(f"get_setting {name} {oval} {val}")
+    except Exception as e:
         val = default
-    if db:
-        print(f"get_setting {name} {oval} {val}")
+        if db:
+            print(f"Exception {e} in get_setting {name} {default} {val}")
     return val
-
 
 def save_setting(name, value):
     settings = _init_settings()
-    key = f"/persistent/omni/sphereflake/{name}"
+    key = f"{SETTING_NAME}/{name}"
     settings.set(key, value)
 
 
@@ -89,12 +94,14 @@ class UIBuilder:
     dkyellow = uiclr("#404000")
     dkpurple = uiclr("#400040")
     dkcyan = uiclr("#004040")
+    _scenario_names = ["sinusoid-joint", "pick-and-place"]
+    _scenario_name = "sinusoid-joint"
     _robot_names = ["ur3e", "ur5e", "ur10e", "jaka", "rs007n", "franka", "fancy_franka", "jetbot"]
     _robot_name = "jaka"
     _ground_opts = ["none", "default", "groundplane", "groundplane-blue"]
     _ground_opt = "default"
-    _modes = ["circling-cube","pick-and-place"]
-    _mode = "circling-cube"
+    _modes = ["mode1","mode2"]
+    _mode = "mode1"
     _choices = ["choice 1","choice 2"]
     _choice = "choice 1"
 
@@ -115,6 +122,8 @@ class UIBuilder:
         print("SaveSettings")
         try:
             save_setting("p_robot_name", self._robot_name)
+            save_setting("p_ground_opt", self._ground_opt)
+            save_setting("p_scenario_name", self._scenario_name)
 
         except Exception as e:
             carb.log_error(f"Exception in SaveSettings: {e}")
@@ -122,6 +131,9 @@ class UIBuilder:
     def LoadSettings(self):
         print("LoadSettings")
         self._robot_name = get_setting("p_robot_name", self._robot_name)
+        self._ground_opt = get_setting("p_ground_opt", self._ground_opt)
+        self._scenario_name = get_setting("p_scenario_name", self._scenario_name)
+        print("Done LoadSettings")
 
     ###################################################################################
     #           The Functions Below Are Called Automatically By extension.py
@@ -182,24 +194,33 @@ class UIBuilder:
         Build a custom UI tool to run your extension.
         This function will be called any time the UI window is closed and reopened.
         """
+        print("build_ui")
         world_config_frame = CollapsableFrame("World Config", collapsed=False)
 
         with world_config_frame:
             with ui.VStack(style=get_style(), spacing=5, height=0):
+                with ui.HStack(style=get_style(), spacing=5, height=0):
+                    ui.Label("Scenario Name:",
+                            style={'color': self.btyellow},
+                            width=50)
+                    self._scenario_name_btn = Button(
+                        self._scenario_name, clicked_fn=self._change_scenario_name,
+                        style={'background_color': self.dkblue}
+                    )
                 with ui.HStack(style=get_style(), spacing=5, height=0):
                     ui.Label("Robot:",
                             style={'color': self.btyellow},
                             width=50)
                     self._robot_btn = Button(
                         self._robot_name, clicked_fn=self._change_robot_name,
-                        style={'background_color': self.dkblue}
+                        style={'background_color': self.dkred}
                     )
                     ui.Label("Ground:",
                             style={'color': self.btyellow},
                             width=50)
                     self._ground_btn = Button(
                         self._ground_opt, clicked_fn=self._change_ground_opt,
-                        style={'background_color': self.dkblue}
+                        style={'background_color': self.dkred}
                     )
                 with ui.HStack(style=get_style(), spacing=5, height=0):
                     ui.Label("Mode:",
@@ -254,12 +275,20 @@ class UIBuilder:
     # Functions Below This Point Support The Provided Example And Can Be Deleted/Replaced
     ######################################################################################
 
+    def pick_scenario(self, scenario_name):
+        if scenario_name == "sinusoid-joint":
+            self._cur_scenario = SinusoidJointScenario()
+        elif scenario_name == "pick-and-place":
+            self._cur_scenario = PickAndPlaceScenario()
+        else:
+            raise ValueError(f"Unknown scenario name {scenario_name}")
 
     def _on_init(self):
         self._articulation = None
         self._cuboid = None
-        self._cur_scenario = SinusoidJointScenario()
         self.LoadSettings()
+        self.pick_scenario(self._scenario_name)
+        print("Done _on_init")
 
     def _add_light_to_stage(self):
         """
@@ -271,6 +300,11 @@ class UIBuilder:
         XFormPrim(str(sphereLight.GetPath())).set_world_pose([6.5, 0, 12])
 
     def _setup_scene(self):
+
+        self.pick_scenario(self._scenario_name)
+
+        create_new_stage()
+        self._add_light_to_stage()
 
         print("Assets root path: ", get_assets_root_path())
         need_to_add_articulation = False
@@ -310,17 +344,8 @@ class UIBuilder:
             case _:
                 self.error(f"Unknown robot name {self._robot_name}")
 
-
-        print(f"Loading {self._robot_name}")
-
-        create_new_stage()
-        self._add_light_to_stage()
-
         if path_to_robot_usd is not None:
             add_reference_to_stage(path_to_robot_usd, robot_prim_path)
-        else:
-            pass
-
 
         if need_to_add_articulation:
             prim = get_current_stage().GetPrimAtPath(artpath)
@@ -335,14 +360,10 @@ class UIBuilder:
 
 
         # mode specific initialization
-        if self._mode == "circling-cube":
-            self._cuboid = FixedCuboid(
-                "/Scenario/cuboid", position=np.array([0.3, 0.3, 0.5]), size=0.05, color=np.array([128, 0, 0])
-            )
-        elif self._mode == "pick-and-place":
-            self._cuboid = FixedCuboid(
-                "/Scenario/cuboid", position=np.array([0.3, 0.3, 0.15]), size=0.05, color=np.array([128, 0, 128])
-            )
+        self._cuboid = FixedCuboid(
+            "/Scenario/cuboid", position=np.array([0.3, 0.3, 0.15]), size=0.05, color=np.array([128, 0, 128])
+        )
+        if self._mode == "pick-and-place":
             self._controller = franka_controllers.PickPlaceController(
                 name="pick_place_controller",
                 gripper=self._fancy_robot.gripper,
@@ -352,8 +373,10 @@ class UIBuilder:
 
         # Add user-loaded objects to the World
         world = World.instance()
-        world.scene.add(self._articulation)
-        world.scene.add(self._cuboid)
+        if self._articulation is not None:
+            world.scene.add(self._articulation)
+        if self._cuboid is not None:
+            world.scene.add(self._cuboid)
 
         if self._ground_opt == "default":
             world.scene.add_default_ground_plane()
@@ -386,6 +409,12 @@ class UIBuilder:
         idx = (idx + 1) % len(self._robot_names)
         self._robot_name = self._robot_names[idx]
         self._robot_btn.text = self._robot_name
+
+    def _change_scenario_name(self):
+        idx = self._scenario_names.index(self._scenario_name)
+        idx = (idx + 1) % len(self._scenario_names)
+        self._scenario_name = self._scenario_names[idx]
+        self._scenario_name_btn.text = self._scenario_name
 
     def _change_ground_opt(self):
         idx = self._ground_opts.index(self._ground_opt)
