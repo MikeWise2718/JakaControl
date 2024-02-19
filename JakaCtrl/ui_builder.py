@@ -18,7 +18,7 @@ from omni.isaac.ui.element_wrappers.core_connectors import LoadButton, ResetButt
 from omni.isaac.ui.ui_utils import get_style
 from omni.usd import StageEventType
 
-from .scenario import SinusoidJointScenario, PickAndPlaceScenario
+from .scenario import SinusoidJointScenario, PickAndPlaceScenario, RMPflowScenario
 
 import carb.settings
 
@@ -69,7 +69,7 @@ class UIBuilder:
     dkyellow = uiclr("#404000")
     dkpurple = uiclr("#400040")
     dkcyan = uiclr("#004040")
-    _scenario_names = ["sinusoid-joint", "pick-and-place"]
+    _scenario_names = ["sinusoid-joint", "pick-and-place", "rmpflow"]
     _scenario_name = "sinusoid-joint"
     _robot_names = ["ur3e", "ur5e", "ur10e", "jaka", "rs007n", "franka", "fancy_franka", "jetbot"]
     _robot_name = "jaka"
@@ -254,6 +254,8 @@ class UIBuilder:
             self._cur_scenario = SinusoidJointScenario()
         elif scenario_name == "pick-and-place":
             self._cur_scenario = PickAndPlaceScenario()
+        elif scenario_name == "rmpflow":
+            self._cur_scenario = RMPflowScenario()
         else:
             raise ValueError(f"Unknown scenario name {scenario_name}")
 
@@ -325,6 +327,7 @@ class UIBuilder:
         self._reset_btn.enabled = True
 
     def _reset_scenario(self):
+        print("ui_builder._reset_scenario")
         self._cur_scenario.teardown_scenario()
         self._cur_scenario.setup_scenario()
 

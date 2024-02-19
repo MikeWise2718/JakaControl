@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import os
 
 from pxr import Sdf, UsdLux, UsdPhysics
 
@@ -10,11 +11,18 @@ from omni.isaac.core.articulations import Articulation
 from omni.isaac.core.objects.cuboid import FixedCuboid
 from omni.isaac.core.objects import DynamicCuboid
 from omni.isaac.core.objects import GroundPlane
+from omni.isaac.core.prims import XFormPrim
 from omni.isaac.franka import Franka
 from omni.isaac.franka.controllers import PickPlaceController
 
 from omni.isaac.core.utils.types import ArticulationAction
 from omni.isaac.core.world import World
+
+from omni.isaac.core.utils.extensions import get_extension_path_from_name
+
+from omni.isaac.core.utils.numpy.rotations import euler_angles_to_quats
+
+from omni.isaac.motion_generation import RmpFlow, ArticulationMotionPolicy
 
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
@@ -43,6 +51,49 @@ def add_light_to_stage():
     sphereLight.CreateIntensityAttr(100000)
     XFormPrim(str(sphereLight.GetPath())).set_world_pose([6.5, 0, 12])
 
+
+def get_robot_stuff(robot_name):
+    ok = True
+    match robot_name:
+        case "ur3e":
+            robot_prim_path = "/ur3e"
+            artpath = robot_prim_path
+            path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur3e/ur3e.usd"
+        case "ur5e":
+            robot_prim_path = "/ur5e"
+            artpath = robot_prim_path
+            path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur5e/ur5e.usd"
+        case "ur10e":
+            robot_prim_path = "/ur10e"
+            artpath = robot_prim_path
+            path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur10e/ur10e.usd"
+        case "jaka":
+            robot_prim_path = "/minicobo_v1_4"
+            artpath = f"{robot_prim_path}/world"
+            path_to_robot_usd = "d:/nv/ov/exts/JakaControl/usd/jaka2.usda"
+        case "rs007n":
+            robot_prim_path = "/khi_rs007n"
+            artpath = robot_prim_path
+            path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Kawasaki/RS007N/rs007n_onrobot_rg2.usd"
+        case "franka":
+            robot_prim_path = "/franka"
+            artpath = robot_prim_path
+            path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Franka/franka.usd"
+        case "fancy_franka":
+            robot_prim_path = "/fancy_franka"
+            artpath = robot_prim_path
+            path_to_robot_usd = None
+        case "jetbot":
+            robot_prim_path = "/jetbot"
+            artpath = robot_prim_path
+            path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Jetbot/jetbot.usd"
+        case _:
+            ok = False
+            robot_prim_path = ""
+            artpath = ""
+            path_to_robot_usd = ""
+    return (ok, robot_prim_path, artpath, path_to_robot_usd)
+
 from pxr import Sdf, UsdLux
 from omni.isaac.core.prims import XFormPrim
 from omni.isaac.core.utils.stage import create_new_stage, get_current_stage
@@ -69,7 +120,7 @@ class ScenarioTemplate:
 
 
 
-class PickAndPlaceScenario(ScenarioTemplate):
+class RMPflowScenario(ScenarioTemplate):
     _running_scenario = False
     def __init__(self):
         pass
@@ -94,19 +145,169 @@ class PickAndPlaceScenario(ScenarioTemplate):
             world.scene.add(ground)
 
 
-        world.scene.add(Franka(prim_path="/World/Fancy_Franka", name="fancy_franka"))
+        # Setup Robot ARm
+        (ok, robot_prim_path, artpath, path_to_robot_usd) = get_robot_stuff(self._robot_name)
+        if not ok:
+            print(f"Unknown robot name {self._robot_name}")
+            return
+
+        if path_to_robot_usd is not None:
+            add_reference_to_stage(path_to_robot_usd, robot_prim_path)
+
+        self._articulation = Articulation(artpath)
+
+        if self._articulation is not None:
+            world.scene.add(self._articulation)
+
+
         # add a cube for franka to pick up
-        world.scene.add(
-            DynamicCuboid(
-                prim_path="/World/random_cube",
-                name="fancy_cube",
-                position=np.array([0.3, 0.3, 0.3]),
-                scale=np.array([0.0515, 0.0515, 0.0515]),
-                color=np.array([0, 0, 1.0]),
-            )
-        )
+        # world.scene.add(
+        #     DynamicCuboid(
+        #         prim_path="/World/random_cube",
+        #         name="fancy_cube",
+        #         position=np.array([0.3, 0.3, 0.3]),
+        #         scale=np.array([0.0515, 0.0515, 0.0515]),
+        #         color=np.array([0, 0, 1.0]),
+        #     )
+        # )
+
+        add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", "/World/target")
+        self._target = XFormPrim("/World/target", scale=[.04,.04,.04])
+        self._object =  self._target
 
         self._world = world
+
+    def setup_scenario(self):
+        print("RMPflow setup_scenario")
+
+        self._initial_object_position = self._object.get_world_pose()[0]
+        self._initial_object_phase = np.arctan2(self._initial_object_position[1], self._initial_object_position[0])
+        self._object_radius = np.linalg.norm(self._initial_object_position[:2])
+
+        self._running_scenario = True
+
+        self._joint_index = 0
+        self._lower_joint_limits = self._articulation.dof_properties["lower"]
+        self._upper_joint_limits = self._articulation.dof_properties["upper"]
+        self._zeros = np.zeros(len(self._lower_joint_limits))
+        self._njoints = len(self._lower_joint_limits)
+        print(f"jaka - njoints:{self._njoints} lower:{self._lower_joint_limits} upper:{self._upper_joint_limits}")
+
+        # teleport robot to lower joint range
+        epsilon = 0.001
+        # articulation.set_joint_positions(self._lower_joint_limits + epsilon)
+        self._articulation.set_joint_positions(self._zeros + epsilon)
+
+
+        # RMPflow config files for supported robots are stored in the motion_generation extension under "/motion_policy_configs"
+        mg_extension_path = get_extension_path_from_name("omni.isaac.motion_generation")
+        rmp_config_dir = os.path.join(mg_extension_path, "motion_policy_configs")
+
+        #Initialize an RmpFlow object
+        self._rmpflow = RmpFlow(
+            robot_description_path = rmp_config_dir + "/franka/rmpflow/robot_descriptor.yaml",
+            urdf_path = rmp_config_dir + "/franka/lula_franka_gen.urdf",
+            rmpflow_config_path = rmp_config_dir + "/franka/rmpflow/franka_rmpflow_common.yaml",
+            end_effector_frame_name = "right_gripper",
+            maximum_substep_size = 0.00334
+        )
+        print("Created _rmpflow object")
+
+        #Use the ArticulationMotionPolicy wrapper object to connect rmpflow to the Franka robot articulation.
+        self._articulation_rmpflow = ArticulationMotionPolicy(self._articulation,self._rmpflow)
+
+        self._target.set_world_pose(np.array([.5,0,.7]),euler_angles_to_quats([0,np.pi,0]))
+
+
+    def post_load_scenario(self):
+        self._world.add_physics_callback("sim_step", callback_fn=self.physics_step)
+        pass
+
+    def reset_scenario(self):
+        self._target.set_world_pose(np.array([.5,0,.7]),euler_angles_to_quats([0,np.pi,0]))
+
+
+
+    def physics_step(self, step_size):
+        target_position, target_orientation = self._target.get_world_pose()
+
+        self._rmpflow.set_end_effector_target(
+            target_position, target_orientation
+        )
+
+        action = self._articulation_rmpflow.get_next_articulation_action(step_size)
+        self._articulation.apply_action(action)
+
+    def teardown_scenario(self):
+        pass
+
+    def update_scenario(self, step: float):
+        if not self._running_scenario:
+            return
+
+
+class PickAndPlaceScenario(ScenarioTemplate):
+    _running_scenario = False
+    def __init__(self):
+        pass
+
+    def load_scenario(self, robot_name, ground_opt):
+
+        self._robot_name = robot_name
+        self._ground_opt = ground_opt
+
+        add_light_to_stage()
+
+       # print("Assets root path: ", get_assets_root_path())
+        need_to_add_articulation = False
+        self._robot_name = robot_name
+        self._ground_opt = ground_opt
+        (ok, robot_prim_path, artpath, path_to_robot_usd) = get_robot_stuff(self._robot_name)
+        if not ok:
+            print(f"Unknown robot name {self._robot_name}")
+            return
+
+        if path_to_robot_usd is not None:
+            add_reference_to_stage(path_to_robot_usd, robot_prim_path)
+
+        if need_to_add_articulation:
+            prim = get_current_stage().GetPrimAtPath(artpath)
+            UsdPhysics.ArticulationRootAPI.Apply(prim)
+
+        if self._robot_name == "fancy_franka":
+            from omni.isaac.franka import Franka
+            self._fancy_robot = Franka(prim_path="/World/Fancy_Franka", name="fancy_franka")
+            self._articulation = self._fancy_robot
+        else:
+            self._articulation = Articulation(artpath)
+
+
+        # mode specific initialization
+        self._cuboid = FixedCuboid(
+            "/Scenario/cuboid", position=np.array([0.3, 0.3, 0.15]), size=0.05, color=np.array([128, 0, 128])
+        )
+
+
+        # Add user-loaded objects to the World
+        world = World.instance()
+        if self._articulation is not None:
+            world.scene.add(self._articulation)
+        if self._cuboid is not None:
+            world.scene.add(self._cuboid)
+
+        if self._ground_opt == "default":
+            world.scene.add_default_ground_plane()
+
+        elif self._ground_opt == "groundplane":
+            ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.5, 0.5, 0.5]))
+            world.scene.add(ground)
+
+        elif self._ground_opt == "groundplane-blue":
+            ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]))
+            world.scene.add(ground)
+
+        self._object = self._cuboid
+        print("load_scenario done - self._object", self._object)
 
     def post_load_scenario(self):
         self._franka = self._world.scene.get_object("fancy_franka")
@@ -205,41 +406,12 @@ class SinusoidJointScenario(ScenarioTemplate):
         need_to_add_articulation = False
         self._robot_name = robot_name
         self._ground_opt = ground_opt
-        match self._robot_name:
-            case "ur3e":
-                robot_prim_path = "/ur3e"
-                artpath = robot_prim_path
-                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur3e/ur3e.usd"
-            case "ur5e":
-                robot_prim_path = "/ur5e"
-                artpath = robot_prim_path
-                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur5e/ur5e.usd"
-            case "ur10e":
-                robot_prim_path = "/ur10e"
-                artpath = robot_prim_path
-                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur10e/ur10e.usd"
-            case "jaka":
-                robot_prim_path = "/minicobo_v1_4"
-                artpath = f"{robot_prim_path}/world"
-                path_to_robot_usd = "d:/nv/ov/exts/JakaControl/usd/jaka2.usda"
-            case "rs007n":
-                robot_prim_path = "/khi_rs007n"
-                artpath = robot_prim_path
-                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Kawasaki/RS007N/rs007n_onrobot_rg2.usd"
-            case "franka":
-                robot_prim_path = "/franka"
-                artpath = robot_prim_path
-                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Franka/franka.usd"
-            case "fancy_franka":
-                robot_prim_path = "/fancy_franka"
-                artpath = robot_prim_path
-                path_to_robot_usd = None
-            case "jetbot":
-                robot_prim_path = "/jetbot"
-                artpath = robot_prim_path
-                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Jetbot/jetbot.usd"
-            case _:
-                self.error(f"Unknown robot name {self._robot_name}")
+
+        # Setup Robot ARm
+        (ok, robot_prim_path, artpath, path_to_robot_usd) = get_robot_stuff(self._robot_name)
+        if not ok:
+            print(f"Unknown robot name {self._robot_name}")
+            return
 
         if path_to_robot_usd is not None:
             add_reference_to_stage(path_to_robot_usd, robot_prim_path)
