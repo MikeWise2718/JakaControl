@@ -31,7 +31,7 @@ from pxr import Sdf, UsdLux, UsdPhysics, Usd
 import omni.isaac.franka.controllers as franka_controllers
 
 
-from .scenario import ExampleScenario
+from .scenario import SinusoidJointScenario
 
 import carb.settings
 
@@ -223,7 +223,7 @@ class UIBuilder:
         with world_controls_frame:
             with ui.VStack(style=get_style(), spacing=5, height=0):
                 self._load_btn = LoadButton(
-                    "Load/Create Scene", "Create", setup_scene_fn=self._setup_scene_gen, setup_post_load_fn=self._setup_post_load
+                    "Load/Create Scene", "Create", setup_scene_fn=self._setup_scene, setup_post_load_fn=self._setup_post_load
                 )
                 self._load_btn.set_world_settings(physics_dt=1 / 60.0, rendering_dt=1 / 60.0)
                 self.wrapped_ui_elements.append(self._load_btn)
@@ -258,7 +258,7 @@ class UIBuilder:
     def _on_init(self):
         self._articulation = None
         self._cuboid = None
-        self._scenario = ExampleScenario()
+        self._cur_scenario = SinusoidJointScenario()
         self.LoadSettings()
 
     def _add_light_to_stage(self):
@@ -270,7 +270,7 @@ class UIBuilder:
         sphereLight.CreateIntensityAttr(100000)
         XFormPrim(str(sphereLight.GetPath())).set_world_pose([6.5, 0, 12])
 
-    def _setup_scene_gen(self):
+    def _setup_scene(self):
 
         print("Assets root path: ", get_assets_root_path())
         need_to_add_articulation = False
@@ -410,8 +410,8 @@ class UIBuilder:
         self._reset_btn.enabled = True
 
     def _reset_scenario(self):
-        self._scenario.teardown_scenario()
-        self._scenario.setup_scenario(self._articulation, self._cuboid)
+        self._cur_scenario.teardown_scenario()
+        self._cur_scenario.setup_scenario(self._articulation, self._cuboid)
 
     def _on_post_reset_btn(self):
         """
@@ -436,7 +436,7 @@ class UIBuilder:
         Args:
             step (float): The dt of the current physics step
         """
-        self._scenario.update_scenario(step)
+        self._cur_scenario.update_scenario(step)
 
     def _on_run_scenario_a_text(self):
         """

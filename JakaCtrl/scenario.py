@@ -36,7 +36,7 @@ the logic that runs the example from the UI design.
 """
 
 
-class ExampleScenario(ScenarioTemplate):
+class SinusoidJointScenario(ScenarioTemplate):
     def __init__(self):
         self._object = None
         self._articulation = None
@@ -72,10 +72,14 @@ class ExampleScenario(ScenarioTemplate):
         self._joint_index = 0
         self._lower_joint_limits = articulation.dof_properties["lower"]
         self._upper_joint_limits = articulation.dof_properties["upper"]
+        self._zeros = np.zeros(len(self._lower_joint_limits))
+        self._njoints = len(self._lower_joint_limits)
+        print(f"jaka - njoints:{self._njoints} lower:{self._lower_joint_limits} upper:{self._upper_joint_limits}")
 
         # teleport robot to lower joint range
         epsilon = 0.001
-        articulation.set_joint_positions(self._lower_joint_limits + epsilon)
+        # articulation.set_joint_positions(self._lower_joint_limits + epsilon)
+        articulation.set_joint_positions(self._zeros + epsilon)
 
         self._derive_sinusoid_params(0)
 
@@ -111,20 +115,44 @@ class ExampleScenario(ScenarioTemplate):
     def _derive_sinusoid_params(self, joint_index: int):
         # Derive the parameters of the joint target sinusoids for joint {joint_index}
         start_position = self._lower_joint_limits[joint_index]
+        start_position = 0
+        llim = self._lower_joint_limits[joint_index]
+        ulim = self._upper_joint_limits[joint_index]
+        mjs = self._max_joint_speed
+
+        print(f"jaka - jidx:{joint_index} start_position:{start_position:.3f} llim:{llim:.3f} ulim:{ulim:.3f}")
 
         P_max = self._upper_joint_limits[joint_index] - start_position
         V_max = self._max_joint_speed
         T = P_max * np.pi / V_max
+        print(f"jaka - P_max:{P_max:.3f} V_max:{V_max:.3f} path_duration (T):{T:.3f}")
 
         # T is the expected time of the joint path
 
         self._path_duration = T
+        self._path_duration = 10
         self._calculate_position = (
             lambda time, path_duration: start_position
             + -P_max / 2 * np.cos(time * 2 * np.pi / path_duration)
             + P_max / 2
         )
+        self.lastprint_time = 0
         self._calculate_velocity = lambda time, path_duration: V_max * np.sin(2 * np.pi * time / path_duration)
+
+
+    def _calculate_position_new(self, time, path_duration):
+        start_position = self._lower_joint_limits[self._joint_index]
+        P_max = self._upper_joint_limits[self._joint_index] - start_position
+        t1 = start_position
+        t2 = -P_max / 2 * np.cos(time * 2 * np.pi / path_duration)
+        t3 = P_max / 2
+        rv = start_position + -P_max / 2 * np.cos(time * 2 * np.pi / path_duration)+ P_max / 2
+        rv = t1 + t2 + t3
+
+        # print(f"jaka - t1 {t1:.3f}  \\  t2 {t2:.3f}    \\    t3 {t3:.3f}      \\      rv {rv:.3f} time {time:.3f} path_duration {path_duration:.3f}")
+
+        return rv
+
 
     def _update_sinusoidal_joint_path(self, step):
         # Update the target for the robot joints
@@ -133,10 +161,17 @@ class ExampleScenario(ScenarioTemplate):
         if self._joint_time > self._path_duration:
             self._joint_time = 0
             self._joint_index = (self._joint_index + 1) % self._articulation.num_dof
+            print(f"Changing to joint {self._joint_index} at time {self._time:.3f}")
             self._derive_sinusoid_params(self._joint_index)
 
-        joint_position_target = self._calculate_position(self._joint_time, self._path_duration)
+        joint_position_target = self._calculate_position_new(self._joint_time, self._path_duration, )
         joint_velocity_target = self._calculate_velocity(self._joint_time, self._path_duration)
+
+        if self._joint_time - self.lastprint_time > 1:
+           self.lastprint_time = self._joint_time
+           print(f"jaka - idx:{self._joint_index} joint time: {self._joint_time:.3f} path duration: {self._path_duration:.3f}")
+           print(f"jaka - joint_position_target:{joint_position_target:.3f} joint_velocity_target:{joint_velocity_target:.3f}")
+
 
         action = ArticulationAction(
             np.array([joint_position_target]),
