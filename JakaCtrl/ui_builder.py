@@ -8,36 +8,21 @@
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 #
 
-import numpy as np
-import math
 import omni.timeline
 import omni.ui as ui
-from omni.isaac.core.articulations import Articulation
-from omni.isaac.core.objects.cuboid import FixedCuboid
-from omni.isaac.core.objects import GroundPlane
-from omni.isaac.core.prims import XFormPrim
-from omni.isaac.core.utils.nucleus import get_assets_root_path
-from omni.isaac.core.utils.prims import is_prim_path_valid
-from omni.isaac.core.utils.stage import add_reference_to_stage, create_new_stage, get_current_stage
-from omni.isaac.core.world import World
+from omni.isaac.core.utils.stage import create_new_stage
 from omni.ui import Button
 from omni.ui import color as uiclr
 from omni.isaac.ui.element_wrappers import CollapsableFrame, StateButton
 from omni.isaac.ui.element_wrappers.core_connectors import LoadButton, ResetButton
 from omni.isaac.ui.ui_utils import get_style
 from omni.usd import StageEventType
-from pxr import Sdf, UsdLux, UsdPhysics, Usd
-
-import omni.isaac.franka.controllers as franka_controllers
-
 
 from .scenario import SinusoidJointScenario, PickAndPlaceScenario
 
 import carb.settings
 
-
 _settings = None
-
 
 def _init_settings():
     global _settings
@@ -70,16 +55,6 @@ def save_setting(name, value):
     settings = _init_settings()
     key = f"{SETTING_NAME}/{name}"
     settings.set(key, value)
-
-
-def truncf(number, digits) -> float:
-    # Improve accuracy with floating point operations, to avoid truncate(16.4, 2) = 16.39 or truncate(-1.13, 2) = -1.12
-    nbDecimals = len(str(number).split('.')[1])
-    if nbDecimals <= digits:
-        return number
-    stepper = 10.0 ** digits
-    return math.trunc(stepper * number) / stepper
-
 
 class UIBuilder:
     btgreen = uiclr("#00ff00")
@@ -116,7 +91,6 @@ class UIBuilder:
 
         # Run initialization for the provided example
         self._on_init()
-
 
     def SaveSettings(self):
         print("SaveSettings")
@@ -284,112 +258,20 @@ class UIBuilder:
             raise ValueError(f"Unknown scenario name {scenario_name}")
 
     def _on_init(self):
-        self._articulation = None
-        self._cuboid = None
+        # self._articulation = None
+        # self._cuboid = None
         self.LoadSettings()
         self.pick_scenario(self._scenario_name)
         print("Done _on_init")
 
-    def _add_light_to_stage(self):
-        """
-        A new stage does not have a light by default.  This function creates a spherical light
-        """
-        sphereLight = UsdLux.SphereLight.Define(get_current_stage(), Sdf.Path("/World/SphereLight"))
-        sphereLight.CreateRadiusAttr(2)
-        sphereLight.CreateIntensityAttr(100000)
-        XFormPrim(str(sphereLight.GetPath())).set_world_pose([6.5, 0, 12])
+
 
     def _setup_scene(self):
-
         self.pick_scenario(self._scenario_name)
 
         create_new_stage()
-        self._add_light_to_stage()
 
-        print("Assets root path: ", get_assets_root_path())
-        need_to_add_articulation = False
-        match self._robot_name:
-            case "ur3e":
-                robot_prim_path = "/ur3e"
-                artpath = robot_prim_path
-                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur3e/ur3e.usd"
-            case "ur5e":
-                robot_prim_path = "/ur5e"
-                artpath = robot_prim_path
-                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur5e/ur5e.usd"
-            case "ur10e":
-                robot_prim_path = "/ur10e"
-                artpath = robot_prim_path
-                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur10e/ur10e.usd"
-            case "jaka":
-                robot_prim_path = "/minicobo_v1_4"
-                artpath = f"{robot_prim_path}/world"
-                path_to_robot_usd = "d:/nv/ov/exts/JakaControl/usd/jaka2.usda"
-            case "rs007n":
-                robot_prim_path = "/khi_rs007n"
-                artpath = robot_prim_path
-                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Kawasaki/RS007N/rs007n_onrobot_rg2.usd"
-            case "franka":
-                robot_prim_path = "/franka"
-                artpath = robot_prim_path
-                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Franka/franka.usd"
-            case "fancy_franka":
-                robot_prim_path = "/fancy_franka"
-                artpath = robot_prim_path
-                path_to_robot_usd = None
-            case "jetbot":
-                robot_prim_path = "/jetbot"
-                artpath = robot_prim_path
-                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Jetbot/jetbot.usd"
-            case _:
-                self.error(f"Unknown robot name {self._robot_name}")
-
-        if path_to_robot_usd is not None:
-            add_reference_to_stage(path_to_robot_usd, robot_prim_path)
-
-        if need_to_add_articulation:
-            prim = get_current_stage().GetPrimAtPath(artpath)
-            UsdPhysics.ArticulationRootAPI.Apply(prim)
-
-        if self._robot_name == "fancy_franka":
-            from omni.isaac.franka import Franka
-            self._fancy_robot = Franka(prim_path="/World/Fancy_Franka", name="fancy_franka")
-            self._articulation = self._fancy_robot
-        else:
-            self._articulation = Articulation(artpath)
-
-
-        # mode specific initialization
-        self._cuboid = FixedCuboid(
-            "/Scenario/cuboid", position=np.array([0.3, 0.3, 0.15]), size=0.05, color=np.array([128, 0, 128])
-        )
-        if self._mode == "pick-and-place":
-            self._controller = franka_controllers.PickPlaceController(
-                name="pick_place_controller",
-                gripper=self._fancy_robot.gripper,
-                robot_articulation=self._fancy_robot,
-            )
-
-
-        # Add user-loaded objects to the World
-        world = World.instance()
-        if self._articulation is not None:
-            world.scene.add(self._articulation)
-        if self._cuboid is not None:
-            world.scene.add(self._cuboid)
-
-        if self._ground_opt == "default":
-            world.scene.add_default_ground_plane()
-            # ground = FixedCuboid("/Scenario/ground", position=np.array([0, 0, -0.1]), size=10, color=np.array([64, 64, 64]))
-            # world.scene.add(ground)
-
-        elif self._ground_opt == "groundplane":
-            ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.5, 0.5, 0.5]))
-            world.scene.add(ground)
-
-        elif self._ground_opt == "groundplane-blue":
-            ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]))
-            world.scene.add(ground)
+        self._cur_scenario.load_scenario(self._robot_name, self._ground_opt)
 
 
     def _change_choice(self):
@@ -440,7 +322,7 @@ class UIBuilder:
 
     def _reset_scenario(self):
         self._cur_scenario.teardown_scenario()
-        self._cur_scenario.setup_scenario(self._articulation, self._cuboid)
+        self._cur_scenario.setup_scenario()
 
     def _on_post_reset_btn(self):
         """

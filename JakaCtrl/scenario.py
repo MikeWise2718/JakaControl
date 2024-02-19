@@ -1,5 +1,18 @@
 import numpy as np
+
+from pxr import Sdf, UsdLux, UsdPhysics
+
+from omni.isaac.core.utils.nucleus import get_assets_root_path
+from omni.isaac.core.utils.stage import add_reference_to_stage, create_new_stage, get_current_stage
+
+from omni.isaac.core.articulations import Articulation
+from omni.isaac.core.objects.cuboid import FixedCuboid
+from omni.isaac.core.objects import GroundPlane
+import omni.isaac.franka.controllers as franka_controllers
+
 from omni.isaac.core.utils.types import ArticulationAction
+from omni.isaac.core.world import World
+
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
@@ -9,6 +22,27 @@ from omni.isaac.core.utils.types import ArticulationAction
 # distribution of this software and related documentation without an express
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 #
+
+def truncf(number, digits) -> float:
+    # Improve accuracy with floating point operations, to avoid truncate(16.4, 2) = 16.39 or truncate(-1.13, 2) = -1.12
+    nbDecimals = len(str(number).split('.')[1])
+    if nbDecimals <= digits:
+        return number
+    stepper = 10.0 ** digits
+    return math.trunc(stepper * number) / stepper
+
+def add_light_to_stage():
+    """
+    A new stage does not have a light by default.  This function creates a spherical light
+    """
+    sphereLight = UsdLux.SphereLight.Define(get_current_stage(), Sdf.Path("/World/SphereLight"))
+    sphereLight.CreateRadiusAttr(2)
+    sphereLight.CreateIntensityAttr(100000)
+    XFormPrim(str(sphereLight.GetPath())).set_world_pose([6.5, 0, 12])
+
+from pxr import Sdf, UsdLux
+from omni.isaac.core.prims import XFormPrim
+from omni.isaac.core.utils.stage import create_new_stage, get_current_stage
 
 
 class ScenarioTemplate:
@@ -32,9 +66,27 @@ class PickAndPlaceScenario(ScenarioTemplate):
         pass
 
     def load_scenario(self, robot_name, ground_opt):
+
+        self._robot_name = robot_name
+        self._ground_opt = ground_opt
+
+        add_light_to_stage()
+
+        world = World.instance()
+        if self._ground_opt == "default":
+            world.scene.add_default_ground_plane()
+
+        elif self._ground_opt == "groundplane":
+            ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.5, 0.5, 0.5]))
+            world.scene.add(ground)
+
+        elif self._ground_opt == "groundplane-blue":
+            ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]))
+            world.scene.add(ground)
+
         pass
 
-    def setup_scenario(self, articulation, object_prim):
+    def setup_scenario(self):
         pass
 
     def teardown_scenario(self):
@@ -80,9 +132,101 @@ class SinusoidJointScenario(ScenarioTemplate):
         self._calculate_position = lambda t, x: 0
         self._calculate_velocity = lambda t, x: 0
 
-    def setup_scenario(self, articulation, object_prim):
-        self._articulation = articulation
-        self._object = object_prim
+
+    def load_scenario(self, robot_name, ground_opt):
+
+        add_light_to_stage()
+
+        # print("Assets root path: ", get_assets_root_path())
+        need_to_add_articulation = False
+        self._robot_name = robot_name
+        self._ground_opt = ground_opt
+        match self._robot_name:
+            case "ur3e":
+                robot_prim_path = "/ur3e"
+                artpath = robot_prim_path
+                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur3e/ur3e.usd"
+            case "ur5e":
+                robot_prim_path = "/ur5e"
+                artpath = robot_prim_path
+                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur5e/ur5e.usd"
+            case "ur10e":
+                robot_prim_path = "/ur10e"
+                artpath = robot_prim_path
+                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur10e/ur10e.usd"
+            case "jaka":
+                robot_prim_path = "/minicobo_v1_4"
+                artpath = f"{robot_prim_path}/world"
+                path_to_robot_usd = "d:/nv/ov/exts/JakaControl/usd/jaka2.usda"
+            case "rs007n":
+                robot_prim_path = "/khi_rs007n"
+                artpath = robot_prim_path
+                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Kawasaki/RS007N/rs007n_onrobot_rg2.usd"
+            case "franka":
+                robot_prim_path = "/franka"
+                artpath = robot_prim_path
+                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Franka/franka.usd"
+            case "fancy_franka":
+                robot_prim_path = "/fancy_franka"
+                artpath = robot_prim_path
+                path_to_robot_usd = None
+            case "jetbot":
+                robot_prim_path = "/jetbot"
+                artpath = robot_prim_path
+                path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Jetbot/jetbot.usd"
+            case _:
+                self.error(f"Unknown robot name {self._robot_name}")
+
+        if path_to_robot_usd is not None:
+            add_reference_to_stage(path_to_robot_usd, robot_prim_path)
+
+        if need_to_add_articulation:
+            prim = get_current_stage().GetPrimAtPath(artpath)
+            UsdPhysics.ArticulationRootAPI.Apply(prim)
+
+        if self._robot_name == "fancy_franka":
+            from omni.isaac.franka import Franka
+            self._fancy_robot = Franka(prim_path="/World/Fancy_Franka", name="fancy_franka")
+            self._articulation = self._fancy_robot
+        else:
+            self._articulation = Articulation(artpath)
+
+
+        # mode specific initialization
+        self._cuboid = FixedCuboid(
+            "/Scenario/cuboid", position=np.array([0.3, 0.3, 0.15]), size=0.05, color=np.array([128, 0, 128])
+        )
+
+
+        # Add user-loaded objects to the World
+        world = World.instance()
+        if self._articulation is not None:
+            world.scene.add(self._articulation)
+        if self._cuboid is not None:
+            world.scene.add(self._cuboid)
+
+        if self._ground_opt == "default":
+            world.scene.add_default_ground_plane()
+
+        elif self._ground_opt == "groundplane":
+            ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.5, 0.5, 0.5]))
+            world.scene.add(ground)
+
+        elif self._ground_opt == "groundplane-blue":
+            ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]))
+            world.scene.add(ground)
+
+        self._object = self._cuboid
+        print("load_scenario done - self._object", self._object)
+
+
+
+    def setup_scenario(self):
+        # self._articulation = articulation
+        # self._object = object_prim
+
+
+        print("setup_scenario - self._object", self._object)
 
         self._initial_object_position = self._object.get_world_pose()[0]
         self._initial_object_phase = np.arctan2(self._initial_object_position[1], self._initial_object_position[0])
@@ -91,8 +235,8 @@ class SinusoidJointScenario(ScenarioTemplate):
         self._running_scenario = True
 
         self._joint_index = 0
-        self._lower_joint_limits = articulation.dof_properties["lower"]
-        self._upper_joint_limits = articulation.dof_properties["upper"]
+        self._lower_joint_limits = self._articulation.dof_properties["lower"]
+        self._upper_joint_limits = self._articulation.dof_properties["upper"]
         self._zeros = np.zeros(len(self._lower_joint_limits))
         self._njoints = len(self._lower_joint_limits)
         print(f"jaka - njoints:{self._njoints} lower:{self._lower_joint_limits} upper:{self._upper_joint_limits}")
@@ -100,14 +244,14 @@ class SinusoidJointScenario(ScenarioTemplate):
         # teleport robot to lower joint range
         epsilon = 0.001
         # articulation.set_joint_positions(self._lower_joint_limits + epsilon)
-        articulation.set_joint_positions(self._zeros + epsilon)
+        self._articulation.set_joint_positions(self._zeros + epsilon)
 
         self._derive_sinusoid_params(0)
 
     def teardown_scenario(self):
         self._time = 0.0
-        self._object = None
-        self._articulation = None
+        # self._object = None
+        # self._articulation = None
         self._running_scenario = False
 
         self._joint_index = 0
