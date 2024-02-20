@@ -1,28 +1,17 @@
-import math
 import numpy as np
-import os
 
 from pxr import UsdPhysics
 
-from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.core.utils.stage import add_reference_to_stage,  get_current_stage
 
 from omni.isaac.core.articulations import Articulation
 from omni.isaac.core.objects.cuboid import DynamicCuboid
 from omni.isaac.core.objects import GroundPlane
-from omni.isaac.core.prims import XFormPrim
 from omni.isaac.franka.controllers import PickPlaceController
 
-from omni.isaac.core.utils.types import ArticulationAction
 from omni.isaac.core.world import World
 
-from omni.isaac.core.utils.extensions import get_extension_path_from_name
-
-from omni.isaac.core.utils.numpy.rotations import euler_angles_to_quats
-
-from omni.isaac.motion_generation import RmpFlow, ArticulationMotionPolicy
-
-from .senut import add_light_to_stage, get_robot_params, get_robot_rmp_params
+from .senut import add_light_to_stage, get_robot_params
 from .senut import ScenarioTemplate
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
@@ -76,7 +65,6 @@ class PickAndPlaceScenario(ScenarioTemplate):
             "/Scenario/cuboid", position=np.array([0.3, 0.3, 0.15]), size=0.05, color=np.array([128, 0, 128])
         )
 
-
         # Add user-loaded objects to the World
         world = World.instance()
         if self._articulation is not None:
@@ -123,7 +111,6 @@ class PickAndPlaceScenario(ScenarioTemplate):
             robot_articulation=self._franka,
         )
         self._franka.gripper.set_joint_positions(self._franka.gripper.joint_opened_positions)
-
 
     def physics_step(self, step_size):
         cube_position, _ = self._fancy_cube.get_world_pose()

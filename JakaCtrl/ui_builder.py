@@ -44,8 +44,8 @@ class UIBuilder:
     _robot_name = "jaka-minicobo"
     _ground_opts = ["none", "default", "groundplane", "groundplane-blue"]
     _ground_opt = "default"
-    _modes = ["mode1","mode2"]
-    _mode = "mode1"
+    _modes = ["CollisionSpheres","none"]
+    _mode = "none"
     _choices = ["choice 1","choice 2"]
     _choice = "choice 1"
 
@@ -225,6 +225,8 @@ class UIBuilder:
             self._cur_scenario = PickAndPlaceScenario()
         elif scenario_name == "rmpflow":
             self._cur_scenario = RMPflowScenario()
+            if self._mode == "CollisionSpheres":
+                self._cur_scenario._show_collsion_bounds = True
         else:
             raise ValueError(f"Unknown scenario name {scenario_name}")
 

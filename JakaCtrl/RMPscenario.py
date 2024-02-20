@@ -5,15 +5,12 @@ import os
 from pxr import UsdPhysics
 
 from omni.isaac.core.utils.nucleus import get_assets_root_path
-from omni.isaac.core.utils.stage import add_reference_to_stage,  get_current_stage
+from omni.isaac.core.utils.stage import add_reference_to_stage
 
 from omni.isaac.core.articulations import Articulation
 from omni.isaac.core.objects.cuboid import FixedCuboid
 from omni.isaac.core.objects import GroundPlane
 from omni.isaac.core.prims import XFormPrim
-from omni.isaac.franka.controllers import PickPlaceController
-
-from omni.isaac.core.utils.types import ArticulationAction
 from omni.isaac.core.world import World
 
 from omni.isaac.core.utils.extensions import get_extension_path_from_name
@@ -37,6 +34,8 @@ from .senut import ScenarioTemplate
 
 class RMPflowScenario(ScenarioTemplate):
     _running_scenario = False
+    _show_collsion_bounds = False
+
     def __init__(self):
         pass
 
@@ -135,18 +134,18 @@ class RMPflowScenario(ScenarioTemplate):
             end_effector_frame_name = eeframe_name,
             maximum_substep_size = max_step_size
         )
+        self._rmpflow.add_obstacle(self._obstacle)
+
+        if self._show_collsion_bounds:
+            self._rmpflow.set_ignore_state_updates(True)
+            self._rmpflow.visualize_collision_spheres()
+
+            # Set the robot gains to be deliberately poor
+            bad_proportional_gains = self._articulation.get_articulation_controller().get_gains()[0]/50
+            self._articulation.get_articulation_controller().set_gains(kps = bad_proportional_gains)
+
         print("Created _rmpflow object")
 
-        #Initialize an RmpFlow object
-        # self._rmpflow = RmpFlow(
-        #     robot_description_path = rmp_config_dir + "/franka/rmpflow/robot_descriptor.yaml",
-        #     urdf_path = rmp_config_dir + "/franka/lula_franka_gen.urdf",
-        #     rmpflow_config_path = rmp_config_dir + "/franka/rmpflow/franka_rmpflow_common.yaml",
-        #     end_effector_frame_name = "right_gripper",
-        #     maximum_substep_size = 0.00334
-        # )
-
-        #Use the ArticulationMotionPolicy wrapper object to connect rmpflow to the Franka robot articulation.
         self._articulation_rmpflow = ArticulationMotionPolicy(self._articulation,self._rmpflow)
 
         self._target.set_world_pose(np.array([.5,0,.7]),euler_angles_to_quats([0,np.pi,0]))
@@ -160,6 +159,10 @@ class RMPflowScenario(ScenarioTemplate):
 
     def reset_scenario(self):
         self._target.set_world_pose(np.array([.5,0,.7]),euler_angles_to_quats([0,np.pi,0]))
+        if self._show_collsion_bounds:
+            self._rmpflow.reset()
+            self._rmpflow.visualize_collision_spheres()
+
 
 
 
