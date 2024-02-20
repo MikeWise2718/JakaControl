@@ -102,39 +102,40 @@ def get_robot_rmp_params(robot_name):
     ok = True
     match robot_name:
         case "ur3e":
-            urpath = rmp_config_dir + "/universal_robots/"
-            rdf_path = urpath + "/ur3e/rmpflow/ur3e_robot_description.yaml"
-            urdf_path = urpath + "/ur3e/ur3e.urdf"
-            rmp_config_path = urpath + "/ur3e/rmpflow/ur3e_rmpflow_config.yaml"
+            rmp_mppath = rmp_config_dir + "/universal_robots/"
+            rdf_path = rmp_mppath + "/ur3e/rmpflow/ur3e_robot_description.yaml"
+            urdf_path = rmp_mppath + "/ur3e/ur3e.urdf"
+            rmp_config_path = rmp_mppath + "/ur3e/rmpflow/ur3e_rmpflow_config.yaml"
             eeframe_name = "tool0"
             max_step_size = 0.00334
         case "ur5e":
-            urpath = rmp_config_dir + "/universal_robots/"
-            rdf_path = urpath + "/ur5e/rmpflow/ur5e_robot_description.yaml"
-            urdf_path = urpath + "/ur5e/ur5e.urdf"
-            rmp_config_path = urpath + "/ur5e/rmpflow/ur5e_rmpflow_config.yaml"
+            rmp_mppath = rmp_config_dir + "/universal_robots/"
+            rdf_path = rmp_mppath + "/ur5e/rmpflow/ur5e_robot_description.yaml"
+            urdf_path = rmp_mppath + "/ur5e/ur5e.urdf"
+            rmp_config_path = rmp_mppath + "/ur5e/rmpflow/ur5e_rmpflow_config.yaml"
             eeframe_name = "tool0"
             max_step_size = 0.00334
         case "ur10e":
-            urpath = rmp_config_dir + "/universal_robots/"
-            rdf_path = urpath + "/ur10e/rmpflow/ur10e_robot_description.yaml"
-            urdf_path = urpath + "/ur10e/ur10e.urdf"
-            rmp_config_path = urpath + "/ur10e/rmpflow/ur10e_rmpflow_config.yaml"
+            rmp_mppath = rmp_config_dir + "/universal_robots/"
+            rdf_path = rmp_mppath + "/ur10e/rmpflow/ur10e_robot_description.yaml"
+            urdf_path = rmp_mppath + "/ur10e/ur10e.urdf"
+            rmp_config_path = rmp_mppath + "/ur10e/rmpflow/ur10e_rmpflow_config.yaml"
             eeframe_name = "tool0"
             max_step_size = 0.00334
         case "rs007n":
-            urpath = rmp_config_dir + "/Kawasaki/"
-            rdf_path = urpath + "/rs007n/rmpflow/rs007n_robot_description.yaml"
-            urdf_path = urpath + "/rs007n/rs007n_onrobot_rg2.urdf"
-            rmp_config_path = urpath + "/rs007n/rmpflow/rs007n_rmpflow_config.yaml"
+            rmp_mppath = rmp_config_dir + "/Kawasaki/"
+            rdf_path = rmp_mppath + "/rs007n/rmpflow/rs007n_robot_description.yaml"
+            urdf_path = rmp_mppath + "/rs007n/rs007n_onrobot_rg2.urdf"
+            rmp_config_path = rmp_mppath + "/rs007n/rmpflow/rs007n_rmpflow_config.yaml"
             eeframe_name = "gripper_center"
             max_step_size = 0.00334
         case "jaka-minicobo":
-            urpath = rmp_config_dir + "/Jaka/"
-            rdf_path = urpath + "/minicobo/rmpflow/minicobo_robot_description.yaml"
-            urdf_path = urpath + "/minicobo/minicobo_v14.urdf"
-            rmp_config_path = urpath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
-            eeframe_name = "tool0"
+            # urpath = rmp_config_dir + "/Jaka/"
+            rmp_mppath = "d:/nv/ov/exts/JakaControl/JakaCtrl/motion_policy_configs/Jaka/"
+            rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description.yaml"
+            urdf_path = rmp_mppath + "/minicobo/minicobo_v14.urdf"
+            rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
+            eeframe_name = "dummy_tcp"
             max_step_size = 0.00334
         case "franka":
             rdf_path = rmp_config_dir + "/franka/rmpflow/robot_descriptor.yaml"

@@ -276,35 +276,34 @@ class UIBuilder:
 
         self._cur_scenario.load_scenario(self._robot_name, self._ground_opt)
 
+    def get_next_val_safe(self, lst, val):
+        try:
+            idx = lst.index(val)
+            idx = (idx + 1) % len(lst)
+            rv = lst[idx]
+        except:
+            idx = 0
+            rv = lst[idx]
+        return rv
 
     def _change_choice(self):
-        idx = self._choices.index(self._choice)
-        idx = (idx + 1) % len(self._choices)
-        self._choice = self._choices[idx]
+        self._choice = self.get_next_val_safe(self._choices, self._choice)
         self._choice_btn.text = self._choice
 
     def _change_mode(self):
-        idx = self._modes.index(self._mode)
-        idx = (idx + 1) % len(self._modes)
-        self._mode = self._modes[idx]
+        self._mode = self.get_next_val_safe(self._modes, self._mode)
         self._mode_btn.text = self._mode
 
     def _change_robot_name(self):
-        idx = self._robot_names.index(self._robot_name)
-        idx = (idx + 1) % len(self._robot_names)
-        self._robot_name = self._robot_names[idx]
+        self._robot_name = self.get_next_val_safe(self._robot_names, self._robot_name)
         self._robot_btn.text = self._robot_name
 
     def _change_scenario_name(self):
-        idx = self._scenario_names.index(self._scenario_name)
-        idx = (idx + 1) % len(self._scenario_names)
-        self._scenario_name = self._scenario_names[idx]
+        self._scenario_name = self.get_next_val_safe(self._scenario_names, self._scenario_name)
         self._scenario_name_btn.text = self._scenario_name
 
     def _change_ground_opt(self):
-        idx = self._ground_opts.index(self._ground_opt)
-        idx = (idx + 1) % len(self._ground_opts)
-        self._ground_opt = self._ground_opts[idx]
+        self._ground_opt = self.get_next_val_safe(self._ground_opts, self._ground_opt)
         self._ground_btn.text = self._ground_opt
 
     def _setup_post_load(self):
