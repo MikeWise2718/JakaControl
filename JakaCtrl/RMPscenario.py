@@ -113,6 +113,8 @@ class RMPflowScenario(ScenarioTemplate):
         # articulation.set_joint_positions(self._lower_joint_limits + epsilon)
         self._articulation.set_joint_positions(self._zeros + epsilon)
 
+        self._obstacle = FixedCuboid("/World/obstacle",size=.05,position=np.array([0.4, 0.0, 0.65]),color=np.array([0.,0.,1.]))
+
 
         # RMPflow config files for supported robots are stored in the motion_generation extension under "/motion_policy_configs"
         mg_extension_path = get_extension_path_from_name("omni.isaac.motion_generation")
@@ -151,6 +153,8 @@ class RMPflowScenario(ScenarioTemplate):
 
 
     def post_load_scenario(self):
+        self._rmpflow.add_obstacle(self._obstacle)
+
         self._world.add_physics_callback("sim_step", callback_fn=self.physics_step)
         pass
 
@@ -161,6 +165,9 @@ class RMPflowScenario(ScenarioTemplate):
 
     def physics_step(self, step_size):
         target_position, target_orientation = self._target.get_world_pose()
+
+        self._rmpflow.update_world()
+
 
         self._rmpflow.set_end_effector_target(
             target_position, target_orientation
