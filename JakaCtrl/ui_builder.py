@@ -18,43 +18,12 @@ from omni.isaac.ui.element_wrappers.core_connectors import LoadButton, ResetButt
 from omni.isaac.ui.ui_utils import get_style
 from omni.usd import StageEventType
 
-from .scenario import SinusoidJointScenario, PickAndPlaceScenario, RMPflowScenario
+from .RMPscenario import RMPflowScenario
+from .PickAndPlaceScenario import PickAndPlaceScenario
+from .SinusoidScenario import SinusoidJointScenario
 
-import carb.settings
+from .senut import get_setting, save_setting
 
-_settings = None
-
-def _init_settings():
-    global _settings
-    if _settings is None:
-        _settings = carb.settings.get_settings()
-    return _settings
-
-SETTING_NAME = "/persistent/omni/jaka_control"
-
-def get_setting(name, default, db=False):
-    try:
-        settings = _init_settings()
-        key = f"{SETTING_NAME}/{name}"
-        val = settings.get(key)
-        if db:
-            oval = val
-            if oval is None:
-                oval = "None"
-        if val is None:
-            val = default
-        if db:
-            print(f"get_setting {name} {oval} {val}")
-    except Exception as e:
-        val = default
-        if db:
-            print(f"Exception {e} in get_setting {name} {default} {val}")
-    return val
-
-def save_setting(name, value):
-    settings = _init_settings()
-    key = f"{SETTING_NAME}/{name}"
-    settings.set(key, value)
 
 class UIBuilder:
     btgreen = uiclr("#00ff00")
