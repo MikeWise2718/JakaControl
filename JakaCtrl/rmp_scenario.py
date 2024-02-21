@@ -2,8 +2,6 @@ import math
 import numpy as np
 import os
 
-from pxr import UsdPhysics
-
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.core.utils.stage import add_reference_to_stage
 
