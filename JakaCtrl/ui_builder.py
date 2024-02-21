@@ -18,9 +18,9 @@ from omni.isaac.ui.element_wrappers.core_connectors import LoadButton, ResetButt
 from omni.isaac.ui.ui_utils import get_style
 from omni.usd import StageEventType
 
-from .RMPscenario import RMPflowScenario
-from .PickAndPlaceScenario import PickAndPlaceScenario
-from .SinusoidScenario import SinusoidJointScenario
+from .rmp_scenario import RMPflowScenario
+from .pickplace_scenario import PickAndPlaceScenario
+from .sinusoid_scenario import SinusoidJointScenario
 
 from .senut import get_setting, save_setting
 
