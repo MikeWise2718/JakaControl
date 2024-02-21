@@ -7,7 +7,8 @@ from omni.isaac.core.utils.stage import add_reference_to_stage,  get_current_sta
 from omni.isaac.core.articulations import Articulation
 from omni.isaac.core.objects.cuboid import DynamicCuboid
 from omni.isaac.core.objects import GroundPlane
-from omni.isaac.franka.controllers import PickPlaceController
+from omni.isaac.manipulators.grippers import ParallelGripper
+from .franka.controllers import PickPlaceController
 
 from omni.isaac.core.world import World
 
@@ -54,8 +55,7 @@ class PickAndPlaceScenario(ScenarioTemplate):
 
         if self._robot_name == "fancy_franka":
             from omni.isaac.franka import Franka
-            self._fancy_robot = Franka(prim_path="/World/Fancy_Franka", name="fancy_franka")
-            self._articulation = self._fancy_robot
+            self._articulation= Franka(prim_path="/World/Fancy_Franka", name="fancy_franka")
         else:
             self._articulation = Articulation(artpath)
 
@@ -88,40 +88,93 @@ class PickAndPlaceScenario(ScenarioTemplate):
         self._world = world
         print("load_scenario done - self._object", self._object)
 
-    def post_load_scenario(self):
-        self._franka = self._world.scene.get_object("fancy_franka")
-        print("self._franka", self._franka)
-        print("self._franka.gripper", self._franka.gripper)
-        self._controller = PickPlaceController(
-            name="pick_place_controller",
-            gripper=self._franka.gripper,
-            robot_articulation=self._franka,
-        )
-        print("gripper.joint_opened_positions",self._franka.gripper.joint_opened_positions)
+    def get_gripper(self):
+        if hasattr(self._articulation,"gripper"):
+            gripper = self._articulation.gripper
+            return gripper
+        else:
+            art = self._articulation
+            if self._robot_name == "franka":
+                # eepp = "/World/cobotta/onrobot_rg6_base_link"
+                # jpn = ["finger_joint", "right_outer_knuckle_joint"]
+                # jop = np.array([0, 0])
+                # jcp = np.array([0.628, -0.628])
+                # ad = np.array([-0.628, 0.628])
+                eepp = "/franka/panda_rightfinger"
+                jpn = ["panda_finger_joint1", "panda_finger_joint2"]
+                jop = np.array([0.05, 0.05])
+                jcp = np.array([0, 0])
+                ad = np.array([0.05, 0.05])
+                art._policy_robot_name = "Franka"
+            elif self._robot_name == "rs007n":
+                art = self._articulation
+                eepp = "/khi_rs007n/gripper_center"
+                jpn = ["left_inner_finger_joint", "right_inner_finger_joint"]
+                jop = np.array([0.05, 0.05])
+                jcp = np.array([0, 0])
+                ad = np.array([0.05, 0.05])
+                art._policy_robot_name = "RS007N"
+            else:
+                return None
+            pg = ParallelGripper(
+                end_effector_prim_path=eepp,
+                joint_prim_names=jpn,
+                joint_opened_positions=jop,
+                joint_closed_positions=jcp,
+                action_deltas=ad
+            )
+            pg.initialize(
+                physics_sim_view=None,
+                articulation_apply_action_func=art.apply_action,
+                get_joint_positions_func=art.get_joint_positions,
+                set_joint_positions_func=art.set_joint_positions,
+                dof_names=art.dof_names,
+            )
+            art.gripper = pg
+            #define the manipulator
+            # my_denso = self._world.scene.add(SingleManipulator(prim_path="/franka", name="robot",
+            #                                     end_effector_prim_name="panda_rightfinger", gripper=pg))
+            #set the default positions of the other gripper joints to be opened so
+            #that its out of the way of the joints we want to control when gripping an object for instance.
+            # joints_default_positions = np.zeros(12)
+            # joints_default_positions[7] = 0.628
+            # joints_default_positions[8] = 0.628
+            # my_denso.set_joints_default_state(positions=joints_default_positions)
+            return pg
 
+
+    def post_load_scenario(self):
+        gripper = self.get_gripper()
+        if gripper is not None:
+            self._controller = PickPlaceController(
+                name="pick_place_controller",
+                gripper=gripper,
+                robot_articulation=self._articulation
+            )
+            print("gripper.joint_opened_positions",gripper.joint_opened_positions)
+
+            gripper.set_joint_positions(gripper.joint_opened_positions)
         self._world.add_physics_callback("sim_step", callback_fn=self.physics_step)
-        print("self._franka.gripper.set_joint_positions",self._franka.gripper.set_joint_positions)
-        self._franka.gripper.set_joint_positions(self._franka.gripper.joint_opened_positions)
 
     def reset_scenario(self):
-        self._franka = self._world.scene.get_object("fancy_franka")
+        gripper = self.get_gripper()
         self._controller = PickPlaceController(
             name="pick_place_controller",
-            gripper=self._franka.gripper,
-            robot_articulation=self._franka,
+            gripper=gripper,
+            robot_articulation=self._articulation
         )
-        self._franka.gripper.set_joint_positions(self._franka.gripper.joint_opened_positions)
+        gripper.set_joint_positions(gripper.joint_opened_positions)
 
     def physics_step(self, step_size):
         cube_position, _ = self._fancy_cube.get_world_pose()
         goal_position = np.array([-0.3, -0.3, 0.0515 / 2.0])
-        current_joint_positions = self._franka.get_joint_positions()
+        current_joint_positions = self._articulation.get_joint_positions()
         actions = self._controller.forward(
             picking_position=cube_position,
             placing_position=goal_position,
             current_joint_positions=current_joint_positions,
         )
-        self._franka.apply_action(actions)
+        self._articulation.apply_action(actions)
         # Only for the pick and place controller, indicating if the state
         # machine reached the final state.
         if self._controller.is_done():
