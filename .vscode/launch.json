@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "Python: Attach (bla bla)",
-      "type": "debugpy",
+      "type": "python",
       "request": "attach",
       "localRoot": "${workspaceFolder}",
       "remoteRoot": "${workspaceFolder}",

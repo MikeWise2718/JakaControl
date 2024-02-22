@@ -69,20 +69,33 @@ def add_light_to_stage():
 
 
 def get_robot_params(robot_name):
+
+    assets_root_path = get_assets_root_path()
+    print("Get assets root path: ", assets_root_path)
+
+    mg_extension_path = get_extension_path_from_name("omni.isaac.motion_generation")
+    rmp_config_dir = os.path.join(mg_extension_path, "motion_policy_configs")
+
     ok = True
     match robot_name:
         case "ur3e":
             robot_prim_path = "/ur3e"
             artpath = robot_prim_path
-            path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur3e/ur3e.usd"
+            path_to_robot_usd = assets_root_path + "/Isaac/Robots/UniversalRobots/ur3e/ur3e.usd"
         case "ur5e":
             robot_prim_path = "/ur5e"
             artpath = robot_prim_path
-            path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur5e/ur5e.usd"
+            path_to_robot_usd = assets_root_path+ "/Isaac/Robots/UniversalRobots/ur5e/ur5e.usd"
         case "ur10e":
             robot_prim_path = "/ur10e"
             artpath = robot_prim_path
-            path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur10e/ur10e.usd"
+            path_to_robot_usd = assets_root_path + "/Isaac/Robots/UniversalRobots/ur10e/ur10e.usd"
+        case "ur10-suction-short":
+            robot_prim_path = "/ur10_suction_short"
+            artpath = robot_prim_path
+            # path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UR10/ur10_short_suction.usd"
+            path_to_robot_usd = assets_root_path + "/Isaac/Robots/UR10/ur10_short_suction.usd"
+            print("path_to_robot_usd", path_to_robot_usd)
         case "jaka-minicobo":
             robot_prim_path = "/minicobo_v1_4"
             artpath = f"{robot_prim_path}/world"
@@ -90,11 +103,11 @@ def get_robot_params(robot_name):
         case "rs007n":
             robot_prim_path = "/khi_rs007n"
             artpath = robot_prim_path
-            path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Kawasaki/RS007N/rs007n_onrobot_rg2.usd"
+            path_to_robot_usd = assets_root_path + "/Isaac/Robots/Kawasaki/RS007N/rs007n_onrobot_rg2.usd"
         case "franka":
             robot_prim_path = "/franka"
             artpath = robot_prim_path
-            path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Franka/franka.usd"
+            path_to_robot_usd = assets_root_path + "/Isaac/Robots/Franka/franka.usd"
         case "fancy_franka":
             robot_prim_path = "/fancy_franka"
             artpath = robot_prim_path
@@ -102,7 +115,7 @@ def get_robot_params(robot_name):
         case "jetbot":
             robot_prim_path = "/jetbot"
             artpath = robot_prim_path
-            path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Jetbot/jetbot.usd"
+            path_to_robot_usd = assets_root_path + "/Isaac/Robots/Jetbot/jetbot.usd"
         case _:
             ok = False
             robot_prim_path = ""
@@ -137,6 +150,13 @@ def get_robot_rmp_params(robot_name):
             urdf_path = rmp_mppath + "/ur10e/ur10e.urdf"
             rmp_config_path = rmp_mppath + "/ur10e/rmpflow/ur10e_rmpflow_config.yaml"
             eeframe_name = "tool0"
+            max_step_size = 0.00334
+        case "ur10-suction-short":
+            rmp_mppath = rmp_config_dir
+            rdf_path = rmp_mppath + "/ur10/rmpflow_suction/ur10_robot_description.yaml"
+            urdf_path = rmp_mppath + "/ur10/ur10_robot_suction.urdf"
+            rmp_config_path = rmp_mppath + "/ur10/rmpflow_suction/ur10_rmpflow_config.yaml"
+            eeframe_name = "ee_link"
             max_step_size = 0.00334
         case "rs007n":
             rmp_mppath = rmp_config_dir + "/Kawasaki/"
@@ -185,4 +205,7 @@ class ScenarioTemplate:
         pass
 
     def update_scenario(self):
+        pass
+
+    def action(self):
         pass
