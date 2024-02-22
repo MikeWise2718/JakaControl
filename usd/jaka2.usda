@@ -78,7 +78,7 @@
 )
 
 def "minicobo_v1_4" (
-    prepend references = @../../../../articulation_inspector/minicobo_v14/urdf/minicobo_v14/minicobo_v14.usd@
+    prepend references = @./minicobo_v14.usd@
 )
 {
     def "Link6"

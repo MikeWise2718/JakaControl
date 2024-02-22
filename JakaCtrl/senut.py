@@ -86,7 +86,7 @@ def get_robot_params(robot_name):
         case "jaka-minicobo":
             robot_prim_path = "/minicobo_v1_4"
             artpath = f"{robot_prim_path}/world"
-            path_to_robot_usd = "d:/nv/ov/exts/JakaControl/usd/jaka2.usda"
+            path_to_robot_usd = "c:/users/drewd/source/repos/JakaControl/usd/jaka2.usda"
         case "rs007n":
             robot_prim_path = "/khi_rs007n"
             artpath = robot_prim_path
@@ -147,7 +147,7 @@ def get_robot_rmp_params(robot_name):
             max_step_size = 0.00334
         case "jaka-minicobo":
             # urpath = rmp_config_dir + "/Jaka/"
-            rmp_mppath = "d:/nv/ov/exts/JakaControl/JakaCtrl/motion_policy_configs/Jaka/"
+            rmp_mppath = "c:/users/drewd/source/repos/JakaControl/JakaCtrl/motion_policy_configs/Jaka/"
             rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description.yaml"
             urdf_path = rmp_mppath + "/minicobo/minicobo_v14.urdf"
             rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
