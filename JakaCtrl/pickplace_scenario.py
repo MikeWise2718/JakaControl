@@ -114,6 +114,14 @@ class PickAndPlaceScenario(ScenarioTemplate):
                 jcp = np.array([0, 0])
                 ad = np.array([0.05, 0.05])
                 art._policy_robot_name = "RS007N"
+            elif self._robot_name == "ur10-suction-short":
+                art = self._articulation
+                eepp = "/eelink/gripper_base"
+                jpn = ["left_inner_finger_joint", "right_inner_finger_joint"]
+                jop = np.array([0.05, 0.05])
+                jcp = np.array([0, 0])
+                ad = np.array([0.05, 0.05])
+                art._policy_robot_name = "UR10"
             else:
                 return None
             pg = ParallelGripper(

@@ -64,7 +64,10 @@ class RMPflowScenario(ScenarioTemplate):
             return
 
         if path_to_robot_usd is not None:
-            add_reference_to_stage(path_to_robot_usd, robot_prim_path)
+            robprim = add_reference_to_stage(path_to_robot_usd, robot_prim_path)
+            # if robot_name == "ur10-suction-short":
+            #     gripper_base =
+            #     robprim.set_visibility(False)
 
         self._articulation = Articulation(artpath)
 
@@ -183,3 +186,7 @@ class RMPflowScenario(ScenarioTemplate):
     def update_scenario(self, step: float):
         if not self._running_scenario:
             return
+
+    def action(self, actionname ):
+        print("RMPflowScenario action:",actionname)
+        pass
