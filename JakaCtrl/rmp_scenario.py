@@ -11,6 +11,8 @@ from omni.isaac.core.objects import GroundPlane
 from omni.isaac.core.prims import XFormPrim
 from omni.isaac.core.world import World
 
+from pxr import UsdPhysics, Usd, UsdGeom, Gf
+
 from omni.isaac.core.utils.extensions import get_extension_path_from_name
 
 from omni.isaac.core.utils.numpy.rotations import euler_angles_to_quats
@@ -19,6 +21,9 @@ from omni.isaac.motion_generation import RmpFlow, ArticulationMotionPolicy
 
 from .senut import add_light_to_stage, get_robot_params, get_robot_rmp_params
 from .senut import ScenarioTemplate
+
+
+from omni.isaac.core.utils.stage import add_reference_to_stage,  get_current_stage
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
@@ -58,13 +63,26 @@ class RMPflowScenario(ScenarioTemplate):
 
 
         # Setup Robot ARm
-        (ok, robot_prim_path, artpath, path_to_robot_usd) = get_robot_params(self._robot_name)
+        (ok, robot_prim_path, artpath, path_to_robot_usd, mopo_robot_name) = get_robot_params(self._robot_name)
         if not ok:
             print(f"Unknown robot name {self._robot_name}")
             return
 
         if path_to_robot_usd is not None:
-            add_reference_to_stage(path_to_robot_usd, robot_prim_path)
+                # if self._robot_name == "franka":
+                #     stage = get_current_stage()
+                #     roborg = UsdGeom.Xform.Define(stage, "/World/roborg")
+                #     pos = Gf.Vec3d([0, 0.0, 1.6])
+                #     roborg.AddTranslateOp().Set(pos)
+                #     roborg.AddRotateXOp().Set(180)
+                add_reference_to_stage(path_to_robot_usd, robot_prim_path)
+
+
+        # if path_to_robot_usd is not None:
+        #     robprim = add_reference_to_stage(path_to_robot_usd, robot_prim_path)
+            # if robot_name == "ur10-suction-short":
+            #     gripper_base =
+            #     robprim.set_visibility(False)
 
         self._articulation = Articulation(artpath)
 
@@ -183,3 +201,7 @@ class RMPflowScenario(ScenarioTemplate):
     def update_scenario(self, step: float):
         if not self._running_scenario:
             return
+
+    def action(self, actionname ):
+        print("RMPflowScenario action:",actionname)
+        pass

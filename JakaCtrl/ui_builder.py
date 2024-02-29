@@ -7,10 +7,14 @@
 # distribution of this software and related documentation without an express
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 #
+from pxr import Usd, UsdGeom, UsdShade
+from typing import Tuple, List
+import carb
+from .matman import MatMan
 
 import omni.timeline
 import omni.ui as ui
-from omni.isaac.core.utils.stage import create_new_stage
+from omni.isaac.core.utils.stage import create_new_stage, get_current_stage
 from omni.ui import Button
 from omni.ui import color as uiclr
 from omni.isaac.ui.element_wrappers import CollapsableFrame, StateButton
@@ -41,7 +45,7 @@ class UIBuilder:
     dkcyan = uiclr("#004040")
     _scenario_names = ["sinusoid-joint", "pick-and-place", "rmpflow","object-inspection"]
     _scenario_name = "sinusoid-joint"
-    _robot_names = ["ur3e", "ur5e", "ur10e", "jaka-minicobo", "rs007n", "franka", "fancy_franka", "jetbot","m0609"]
+    _robot_names = ["ur3e", "ur5e", "ur10e","ur10-suction-short", "jaka-minicobo","jaka-minicobo-1",  "rs007n", "franka", "fancy_franka", "jetbot","m0609"]
     _robot_name = "jaka-minicobo"
     _ground_opts = ["none", "default", "groundplane", "groundplane-blue"]
     _ground_opt = "default"
@@ -49,6 +53,9 @@ class UIBuilder:
     _mode = "none"
     _choices = ["choice 1","choice 2"]
     _choice = "choice 1"
+    _actions = ["Red Colliders","Transparent Colliders","Hide Colliders","Show Colliders"]
+    _action = "Red Colliders"
+    _colprims = None
 
     def __init__(self):
         # Frames are sub-windows that can contain multiple UI elements
@@ -59,6 +66,7 @@ class UIBuilder:
         # Get access to the timeline to control stop/pause/play programmatically
         self._timeline = omni.timeline.get_timeline_interface()
 
+
         # Run initialization for the provided example
         self._on_init()
 
@@ -68,6 +76,9 @@ class UIBuilder:
             save_setting("p_robot_name", self._robot_name)
             save_setting("p_ground_opt", self._ground_opt)
             save_setting("p_scenario_name", self._scenario_name)
+            save_setting("p_mode", self._mode)
+            save_setting("p_choice", self._choice)
+            save_setting("p_action", self._action)
 
         except Exception as e:
             carb.log_error(f"Exception in SaveSettings: {e}")
@@ -77,6 +88,9 @@ class UIBuilder:
         self._robot_name = get_setting("p_robot_name", self._robot_name)
         self._ground_opt = get_setting("p_ground_opt", self._ground_opt)
         self._scenario_name = get_setting("p_scenario_name", self._scenario_name)
+        self._mode = get_setting("p_mode", self._mode)
+        self._choice = get_setting("p_choice", self._choice)
+        self._action = get_setting("p_action", self._action)
         print("Done LoadSettings")
 
     ###################################################################################
@@ -181,6 +195,18 @@ class UIBuilder:
                         self._choice, clicked_fn=self._change_choice,
                         style={'background_color': self.dkred}
                     )
+                with ui.HStack(style=get_style(), spacing=5, height=0):
+                    ui.Label("Action Selection:",
+                            style={'color': self.btyellow},
+                            width=50)
+                    self._actionsel_btn = Button(
+                        self._action, clicked_fn=self._change_action,
+                        style={'background_color': self.dkred}
+                    )
+                    self._executeaction_btn = Button(
+                        "Execute", clicked_fn=self._exec_action,
+                        style={'background_color': self.dkred}
+                    )
                 # self.wrapped_ui_elements.append(self._robot_btn)
 
         world_controls_frame = CollapsableFrame("World Controls", collapsed=False)
@@ -224,6 +250,8 @@ class UIBuilder:
             self._cur_scenario = SinusoidJointScenario()
         elif scenario_name == "pick-and-place":
             self._cur_scenario = PickAndPlaceScenario()
+            if self._mode == "CollisionSpheres":
+                self._cur_scenario._show_collsion_bounds = True
         elif scenario_name == "rmpflow":
             self._cur_scenario = RMPflowScenario()
             if self._mode == "CollisionSpheres":
@@ -250,15 +278,19 @@ class UIBuilder:
 
         self._cur_scenario.load_scenario(self._robot_name, self._ground_opt)
 
-    def get_next_val_safe(self, lst, val):
+    def get_next_val_safe(self, lst, val, inc=1):
         try:
             idx = lst.index(val)
-            idx = (idx + 1) % len(lst)
+            idx = (idx + inc) % len(lst)
             rv = lst[idx]
         except:
             idx = 0
             rv = lst[idx]
         return rv
+
+    def _change_action(self):
+        self._action = self.get_next_val_safe(self._actions, self._action)
+        self._actionsel_btn.text = self._action
 
     def _change_choice(self):
         self._choice = self.get_next_val_safe(self._choices, self._choice)
@@ -280,6 +312,58 @@ class UIBuilder:
         self._ground_opt = self.get_next_val_safe(self._ground_opts, self._ground_opt)
         self._ground_btn.text = self._ground_opt
 
+
+    def _exec_action(self):
+        match self._action:
+            case "Red Colliders":
+                self.adjust_colliders(self._action)
+            case "Transparent Colliders":
+                self.adjust_colliders(self._action)
+            case "Show Colliders":
+                self.adjust_colliders(self._action)
+            case "Hide Colliders":
+                self.adjust_colliders(self._action)
+
+    def find_prims_by_name(self, prim_name: str) -> List[Usd.Prim]:
+        stage = get_current_stage()
+        found_prims = []
+        for prim in stage.Traverse():
+            try:
+                if prim.GetName().startswith(prim_name):
+                    found_prims.append(prim)
+            except:
+                pass
+        return found_prims
+
+    def adjust_colliders(self, action):
+        stage = get_current_stage()
+        self._matman = MatMan(stage)
+
+        if self._colprims is None:
+            self._colprims: List[Usd.Prim] = self.find_prims_by_name("collision_sphere")
+        print(f"adjust_colliders action:{action} len:{len(self._colprims)}")
+        for prim in self._colprims:
+            gprim = UsdGeom.Gprim(prim)
+            try:
+                if action == "Red Colliders":
+                    material = self._matman.GetMaterial("red")
+                    UsdShade.MaterialBindingAPI(gprim).Bind(material)
+                elif action == "Transparent Colliders":
+                    material = self._matman.GetMaterial("Clear_Glass")
+                    UsdShade.MaterialBindingAPI(gprim).Bind(material)
+                elif action == "Show Colliders":
+                    # lula = Usd.GetPrimAtPath("lula")
+                    # lula.GetVisibilityAttr().Set(True)
+                    # UsdGeom.Imageable(prim).Visible()
+                    gprim.MakeVisible()
+                elif action == "Hide Colliders":
+                    # lula = Usd.GetPrimAtPath("lula")
+                    # lula.GetVisibilityAttr().Set(False)
+                    gprim.MakeInvisible()
+                    # UsdGeom.Imageable(prim).MakeInvisible()
+            except:
+                pass
+
     def _setup_post_load(self):
         """
         This function is attached to the Load Button as the setup_post_load_fn callback.
@@ -291,6 +375,8 @@ class UIBuilder:
         """
         print("ui_builder._setup_post_load")
         self._reset_scenario()
+        self._colprims = None
+
 
         self._cur_scenario.post_load_scenario()
 
@@ -301,6 +387,7 @@ class UIBuilder:
 
     def _reset_scenario(self):
         print("ui_builder._reset_scenario")
+        self._colprims = None
         self._cur_scenario.teardown_scenario()
         self._cur_scenario.setup_scenario()
 
