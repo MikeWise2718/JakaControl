@@ -72,35 +72,39 @@ def get_robot_params(robot_name):
     ok = True
     match robot_name:
         case "ur3e":
-            robot_prim_path = "/ur3e"
+            robot_prim_path = "/World/roborg/ur3e"
             artpath = robot_prim_path
             path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur3e/ur3e.usd"
         case "ur5e":
-            robot_prim_path = "/ur5e"
+            robot_prim_path = "/World/roborg/ur5e"
             artpath = robot_prim_path
             path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur5e/ur5e.usd"
         case "ur10e":
-            robot_prim_path = "/ur10e"
+            robot_prim_path = "/World/roborg/ur10e"
             artpath = robot_prim_path
             path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UniversalRobots/ur10e/ur10e.usd"
         case "jaka-minicobo":
-            robot_prim_path = "/minicobo_v1_4"
-            artpath = f"{robot_prim_path}/world"
+            robot_prim_path = "/World/roborg/minicobo_v1_4"
+            artpath = f"{robot_prim_path}"
             path_to_robot_usd = "c:/users/drewd/source/repos/JakaControl/usd/jaka2.usda"
+        case "m0609":
+            robot_prim_path = "/World/roborg/m0609"
+            artpath = f"{robot_prim_path}"
+            path_to_robot_usd = "c:/users/drewd/source/repos/JakaControl/usd/m0609.usda"
         case "rs007n":
-            robot_prim_path = "/khi_rs007n"
+            robot_prim_path = "/World/roborg/khi_rs007n"
             artpath = robot_prim_path
             path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Kawasaki/RS007N/rs007n_onrobot_rg2.usd"
         case "franka":
-            robot_prim_path = "/franka"
+            robot_prim_path = "/World/roborg/franka"
             artpath = robot_prim_path
             path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Franka/franka.usd"
         case "fancy_franka":
-            robot_prim_path = "/fancy_franka"
+            robot_prim_path = "/World/roborg/fancy_franka"
             artpath = robot_prim_path
             path_to_robot_usd = None
         case "jetbot":
-            robot_prim_path = "/jetbot"
+            robot_prim_path = "/World/roborg/jetbot"
             artpath = robot_prim_path
             path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/Jetbot/jetbot.usd"
         case _:
@@ -151,6 +155,14 @@ def get_robot_rmp_params(robot_name):
             rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description.yaml"
             urdf_path = rmp_mppath + "/minicobo/minicobo_v14.urdf"
             rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
+            eeframe_name = "dummy_tcp"
+            max_step_size = 0.00334
+        case "m0609":
+            # urpath = rmp_config_dir + "/Jaka/"
+            rmp_mppath = "c:/users/drewd/source/repos/JakaControl/JakaCtrl/motion_policy_configs/Doosan/"
+            rdf_path = rmp_mppath + "/m0609/rmpflow/m0609_robot_description.yaml"
+            urdf_path = rmp_mppath + "/m0609/minicobo_v14.urdf"
+            rmp_config_path = rmp_mppath + "/m0609/rmpflow/m0609_rmpflow_config.yaml"
             eeframe_name = "dummy_tcp"
             max_step_size = 0.00334
         case "franka":

@@ -40,7 +40,6 @@ class ObjectInspectionScenario(ScenarioTemplate):
 
     def load_scenario(self, robot_name, ground_opt):
 
-        need_to_add_articulationo = False
         self._robot_name = robot_name
         self._ground_opt = ground_opt
 
@@ -68,13 +67,10 @@ class ObjectInspectionScenario(ScenarioTemplate):
         if path_to_robot_usd is not None:
             stage = get_current_stage()
             roborg = UsdGeom.Xform.Define(stage,"/World/roborg")
-            pos = Gf.Vec3d([0,0,1.1])
-            roborg.AddTranslateOp().Set(pos)
-            roborg.AddRotateXOp().Set(180)
+            #pos = Gf.Vec3d([0,0,2])
+            #roborg.AddTranslateOp().Set(pos)
+            #roborg.AddRotateXOp().Set(180)
             add_reference_to_stage(path_to_robot_usd, robot_prim_path)
-
-            # self._robot = XFormPrim(robot_prim_path, position=[0.14336,0,2.76528])
-
         self._articulation = Articulation(artpath)
 
         if self._articulation is not None:
