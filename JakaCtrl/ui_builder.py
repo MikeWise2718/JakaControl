@@ -25,6 +25,7 @@ from omni.usd import StageEventType
 from .rmp_scenario import RMPflowScenario
 from .pickplace_scenario import PickAndPlaceScenario
 from .sinusoid_scenario import SinusoidJointScenario
+from .object_inspection_scenario import ObjectInspectionScenario
 
 from .senut import get_setting, save_setting
 
@@ -42,9 +43,9 @@ class UIBuilder:
     dkyellow = uiclr("#404000")
     dkpurple = uiclr("#400040")
     dkcyan = uiclr("#004040")
-    _scenario_names = ["sinusoid-joint", "pick-and-place", "rmpflow"]
+    _scenario_names = ["sinusoid-joint", "pick-and-place", "rmpflow","object-inspection"]
     _scenario_name = "sinusoid-joint"
-    _robot_names = ["ur3e", "ur5e", "ur10e","ur10-suction-short", "jaka-minicobo","jaka-minicobo-1",  "rs007n", "franka", "fancy_franka", "jetbot"]
+    _robot_names = ["ur3e", "ur5e", "ur10e","ur10-suction-short", "jaka-minicobo","jaka-minicobo-1",  "rs007n", "franka", "fancy_franka", "jetbot","m0609"]
     _robot_name = "jaka-minicobo"
     _ground_opts = ["none", "default", "groundplane", "groundplane-blue"]
     _ground_opt = "default"
@@ -255,6 +256,8 @@ class UIBuilder:
             self._cur_scenario = RMPflowScenario()
             if self._mode == "CollisionSpheres":
                 self._cur_scenario._show_collsion_bounds = True
+        elif scenario_name == "object-inspection":
+            self._cur_scenario = ObjectInspectionScenario()
         else:
             raise ValueError(f"Unknown scenario name {scenario_name}")
 
