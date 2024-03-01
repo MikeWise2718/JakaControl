@@ -59,7 +59,7 @@ class ObjectInspectionScenario(ScenarioTemplate):
 
 
         # Setup Robot ARm
-        (ok, robot_prim_path, artpath, path_to_robot_usd) = get_robot_params(self._robot_name)
+        (ok, robot_prim_path, artpath, path_to_robot_usd, mopo_robot_name) = get_robot_params(self._robot_name)
         if not ok:
             print(f"Unknown robot name {self._robot_name}")
             return
@@ -92,7 +92,9 @@ class ObjectInspectionScenario(ScenarioTemplate):
         self._target = XFormPrim("/World/target", scale=[.04,.04,.04], position=[0.29915,-0.03815,1.11373])
         self._object =  self._target
 
-        path_to_cage_usd = "c:/users/drewd/source/repos/JakaControl/usd/cage_v1.usd"
+        jakacontrol_extension_path = get_extension_path_from_name("JakaControl")
+
+        path_to_cage_usd = f"{jakacontrol_extension_path}/usd/cage_v1.usd"
         add_reference_to_stage(path_to_cage_usd, "/World/cage_v1")
         self._cage = XFormPrim("/World/cage_v1", scale=[1,1,1], position=[0,0,1.02138])
 
