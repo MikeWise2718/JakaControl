@@ -47,19 +47,19 @@ class ObjectInspectionScenario(ScenarioTemplate):
 
         world = World.instance()
         if self._ground_opt == "default":
-            world.scene.add_default_ground_plane()
+            self._ground=world.scene.add_default_ground_plane(z_position=-1.02975)
 
         elif self._ground_opt == "groundplane":
-            ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.5, 0.5, 0.5]))
-            world.scene.add(ground)
+            self._ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.5, 0.5, 0.5]),position=[0,0,-1.03313])
+            world.scene.add(self._ground)
 
         elif self._ground_opt == "groundplane-blue":
-            ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]))
-            world.scene.add(ground)
+            self._ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]),position=[0,0,-1.03313])
+            world.scene.add(self._ground)
 
 
         # Setup Robot ARm
-        (ok, robot_prim_path, artpath, path_to_robot_usd, mopo_robot_name) = get_robot_params(self._robot_name)
+        (ok, robot_prim_path, artpath, path_to_robot_usd,mopo_robot_name) = get_robot_params(self._robot_name)
         if not ok:
             print(f"Unknown robot name {self._robot_name}")
             return
@@ -96,7 +96,7 @@ class ObjectInspectionScenario(ScenarioTemplate):
 
         path_to_cage_usd = f"{jakacontrol_extension_path}/usd/cage_v1.usd"
         add_reference_to_stage(path_to_cage_usd, "/World/cage_v1")
-        self._cage = XFormPrim("/World/cage_v1", scale=[1,1,1], position=[0,0,1.02138])
+        self._cage = XFormPrim("/World/cage_v1", scale=[1,1,1], position=[-0.38605,0,-0.00045])
 
         self._world = world
 
