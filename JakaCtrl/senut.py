@@ -75,6 +75,7 @@ def get_robot_params(robot_name):
 
     mg_extension_path = get_extension_path_from_name("omni.isaac.motion_generation")
     rmp_config_dir = os.path.join(mg_extension_path, "motion_policy_configs")
+    jakacontrol_extension_path = get_extension_path_from_name("JakaControl")
 
     ok = True
     match robot_name:
@@ -103,12 +104,12 @@ def get_robot_params(robot_name):
         case "jaka-minicobo":
             robot_prim_path = "/World/roborg/minicobo_v1_4"
             artpath = f"{robot_prim_path}/world"
-            path_to_robot_usd = "c:/users/drewd/source/repos/JakaControl/usd/jaka2.usda"
+            path_to_robot_usd = f"{jakacontrol_extension_path}/usd/jaka2.usda"
             mopo_robot_name = "Franka"
         case "jaka-minicobo-1":
             robot_prim_path = "/World/roborg/minicobo_v1_4"
             artpath = f"{robot_prim_path}/world"
-            path_to_robot_usd = "c:/users/drewd/source/repos/JakaControl/usd/jaka_v14_1.usda"
+            path_to_robot_usd = f"{jakacontrol_extension_path}/usd/jaka_v14_1.usda"
             mopo_robot_name = "Franka"
         case "rs007n":
             robot_prim_path = "/World/roborg/khi_rs007n"
@@ -141,6 +142,7 @@ def get_robot_rmp_params(robot_name):
 
     mg_extension_path = get_extension_path_from_name("omni.isaac.motion_generation")
     rmp_config_dir = os.path.join(mg_extension_path, "motion_policy_configs")
+    jakacontrol_extension_path = get_extension_path_from_name("JakaControl")
 
     ok = True
     match robot_name:
@@ -181,15 +183,23 @@ def get_robot_rmp_params(robot_name):
             max_step_size = 0.00334
         case "jaka-minicobo":
             # urpath = rmp_config_dir + "/Jaka/"
-            rmp_mppath = "c:/users/drewd/source/repos/JakaControl/JakaCtrl/motion_policy_configs/Jaka/"
+            rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka/"
             rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description.yaml"
             urdf_path = rmp_mppath + "/minicobo/minicobo_v14.urdf"
             rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
             eeframe_name = "dummy_tcp"
             max_step_size = 0.00334
+        case "m0609":
+            # urpath = rmp_config_dir + "/Jaka/"
+            rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Doosan/"
+            rdf_path = rmp_mppath + "/m0609/rmpflow/m0609_robot_description.yaml"
+            urdf_path = rmp_mppath + "/m0609/minicobo_v14.urdf"
+            rmp_config_path = rmp_mppath + "/m0609/rmpflow/m0609_rmpflow_config.yaml"
+            eeframe_name = "dummy_tcp"
+            max_step_size = 0.00334
         case "jaka-minicobo-1":
             # urpath = rmp_config_dir + "/Jaka/"
-            rmp_mppath = "c:/users/drewd/source/repos/JakaControl/JakaCtrl/motion_policy_configs/Jaka/"
+            rmp_mppath = f"{jakacontrol_extension_path}/motion_policy_configs/Jaka/"
             rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description.yaml"
             urdf_path = rmp_mppath + "/minicobo/minicobo_v14_1.urdf"
             rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
