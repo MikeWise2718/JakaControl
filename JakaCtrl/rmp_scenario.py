@@ -15,7 +15,7 @@ from pxr import UsdPhysics, Usd, UsdGeom, Gf
 
 from omni.isaac.core.utils.extensions import get_extension_path_from_name
 
-from omni.isaac.core.utils.numpy.rotations import euler_angles_to_quats
+from omni.isaac.core.utils.numpy.rotations import euler_angles_to_quats, rot_matrices_to_quats
 
 from omni.isaac.motion_generation import RmpFlow, ArticulationMotionPolicy
 
@@ -24,6 +24,11 @@ from .senut import ScenarioTemplate
 
 
 from omni.isaac.core.utils.stage import add_reference_to_stage,  get_current_stage
+from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelper
+from omni.isaac.motion_generation import ArticulationKinematicsSolver
+
+from .senut import adjust_joint_value, adjust_joint_values, set_stiffness_for_joints, set_damping_for_joints
+
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
@@ -152,17 +157,33 @@ class RMPflowScenario(ScenarioTemplate):
         )
         self._rmpflow.add_obstacle(self._obstacle)
 
+        self.lulaHelper = LulaInterfaceHelper(self._rmpflow._robot_description)
+
+        if self._robot_name in ["jaka-minicobo","jaka-minicobo-1"]:
+            self.set_stiffness_for_all_joints(10000000.0 / 200) # 1e8 or 10 million seems too high
+            self.set_damping_for_all_joints(100000.0 / 20) # 1e5 or 100 thousand seems too high
+
         if self._show_collsion_bounds:
             self._rmpflow.set_ignore_state_updates(True)
             self._rmpflow.visualize_collision_spheres()
+            self._rmpflow.visualize_end_effector_position()
 
             # Set the robot gains to be deliberately poor
-            bad_proportional_gains = self._articulation.get_articulation_controller().get_gains()[0]/50
-            self._articulation.get_articulation_controller().set_gains(kps = bad_proportional_gains)
+            # bad_proportional_gains = self._articulation.get_articulation_controller().get_gains()[0]/50
+            # self._articulation.get_articulation_controller().set_gains(kps = bad_proportional_gains)
 
         print("Created _rmpflow object")
 
         self._articulation_rmpflow = ArticulationMotionPolicy(self._articulation,self._rmpflow)
+        self._kinematics_solver = self._rmpflow.get_kinematics_solver()
+
+
+        self._articulation_kinematics_solver = ArticulationKinematicsSolver(self._articulation,self._kinematics_solver, eeframe_name)
+        ee_pos, ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
+
+        self._ee_pos = ee_pos
+        self._ee_rot = ee_rot_mat
+
 
         self._target.set_world_pose(np.array([.5,0,.7]),euler_angles_to_quats([0,np.pi,0]))
 
@@ -178,9 +199,16 @@ class RMPflowScenario(ScenarioTemplate):
         if self._show_collsion_bounds:
             self._rmpflow.reset()
             self._rmpflow.visualize_collision_spheres()
+            self._rmpflow.visualize_end_effector_position()
 
 
+    def set_stiffness_for_all_joints(self, stiffness):
+        joint_names = self.lulaHelper.get_active_joints()
+        set_stiffness_for_joints(joint_names, stiffness)
 
+    def set_damping_for_all_joints(self, damping):
+        joint_names = self.lulaHelper.get_active_joints()
+        set_damping_for_joints(joint_names, damping)
 
     def physics_step(self, step_size):
         target_position, target_orientation = self._target.get_world_pose()
@@ -195,6 +223,12 @@ class RMPflowScenario(ScenarioTemplate):
         action = self._articulation_rmpflow.get_next_articulation_action(step_size)
         self._articulation.apply_action(action)
 
+        ee_pos, ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
+
+        self._ee_pos = ee_pos
+        self._ee_rot = ee_rot_mat
+
+
     def teardown_scenario(self):
         pass
 
@@ -202,6 +236,36 @@ class RMPflowScenario(ScenarioTemplate):
         if not self._running_scenario:
             return
 
-    def action(self, actionname ):
-        print("RMPflowScenario action:",actionname)
-        pass
+    def get_actions(self):
+        rv = ["Move Target to EE","Adjust Stiffness - All Joints","Adjust Damping - All Joints" ]
+        return rv
+
+    def adjust_stiffness_for_all_joints(self,fak):
+        joint_names = self.lulaHelper.get_active_joints()
+        print(f"joint_names:{joint_names} fak:{fak:.2f} tot_stiffness:{self.tot_stiffness_factor:.4e}")
+        adjust_joint_values(joint_names,"stiffness",fak)
+        self.tot_stiffness_factor = self.tot_stiffness_factor * fak
+
+    def adjust_damping_for_all_joints(self,fak):
+        joint_names = self.lulaHelper.get_active_joints()
+        print(f"joint_names:{joint_names} fak:{fak:.2f} tot_damping:{self.tot_damping_factor:.4e}")
+        adjust_joint_values(joint_names,"damping",fak)
+        self.tot_damping_factor = self.tot_damping_factor * fak
+
+    def action(self, actionname, mouse_button=0 ):
+        print("InvkinScenario action:",actionname, "   mouse_button:",mouse_button)
+        if actionname == "Move Target to EE":
+            # self._target.set_world_pose(np.array([0.0,-0.006,0.7668]),euler_angles_to_quats([0,0,0]))
+            self._target.set_world_pose(self._ee_pos, rot_matrices_to_quats(self._ee_rot))
+        elif actionname == "Adjust Stiffness - All Joints":
+            if mouse_button>0:
+                self.adjust_stiffness_for_all_joints(1.1)
+            else:
+                self.adjust_stiffness_for_all_joints(1/1.1)
+        elif actionname == "Adjust Damping - All Joints":
+            if mouse_button>0:
+                self.adjust_damping_for_all_joints(1.1)
+            else:
+                self.adjust_damping_for_all_joints(1/1.1)
+        else:
+            print(f"Unknown actionname: {actionname}")

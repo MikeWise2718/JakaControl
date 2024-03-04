@@ -19,7 +19,7 @@ from .senut import add_light_to_stage, get_robot_params
 from .senut import ScenarioTemplate
 from omni.isaac.manipulators.grippers.surface_gripper import SurfaceGripper
 from omni.isaac.core.utils.nucleus import get_assets_root_path
-
+from omni.isaac.core.prims.rigid_prim import RigidPrim
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
@@ -174,6 +174,12 @@ class PickAndPlaceScenario(ScenarioTemplate):
                 self._end_effector_prim_path = eepp
                 sg = SurfaceGripper(
                     end_effector_prim_path=self._end_effector_prim_path, translate=0.1611, direction="x"
+                )
+                self._end_effector = RigidPrim(prim_path=self._end_effector_prim_path, name= "ur10" + "_end_effector")
+                self._end_effector.initialize(None)
+                sg.initialize(
+                    physics_sim_view=None,
+                    articulation_num_dofs=len(art.dof_names)
                 )
                 return sg
 

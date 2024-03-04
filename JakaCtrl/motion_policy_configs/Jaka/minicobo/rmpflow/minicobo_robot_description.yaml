@@ -14,7 +14,7 @@ cspace:
     - Joint5
     - Joint6
 default_q: [
-    0.0,-1.0,0.9,0.0,0.0,0.0
+    0.0,0.0,0.0,0.0,0.0,0.0
 ]
 
 # Most dimensions of the cspace have a direct corresponding element

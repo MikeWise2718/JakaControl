@@ -1,7 +1,7 @@
 import math
 import os
 
-from pxr import Sdf, UsdLux, UsdPhysics
+from pxr import Sdf, UsdLux, UsdPhysics, Usd
 
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.core.utils.stage import get_current_stage
@@ -67,6 +67,66 @@ def add_light_to_stage():
     sphereLight.CreateIntensityAttr(100000)
     XFormPrim(str(sphereLight.GetPath())).set_world_pose([6.5, 0, 12])
 
+def find_prims_by_name(prim_name: str):
+    stage = get_current_stage()
+    found_prims = []
+    for prim in stage.Traverse():
+        try:
+            if prim.GetName().startswith(prim_name):
+                found_prims.append(prim)
+        except:
+            pass
+    return found_prims
+
+
+def find_prim_by_name( prim_name: str) -> Usd.Prim:
+    stage = get_current_stage()
+    for prim in stage.Traverse():
+        try:
+            if prim.GetName() == prim_name:
+                return prim
+        except:
+            pass
+    return None
+
+def set_stiffness_for_joint(joint_name, stiffness):
+    stage = get_current_stage()
+    prim = find_prim_by_name(joint_name)
+    joint = UsdPhysics.DriveAPI.Get(prim, "angular")
+    val = joint.GetStiffnessAttr()
+    val.Set(stiffness)
+
+def set_damping_for_joint(joint_name, damping):
+    stage = get_current_stage()
+    prim = find_prim_by_name(joint_name)
+    joint = UsdPhysics.DriveAPI.Get(prim, "angular")
+    val = joint.GetDampingAttr()
+    val.Set(damping)
+
+def set_stiffness_for_joints(joint_names, stiffness):
+    for jp in joint_names:
+        set_stiffness_for_joint(jp, stiffness)
+
+def set_damping_for_joints(joint_names, damping):
+    for jp in joint_names:
+        set_damping_for_joint(jp, damping)
+
+def adjust_joint_values(joint_names, valname, fak):
+    for jp in joint_names:
+        adjust_joint_value(jp, valname, fak)
+
+def adjust_joint_value(joint_name, valname, fak):
+    stage = get_current_stage()
+    prim = find_prim_by_name(joint_name)
+    joint = UsdPhysics.DriveAPI.Get(prim, "angular")
+    if valname=="stiffness":
+        val = joint.GetStiffnessAttr()
+        newval = val.Get() * fak
+        val.Set(newval)
+    elif valname=="damping":
+        val = joint.GetDampingAttr()
+        newval = val.Get() * fak
+        val.Set(newval)
 
 def get_robot_params(robot_name):
 
@@ -76,6 +136,10 @@ def get_robot_params(robot_name):
     mg_extension_path = get_extension_path_from_name("omni.isaac.motion_generation")
     rmp_config_dir = os.path.join(mg_extension_path, "motion_policy_configs")
     jakacontrol_extension_path = get_extension_path_from_name("JakaControl")
+    mopo_robot_name = ""
+    path_to_robot_usd = ""
+    artpath = ""
+    robot_prim_path = ""
 
     ok = True
     match robot_name:
@@ -136,6 +200,7 @@ def get_robot_params(robot_name):
             robot_prim_path = ""
             artpath = ""
             path_to_robot_usd = ""
+            mopo_robot_name = ""
     return (ok, robot_prim_path, artpath, path_to_robot_usd, mopo_robot_name)
 
 def get_robot_rmp_params(robot_name):
@@ -147,21 +212,21 @@ def get_robot_rmp_params(robot_name):
     ok = True
     match robot_name:
         case "ur3e":
-            rmp_mppath = rmp_config_dir + "/universal_robots/"
+            rmp_mppath = rmp_config_dir + "/universal_robots"
             rdf_path = rmp_mppath + "/ur3e/rmpflow/ur3e_robot_description.yaml"
             urdf_path = rmp_mppath + "/ur3e/ur3e.urdf"
             rmp_config_path = rmp_mppath + "/ur3e/rmpflow/ur3e_rmpflow_config.yaml"
             eeframe_name = "tool0"
             max_step_size = 0.00334
         case "ur5e":
-            rmp_mppath = rmp_config_dir + "/universal_robots/"
+            rmp_mppath = rmp_config_dir + "/universal_robots"
             rdf_path = rmp_mppath + "/ur5e/rmpflow/ur5e_robot_description.yaml"
             urdf_path = rmp_mppath + "/ur5e/ur5e.urdf"
             rmp_config_path = rmp_mppath + "/ur5e/rmpflow/ur5e_rmpflow_config.yaml"
             eeframe_name = "tool0"
             max_step_size = 0.00334
         case "ur10e":
-            rmp_mppath = rmp_config_dir + "/universal_robots/"
+            rmp_mppath = rmp_config_dir + "/universal_robots"
             rdf_path = rmp_mppath + "/ur10e/rmpflow/ur10e_robot_description.yaml"
             urdf_path = rmp_mppath + "/ur10e/ur10e.urdf"
             rmp_config_path = rmp_mppath + "/ur10e/rmpflow/ur10e_rmpflow_config.yaml"
@@ -175,7 +240,7 @@ def get_robot_rmp_params(robot_name):
             eeframe_name = "ee_link"
             max_step_size = 0.00334
         case "rs007n":
-            rmp_mppath = rmp_config_dir + "/Kawasaki/"
+            rmp_mppath = rmp_config_dir + "/Kawasaki"
             rdf_path = rmp_mppath + "/rs007n/rmpflow/rs007n_robot_description.yaml"
             urdf_path = rmp_mppath + "/rs007n/rs007n_onrobot_rg2.urdf"
             rmp_config_path = rmp_mppath + "/rs007n/rmpflow/rs007n_rmpflow_config.yaml"
@@ -183,7 +248,7 @@ def get_robot_rmp_params(robot_name):
             max_step_size = 0.00334
         case "jaka-minicobo":
             # urpath = rmp_config_dir + "/Jaka/"
-            rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka/"
+            rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
             rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description.yaml"
             urdf_path = rmp_mppath + "/minicobo/minicobo_v14.urdf"
             rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
@@ -191,7 +256,7 @@ def get_robot_rmp_params(robot_name):
             max_step_size = 0.00334
         case "m0609":
             # urpath = rmp_config_dir + "/Jaka/"
-            rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Doosan/"
+            rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Doosan"
             rdf_path = rmp_mppath + "/m0609/rmpflow/m0609_robot_description.yaml"
             urdf_path = rmp_mppath + "/m0609/minicobo_v14.urdf"
             rmp_config_path = rmp_mppath + "/m0609/rmpflow/m0609_rmpflow_config.yaml"
@@ -199,7 +264,7 @@ def get_robot_rmp_params(robot_name):
             max_step_size = 0.00334
         case "jaka-minicobo-1":
             # urpath = rmp_config_dir + "/Jaka/"
-            rmp_mppath = f"{jakacontrol_extension_path}/motion_policy_configs/Jaka/"
+            rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
             rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description.yaml"
             urdf_path = rmp_mppath + "/minicobo/minicobo_v14_1.urdf"
             rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
@@ -241,3 +306,6 @@ class ScenarioTemplate:
 
     def action(self):
         pass
+
+    def get_actions(self):
+        return [""]

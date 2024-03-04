@@ -27,12 +27,12 @@ rmp_params:
         p_gain: 80.
         d_gain: 10.
         ff_gain: .25
-#        weight: 50.
-        weight: 0
+        weight: 50.
+#        weight: 0
     cspace_affine_rmp:
         final_handover_time_std_dev: .25
-#        weight: 2000.
-        weight: 0
+        weight: 2000.
+#        weight: 0
     joint_limit_rmp:
         metric_scalar: 1000.
 #        metric_scalar: 0
@@ -85,10 +85,10 @@ rmp_params:
         metric_exploder_eps: .001
     damping_rmp:
         accel_d_gain: 30.
-#        metric_scalar: 50.
-        metric_scalar: 0.0
-#        inertia: 100.
-        inertia: 0.0
+        metric_scalar: 50.
+#        metric_scalar: 0.0
+        inertia: 100.
+#        inertia: 0.0
 
 canonical_resolve:
     max_acceleration_norm: 50.
