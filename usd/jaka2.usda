@@ -161,7 +161,8 @@ def "minicobo_v1_4" (
         over "world_joint"
         {
             uniform bool physics:excludeFromArticulation = 0
-            point3f physics:localPos0 = (0.14926, 0, 1.78973)
+           #  point3f physics:localPos0 = (0.14926, 0, 1.78973)
+            point3f physics:localPos0 = (0, 0, 0)
             quatf physics:localRot0 = (1, 0, 0, 0)
         }
     }

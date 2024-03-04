@@ -22,12 +22,13 @@ from omni.isaac.ui.element_wrappers.core_connectors import LoadButton, ResetButt
 from omni.isaac.ui.ui_utils import get_style
 from omni.usd import StageEventType
 
+from .invkin_scenario import InvkinScenario
 from .rmp_scenario import RMPflowScenario
 from .pickplace_scenario import PickAndPlaceScenario
 from .sinusoid_scenario import SinusoidJointScenario
 from .object_inspection_scenario import ObjectInspectionScenario
 
-from .senut import get_setting, save_setting
+from .senut import get_setting, save_setting, find_prim_by_name, find_prims_by_name
 
 
 class UIBuilder:
@@ -43,7 +44,7 @@ class UIBuilder:
     dkyellow = uiclr("#404000")
     dkpurple = uiclr("#400040")
     dkcyan = uiclr("#004040")
-    _scenario_names = ["sinusoid-joint", "pick-and-place", "rmpflow","object-inspection"]
+    _scenario_names = ["sinusoid-joint", "pick-and-place", "rmpflow","object-inspection", "inverse-kinematics"]
     _scenario_name = "sinusoid-joint"
     _robot_names = ["ur3e", "ur5e", "ur10e","ur10-suction-short", "jaka-minicobo","jaka-minicobo-1",  "rs007n", "franka", "fancy_franka", "jetbot","m0609"]
     _robot_name = "jaka-minicobo"
@@ -53,9 +54,14 @@ class UIBuilder:
     _mode = "none"
     _choices = ["choice 1","choice 2"]
     _choice = "choice 1"
-    _actions = ["Red Colliders","Transparent Colliders","Hide Colliders","Show Colliders"]
-    _action = "Red Colliders"
+    _actions = [""]
+    _action = ""
     _colprims = None
+    _visopts = ["Invisible", "Glass", "Red"]
+    _colvisopts = ["Invisible", "Glass", "Red"]
+    _collider_vis = "Invisible"
+    _eevisopts = ["Invisible", "Glass", "Blue"]
+    _eetarg_vis = "Invisible"
 
     def __init__(self):
         # Frames are sub-windows that can contain multiple UI elements
@@ -162,7 +168,7 @@ class UIBuilder:
                             style={'color': self.btyellow},
                             width=50)
                     self._scenario_name_btn = Button(
-                        self._scenario_name, clicked_fn=self._change_scenario_name,
+                        self._scenario_name, mouse_pressed_fn=self._change_scenario_name,
                         style={'background_color': self.dkblue}
                     )
                 with ui.HStack(style=get_style(), spacing=5, height=0):
@@ -170,7 +176,7 @@ class UIBuilder:
                             style={'color': self.btyellow},
                             width=50)
                     self._robot_btn = Button(
-                        self._robot_name, clicked_fn=self._change_robot_name,
+                        self._robot_name, mouse_pressed_fn=self._change_robot_name,
                         style={'background_color': self.dkred}
                     )
                     ui.Label("Ground:",
@@ -196,15 +202,30 @@ class UIBuilder:
                         style={'background_color': self.dkred}
                     )
                 with ui.HStack(style=get_style(), spacing=5, height=0):
+                    ui.Label("Collider Vis:",
+                            style={'color': self.btyellow},
+                            width=50)
+                    self._collider_vis_btn = Button(
+                        self._collider_vis, mouse_pressed_fn=self._change_collider_vis,
+                        style={'background_color': self.dkred}
+                    )
+                    ui.Label("EEtarg Vis:",
+                            style={'color': self.btyellow},
+                            width=50)
+                    self._eetarg_vis_btn = Button(
+                        self._eetarg_vis, mouse_pressed_fn=self._change_eetarg_vis,
+                        style={'background_color': self.dkred}
+                    )
+                with ui.HStack(style=get_style(), spacing=5, height=0):
                     ui.Label("Action Selection:",
                             style={'color': self.btyellow},
                             width=50)
                     self._actionsel_btn = Button(
-                        self._action, clicked_fn=self._change_action,
-                        style={'background_color': self.dkred}
+                        self._action, mouse_pressed_fn=self._change_action,
+                        style={'background_color': self.dkgreen}
                     )
                     self._executeaction_btn = Button(
-                        "Execute", clicked_fn=self._exec_action,
+                        "Execute", mouse_pressed_fn=self._exec_action,
                         style={'background_color': self.dkred}
                     )
                 # self.wrapped_ui_elements.append(self._robot_btn)
@@ -258,6 +279,8 @@ class UIBuilder:
                 self._cur_scenario._show_collsion_bounds = True
         elif scenario_name == "object-inspection":
             self._cur_scenario = ObjectInspectionScenario()
+        elif scenario_name == "inverse-kinematics":
+            self._cur_scenario = InvkinScenario()
         else:
             raise ValueError(f"Unknown scenario name {scenario_name}")
 
@@ -278,6 +301,15 @@ class UIBuilder:
 
         self._cur_scenario.load_scenario(self._robot_name, self._ground_opt)
 
+        self._actions = self._cur_scenario.get_actions()
+        if len(self._actions) > 0:
+            self._action = self._actions[0]
+        else:
+            self._action = ""
+        self._actionsel_btn.text = self._action
+
+
+
     def get_next_val_safe(self, lst, val, inc=1):
         try:
             idx = lst.index(val)
@@ -288,8 +320,10 @@ class UIBuilder:
             rv = lst[idx]
         return rv
 
-    def _change_action(self):
-        self._action = self.get_next_val_safe(self._actions, self._action)
+    binc = [-1, 1]
+
+    def _change_action(self, x, y, b, m):
+        self._action = self.get_next_val_safe(self._actions, self._action, self.binc[b])
         self._actionsel_btn.text = self._action
 
     def _change_choice(self):
@@ -300,47 +334,40 @@ class UIBuilder:
         self._mode = self.get_next_val_safe(self._modes, self._mode)
         self._mode_btn.text = self._mode
 
-    def _change_robot_name(self):
-        self._robot_name = self.get_next_val_safe(self._robot_names, self._robot_name)
+    def _change_robot_name(self, x, y, b, m):
+        self._robot_name = self.get_next_val_safe(self._robot_names, self._robot_name, self.binc[b])
         self._robot_btn.text = self._robot_name
 
-    def _change_scenario_name(self):
-        self._scenario_name = self.get_next_val_safe(self._scenario_names, self._scenario_name)
+    def _change_scenario_name(self, x, y, b, m):
+        self._scenario_name = self.get_next_val_safe(self._scenario_names, self._scenario_name, self.binc[b])
         self._scenario_name_btn.text = self._scenario_name
+
+    def _change_collider_vis(self, x, y, b, m):
+        self._collider_vis = self.get_next_val_safe(self._colvisopts, self._collider_vis, self.binc[b])
+        self._collider_vis_btn.text = self._collider_vis
+        self.realize_collider_vis()
+
+    def _change_eetarg_vis(self, x, y, b, m):
+        self._eetarg_vis = self.get_next_val_safe(self._eevisopts, self._eetarg_vis, self.binc[b])
+        self._eetarg_vis_btn.text = self._eetarg_vis
+        self.realize_eetarg_vis()
+
 
     def _change_ground_opt(self):
         self._ground_opt = self.get_next_val_safe(self._ground_opts, self._ground_opt)
         self._ground_btn.text = self._ground_opt
 
 
-    def _exec_action(self):
-        match self._action:
-            case "Red Colliders":
-                self.adjust_colliders(self._action)
-            case "Transparent Colliders":
-                self.adjust_colliders(self._action)
-            case "Show Colliders":
-                self.adjust_colliders(self._action)
-            case "Hide Colliders":
-                self.adjust_colliders(self._action)
+    def _exec_action(self, x, y, b, m):
+        self._cur_scenario.action(self._action, b)
 
-    def find_prims_by_name(self, prim_name: str) -> List[Usd.Prim]:
-        stage = get_current_stage()
-        found_prims = []
-        for prim in stage.Traverse():
-            try:
-                if prim.GetName().startswith(prim_name):
-                    found_prims.append(prim)
-            except:
-                pass
-        return found_prims
 
     def adjust_colliders(self, action):
         stage = get_current_stage()
         self._matman = MatMan(stage)
 
         if self._colprims is None:
-            self._colprims: List[Usd.Prim] = self.find_prims_by_name("collision_sphere")
+            self._colprims: List[Usd.Prim] = find_prims_by_name("collision_sphere")
         print(f"adjust_colliders action:{action} len:{len(self._colprims)}")
         for prim in self._colprims:
             gprim = UsdGeom.Gprim(prim)
@@ -364,6 +391,70 @@ class UIBuilder:
             except:
                 pass
 
+    def realize_collider_vis(self):
+        stage = get_current_stage()
+        self._matman = MatMan(stage)
+
+        opt = self._collider_vis
+        if self._colprims is None:
+            self._colprims: List[Usd.Prim] = find_prims_by_name("collision_sphere")
+        print(f"realize_collider_vis:{opt} nspheres:{len(self._colprims)}")
+        nfliped = 0
+        nexcept = 0
+        for prim in self._colprims:
+            gprim = UsdGeom.Gprim(prim)
+            try:
+                if opt == "Red":
+                    gprim.MakeVisible()
+                    material = self._matman.GetMaterial("red")
+                    UsdShade.MaterialBindingAPI(gprim).Bind(material)
+                elif opt == "Glass":
+                    gprim.MakeVisible()
+                    material = self._matman.GetMaterial("Clear_Glass")
+                    UsdShade.MaterialBindingAPI(gprim).Bind(material)
+                elif opt == "Invisible":
+                    # lula = Usd.GetPrimAtPath("lula")
+                    # lula.GetVisibilityAttr().Set(False)
+                    gprim.MakeInvisible()
+                    # UsdGeom.Imageable(prim).MakeInvisible()
+                nfliped += 1
+            except:
+                nexcept += 1
+                pass
+        print(f"Realize_collider_vis nfliped:{nfliped} nexcept:{nexcept}")
+
+    def realize_eetarg_vis(self):
+        stage = get_current_stage()
+        self._matman = MatMan(stage)
+
+        opt = self._eetarg_vis
+        prim = find_prim_by_name("end_effector")
+        if prim is None:
+            print("realize_eetarg_vis:ee_visual not found")
+            return
+        print(f"realize_eetarg_vis:{opt}")
+        gprim = UsdGeom.Gprim(prim)
+        try:
+            if opt == "Red":
+                gprim.MakeVisible()
+                material = self._matman.GetMaterial("red")
+                UsdShade.MaterialBindingAPI(gprim).Bind(material)
+                print("red done")
+            elif opt == "Glass":
+                gprim.MakeVisible()
+                material = self._matman.GetMaterial("Clear_Glass")
+                UsdShade.MaterialBindingAPI(gprim).Bind(material)
+                print("glass done")
+            elif opt == "Invisible":
+                # lula = Usd.GetPrimAtPath("lula")
+                # lula.GetVisibilityAttr().Set(False)
+                gprim.MakeInvisible()
+                print("invisible done")
+                # UsdGeom.Imageable(prim).MakeInvisible()
+        except:
+            pass
+        print(f"Realize_eetarg_vis made {opt} done")
+
     def _setup_post_load(self):
         """
         This function is attached to the Load Button as the setup_post_load_fn callback.
@@ -379,6 +470,8 @@ class UIBuilder:
 
 
         self._cur_scenario.post_load_scenario()
+        self.realize_collider_vis()
+        self.realize_eetarg_vis()
 
         # UI management
         self._scenario_state_btn.reset()
