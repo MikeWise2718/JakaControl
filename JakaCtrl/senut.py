@@ -144,17 +144,17 @@ def get_robot_params(robot_name):
     ok = True
     match robot_name:
         case "ur3e":
-            robot_prim_path = "/World/roborg/ur3e"
+            robot_prim_path = "/ur3e"
             artpath = robot_prim_path
             path_to_robot_usd = assets_root_path + "/Isaac/Robots/UniversalRobots/ur3e/ur3e.usd"
             mopo_robot_name = "UR3e"
         case "ur5e":
-            robot_prim_path = "/World/roborg/ur5e"
+            robot_prim_path = "/ur5e"
             artpath = robot_prim_path
             path_to_robot_usd = assets_root_path+ "/Isaac/Robots/UniversalRobots/ur5e/ur5e.usd"
             mopo_robot_name = "UR5e"
         case "ur10e":
-            robot_prim_path = "/World/roborg/ur10e"
+            robot_prim_path = "/ur10e"
             artpath = robot_prim_path
             path_to_robot_usd = assets_root_path + "/Isaac/Robots/UniversalRobots/ur10e/ur10e.usd"
             mopo_robot_name = "UR10e"
@@ -186,12 +186,12 @@ def get_robot_params(robot_name):
             path_to_robot_usd = assets_root_path + "/Isaac/Robots/Franka/franka.usd"
             mopo_robot_name = "Franka"
         case "fancy_franka":
-            robot_prim_path = "/World/roborg/fancy_franka"
+            robot_prim_path = "/fancy_franka"
             artpath = robot_prim_path
             path_to_robot_usd = None
             mopo_robot_name = "Franka"
         case "jetbot":
-            robot_prim_path = "/World/roborg/jetbot"
+            robot_prim_path = "/jetbot"
             artpath = robot_prim_path
             path_to_robot_usd = assets_root_path + "/Isaac/Robots/Jetbot/jetbot.usd"
             mopo_robot_name = "Jetbot"
