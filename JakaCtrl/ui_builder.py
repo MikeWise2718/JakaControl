@@ -37,7 +37,7 @@ class UIBuilder:
     btblack = uiclr("#000000")
     btgray = uiclr("#808080")
     btgreen = uiclr("#00ff00")
-    btblue = uiclr("#0000ff")
+    btblue = uiclr("#6060ff")
     btred = uiclr("#ff0000")
     btyellow = uiclr("#ffff00")
     btpurple = uiclr("#ff00ff")
@@ -284,7 +284,7 @@ class UIBuilder:
     ######################################################################################
 
     cfg_lab_dict = {}
-    def _load_one_param(self, param_name):
+    def _load_one_param(self, param_name, clr):
         val = f"Parmeter not found"
         pname = f"_cfg_{param_name}"
         if hasattr(self._cur_scenario, pname):
@@ -299,25 +299,25 @@ class UIBuilder:
             hstack = ui.HStack(style=get_style(), spacing=5, height=0)
             with hstack:
                 l1 = ui.Label(l1txt, style={'color': self.btwhite}, width=120)
-                l2 = ui.Label(l2txt, style={'color': self.btyellow})
+                l2 = ui.Label(l2txt, style={'color': clr})
             self.cfg_lab_dict[param_name] = (l1, l2)
             self.rob_config_stack.add_child(hstack)
 
-
-
     def _load_robot_config(self):
-        self._load_one_param("robot_name")
-        self._load_one_param("ground_opt")
-        self._load_one_param("eeframe_name")
-        self._load_one_param("max_step_size")
-        self._load_one_param("mg_extension_path")
-        self._load_one_param("rmp_config_dir")
-        self._load_one_param("jc_extension_path")
-        self._load_one_param("rdf_path")
-        self._load_one_param("urdf_path")
+        bl = self.btblue
+        gn = self.btgreen
+        yt = self.btyellow
+        self._load_one_param("robot_name", bl)
+        self._load_one_param("ground_opt", bl)
+        self._load_one_param("eeframe_name", bl)
+        self._load_one_param("max_step_size", bl)
 
+        self._load_one_param("mg_extension_path", gn)
+        self._load_one_param("rmp_config_dir", gn)
+        self._load_one_param("rdf_path", gn)
 
-
+        self._load_one_param("jc_extension_path", yt)
+        self._load_one_param("urdf_path", yt)
 
     def pick_scenario(self, scenario_name):
         if scenario_name == "sinusoid-joint":

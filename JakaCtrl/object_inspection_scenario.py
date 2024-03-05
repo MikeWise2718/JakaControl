@@ -33,12 +33,13 @@ from .senut import ScenarioTemplate
 
 class ObjectInspectionScenario(ScenarioTemplate):
     _running_scenario = False
-    _show_collsion_bounds = False
+    _show_collision_bounds = False
 
     def __init__(self):
         pass
 
     def load_scenario(self, robot_name, ground_opt):
+        self.get_robot_config(robot_name, ground_opt)
 
         self._robot_name = robot_name
         self._ground_opt = ground_opt
@@ -145,7 +146,7 @@ class ObjectInspectionScenario(ScenarioTemplate):
         )
         self._rmpflow.add_obstacle(self._obstacle)
 
-        if self._show_collsion_bounds:
+        if self._show_collision_bounds:
             self._rmpflow.set_ignore_state_updates(True)
             self._rmpflow.visualize_collision_spheres()
 
@@ -168,7 +169,7 @@ class ObjectInspectionScenario(ScenarioTemplate):
 
     def reset_scenario(self):
         # self._target.set_world_pose(np.array([.5,0,.7]),euler_angles_to_quats([0,np.pi,0]))
-        if self._show_collsion_bounds:
+        if self._show_collision_bounds:
             self._rmpflow.reset()
             self._rmpflow.visualize_collision_spheres()
 

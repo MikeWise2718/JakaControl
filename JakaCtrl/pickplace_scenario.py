@@ -33,11 +33,13 @@ from omni.isaac.core.prims.rigid_prim import RigidPrim
 class PickAndPlaceScenario(ScenarioTemplate):
     _running_scenario = False
     _rmpflow = None
+    _show_collision_bounds = True
 
     def __init__(self):
         pass
 
     def load_scenario(self, robot_name, ground_opt):
+        self.get_robot_config(robot_name, ground_opt)
 
         self._robot_name = robot_name
         self._ground_opt = ground_opt
@@ -237,7 +239,7 @@ class PickAndPlaceScenario(ScenarioTemplate):
                     robot_articulation=self._articulation
                 )
             print("gripper.joint_opened_positions",gripper.joint_opened_positions)
-            if self._show_collsion_bounds:
+            if self._show_collision_bounds:
                 self._rmpflow = self._controller._cspace_controller.rmp_flow
                 # self._rmpflow.reset()
                 self._rmpflow.visualize_collision_spheres()
@@ -259,7 +261,7 @@ class PickAndPlaceScenario(ScenarioTemplate):
                 gripper=gripper,
                 robot_articulation=self._articulation
             )
-        if self._show_collsion_bounds:
+        if self._show_collision_bounds:
             if self._rmpflow is not None:
                 # self._rmpflow.reset()
                 self._rmpflow.visualize_collision_spheres()
