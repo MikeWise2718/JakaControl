@@ -49,6 +49,9 @@ class RMPflowScenario(ScenarioTemplate):
 
     def load_scenario(self, robot_name, ground_opt):
 
+        self.tot_damping_factor = 1.0
+        self.tot_stiffness_factor = 1.0
+
         self._robot_name = robot_name
         self._ground_opt = ground_opt
 

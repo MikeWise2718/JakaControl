@@ -56,7 +56,9 @@ class InvkinScenario(ScenarioTemplate):
         self._articulation = None
         self._target = None
 
+
     def load_scenario(self, robot_name, ground_opt):
+        self.get_robot_config(robot_name, ground_opt)
         self.phystep = 0
         self.ikerrs = 0
         self.tot_damping_factor = 1.0
@@ -158,8 +160,10 @@ class InvkinScenario(ScenarioTemplate):
         # )
 
         if self._robot_name in ["jaka-minicobo","jaka-minicobo-1"]:
-            self.set_stiffness_for_all_joints(10000000.0 / 200) # 1e8 or 10 million seems too high
-            self.set_damping_for_all_joints(100000.0 / 20) # 1e5 or 100 thousand seems too high
+            # self.set_stiffness_for_all_joints(10000000.0 / 200) # 1e8 or 10 million seems too high
+            # self.set_damping_for_all_joints(100000.0 / 20) # 1e5 or 100 thousand seems too high
+            self.set_stiffness_for_all_joints(400.0) # 1e8 or 10 million seems too high
+            self.set_damping_for_all_joints(40) # 1e5 or 100 thousand seems too high
 
         end_effector_name = eeframe_name
         self._articulation_kinematics_solver = ArticulationKinematicsSolver(self._articulation,self._kinematics_solver, end_effector_name)

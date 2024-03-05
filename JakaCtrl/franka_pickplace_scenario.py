@@ -30,9 +30,10 @@ from omni.isaac.core.prims.rigid_prim import RigidPrim
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 #
 
-class PickAndPlaceScenario(ScenarioTemplate):
+class FrankaPickAndPlaceScenario(ScenarioTemplate):
     _running_scenario = False
     _rmpflow = None
+    _show_collsion_bounds = True
 
     def __init__(self):
         pass
@@ -107,13 +108,14 @@ class PickAndPlaceScenario(ScenarioTemplate):
         print("load_scenario done - self._object", self._object)
 
     def get_gripper(self):
-        if hasattr(self._articulation,"gripper"):
-            gripper = self._articulation.gripper
+        art = self._articulation
+        art._policy_robot_name = self._mopo_robot_name
+        if hasattr(art,"gripper"):
+            gripper = art.gripper
+            gripper._policy_robot_name = self._mopo_robot_name
             return gripper
         else:
-            art = self._articulation
-            art._policy_robot_name = self._mopo_robot_name
-            if self._robot_name == "franka":
+            if self._robot_name in ["franka","fancy_franka"]:
                 # eepp = "/World/cobotta/onrobot_rg6_base_link"
                 # jpn = ["finger_joint", "right_outer_knuckle_joint"]
                 # jop = np.array([0, 0])
