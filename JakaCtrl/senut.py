@@ -158,6 +158,11 @@ def get_robot_params(robot_name):
             artpath = robot_prim_path
             path_to_robot_usd = assets_root_path + "/Isaac/Robots/UniversalRobots/ur10e/ur10e.usd"
             mopo_robot_name = "UR10e"
+        case "ur10e-gripper":
+            robot_prim_path = "/ur10e"
+            artpath = robot_prim_path
+            path_to_robot_usd = assets_root_path + "/Isaac/Robots/UniversalRobots/ur10e/ur10e.usd"
+            mopo_robot_name = "UR10e"
         case "ur10-suction-short":
             robot_prim_path = "/World/roborg/ur10_suction_short"
             artpath = robot_prim_path
@@ -277,7 +282,7 @@ def get_robot_rmp_params(robot_name):
             rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
             eeframe_name = "dummy_tcp"
             max_step_size = 0.00334
-        case "franka":
+        case "fancy_franka" | "franka":
             rdf_path = rmp_config_dir + "/franka/rmpflow/robot_descriptor.yaml"
             urdf_path = rmp_config_dir + "/franka/lula_franka_gen.urdf"
             rmp_config_path = rmp_config_dir + "/franka/rmpflow/franka_rmpflow_common.yaml"
@@ -300,6 +305,11 @@ class ScenarioTemplate:
         self._cfg_robot_name = robot_name
         self._cfg_ground_opt = ground_opt
         (ok, robot_prim_path, artpath, path_to_robot_usd, mopo_robot_name) = get_robot_params(robot_name)
+        if (not ok):
+            msg = f"Robot {robot_name} not found for get_robot_params in senut.py"
+            carb.log_error(msg)
+            print(msg)
+            return
         self._cfg_robot_params_ok = ok
         self._cfg_robot_prim_path = robot_prim_path
         self._cfg_artpath = artpath
@@ -311,8 +321,14 @@ class ScenarioTemplate:
         self._cfg_jc_extension_path = get_extension_path_from_name("JakaControl")
 
         (ok, rdf_path, urdf_path, rmp_config_path, eeframe_name, max_step_size) = get_robot_rmp_params(robot_name)
+        if (not ok):
+            msg = f"Robot {robot_name} not found for get_robot_rmp_params in senut.py"
+            carb.log_error(msg)
+            print(msg)
+            return
         self._cfg_rdf_path = rdf_path
         self._cfg_urdf_path = urdf_path
+        self._cfg_rmp_config_path = rmp_config_path
         self._cfg_eeframe_name = eeframe_name
         self._cfg_max_step_size = max_step_size
 

@@ -52,11 +52,12 @@ class PickAndPlaceScenario(ScenarioTemplate):
         self._robot_name = robot_name
         self._ground_opt = ground_opt
         (ok, robot_prim_path, artpath, path_to_robot_usd, mopo_robot_name) = get_robot_params(self._robot_name)
-        if not ok:
-            print(f"Unknown robot name {self._robot_name}")
-            return
+        # if not ok:
+        #     carb.log_error(f"Unknown robot name {self._robot_name}")
+        #     print(f"Unknown robot name {self._robot_name}")
+        #     return
 
-        if path_to_robot_usd is not None:
+        if self._cfg_path_to_robot_usd is not None:
             if self._robot_name == "franka":
                 # make roborg into an xform and give it a position and rotation
                 stage = get_current_stage()
@@ -68,22 +69,25 @@ class PickAndPlaceScenario(ScenarioTemplate):
                 lula = UsdGeom.Xform.Define(stage, "/lula")
                 lula.AddTranslateOp().Set(pos)
                 lula.AddRotateXOp().Set(ang)
-            add_reference_to_stage(path_to_robot_usd, robot_prim_path)
+            add_reference_to_stage(self._cfg_path_to_robot_usd, self._cfg_robot_prim_path)
 
         if need_to_add_articulation:
-            prim = get_current_stage().GetPrimAtPath(artpath)
+            prim = get_current_stage().GetPrimAtPath(self._cfg_artpath)
             UsdPhysics.ArticulationRootAPI.Apply(prim)
 
         if self._robot_name == "fancy_franka":
             from omni.isaac.franka import Franka
             self._articulation= Franka(prim_path="/World/Fancy_Franka", name="fancy_franka")
         else:
-            self._articulation = Articulation(artpath)
+            self._articulation = Articulation(self._cfg_artpath)
 
 
         # mode specific initialization
+        target_pos = np.array([0.3, 0.3, 0.15])
+        target_pos = np.array([1.136, 0.5, 0.15])
+        target_pos = np.array([1.16, 0.5, 0.15])
         self._cuboid = DynamicCuboid(
-            "/Scenario/cuboid", position=np.array([0.3, 0.3, 0.15]), size=0.05, color=np.array([128, 0, 128])
+            "/Scenario/cuboid", position=target_pos, size=0.05, color=np.array([128, 0, 128])
         )
 
         # Add user-loaded objects to the World
@@ -107,14 +111,14 @@ class PickAndPlaceScenario(ScenarioTemplate):
         self._object = self._cuboid
         self._fancy_cube = self._cuboid
         self._world = world
-        self._mopo_robot_name = mopo_robot_name
+        self._mopo_robot_name = self._cfg_mopo_robot_name
         print("load_scenario done - self._object", self._object)
 
     def get_gripper(self):
         art = self._articulation
         if not hasattr(art, "_policy_robot_name"):
             art._policy_robot_name = self._mopo_robot_name
-        if hasattr(art,"gripper"):
+        if hasattr(self._articulation,"gripper"):
             gripper = art.gripper
             return gripper
         else:
@@ -175,7 +179,10 @@ class PickAndPlaceScenario(ScenarioTemplate):
             elif self._robot_name == "ur10-suction-short":
                 art = self._articulation
                 self._gripper_type = "suction"
-                eeppgb = "/World/roborg/ur10_suction_short/ee_link/gripper_base"
+                # eepp = "/World/roborg/ur10_suction_short/ee_link/gripper_base/xf"
+                # UsdGeom.Xform.Define(get_current_stage(), eepp)
+                # self._end_effector = RigidPrim(prim_path=eepp, name= "ur10" + "_end_effector")
+                # self._end_effector.initialize(None)
                 eepp = "/World/roborg/ur10_suction_short/ee_link"
                 jpn = ["left_inner_finger_joint", "right_inner_finger_joint"]
                 jop = np.array([0.05, 0.05])
@@ -225,40 +232,46 @@ class PickAndPlaceScenario(ScenarioTemplate):
         gripper = self.get_gripper()
         if gripper is not None:
             if self._robot_name in ["fancy_franka", "franka", "rs007n"]:
+                self._gripper_type = "parallel"
                 self._controller = franka_PickPlaceController(
                     name="pick_place_controller",
                     gripper=gripper,
                     robot_articulation=self._articulation
                 )
             elif self._robot_name in ["jaka-minicobo", "ur10-suction-short"]:
+                self._gripper_type = "suction"
                 self._controller = ur10_PickPlaceController(
                     name="pick_place_controller",
                     gripper=gripper,
                     robot_articulation=self._articulation
                 )
-            if self._show_collsion_bounds:
+            if self._show_collision_bounds:
                 self._rmpflow = self._controller._cspace_controller.rmp_flow
                 # self._rmpflow.reset()
                 self._rmpflow.visualize_collision_spheres()
 
         if self._gripper_type=="parallel":
-            gripper.set_joint_positions(gripper.joint_opened_positions)
+            if gripper is not None:
+                gripper.set_joint_positions(gripper.joint_opened_positions)
         elif self._gripper_type=="suction":
-            gripper.open()
+            if gripper is not None:
+                gripper.open()
         self._world.add_physics_callback("sim_step", callback_fn=self.physics_step)
 
 
     def reset_scenario(self):
         gripper = self.get_gripper()
 
-        if self._show_collsion_bounds:
+        if self._show_collision_bounds:
             if self._rmpflow is not None:
                 self._rmpflow.reset()
                 self._rmpflow.visualize_collision_spheres()
         if self._gripper_type=="parallel":
-            gripper.set_joint_positions(gripper.joint_opened_positions)
+            if gripper is not None:
+                gripper.set_joint_positions(gripper.joint_opened_positions)
         elif self._gripper_type=="suction":
-            gripper.open()
+            if gripper is not None:
+                gripper.open()
 
     def physics_step(self, step_size):
         cube_position, _ = self._fancy_cube.get_world_pose()

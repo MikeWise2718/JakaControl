@@ -46,7 +46,7 @@ from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelp
 
 class InvkinScenario(ScenarioTemplate):
     _running_scenario = False
-    _show_collsion_bounds = True
+    _show_collision_bounds = True
 
 
     def __init__(self):

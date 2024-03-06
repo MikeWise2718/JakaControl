@@ -520,6 +520,7 @@ class UIBuilder:
         self._colprims = None
 
 
+        self._cur_scenario.setup_scenario()
         self._cur_scenario.post_load_scenario()
 
         self._cur_scenario.reset_scenario() # should always be able to do a reset after post_load
