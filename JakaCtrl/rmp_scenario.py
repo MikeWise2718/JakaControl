@@ -42,12 +42,16 @@ from .senut import adjust_joint_value, adjust_joint_values, set_stiffness_for_jo
 
 class RMPflowScenario(ScenarioTemplate):
     _running_scenario = False
-    _show_collsion_bounds = False
+    _show_collision_bounds = True
 
     def __init__(self):
         pass
 
     def load_scenario(self, robot_name, ground_opt):
+        self.get_robot_config(robot_name, ground_opt)
+
+        self.tot_damping_factor = 1.0
+        self.tot_stiffness_factor = 1.0
 
         self._robot_name = robot_name
         self._ground_opt = ground_opt
@@ -163,7 +167,7 @@ class RMPflowScenario(ScenarioTemplate):
             self.set_stiffness_for_all_joints(10000000.0 / 200) # 1e8 or 10 million seems too high
             self.set_damping_for_all_joints(100000.0 / 20) # 1e5 or 100 thousand seems too high
 
-        if self._show_collsion_bounds:
+        if self._show_collision_bounds:
             self._rmpflow.set_ignore_state_updates(True)
             self._rmpflow.visualize_collision_spheres()
             self._rmpflow.visualize_end_effector_position()
@@ -196,7 +200,7 @@ class RMPflowScenario(ScenarioTemplate):
 
     def reset_scenario(self):
         self._target.set_world_pose(np.array([.5,0,.7]),euler_angles_to_quats([0,np.pi,0]))
-        if self._show_collsion_bounds:
+        if self._show_collision_bounds:
             self._rmpflow.reset()
             self._rmpflow.visualize_collision_spheres()
             self._rmpflow.visualize_end_effector_position()

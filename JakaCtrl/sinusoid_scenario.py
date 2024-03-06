@@ -64,6 +64,7 @@ class SinusoidJointScenario(ScenarioTemplate):
 
 
     def load_scenario(self, robot_name, ground_opt):
+        self.get_robot_config(robot_name, ground_opt)
 
         add_light_to_stage()
 

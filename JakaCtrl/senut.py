@@ -296,6 +296,26 @@ class ScenarioTemplate:
     def __init__(self):
         pass
 
+    def get_robot_config(self, robot_name, ground_opt):
+        self._cfg_robot_name = robot_name
+        self._cfg_ground_opt = ground_opt
+        (ok, robot_prim_path, artpath, path_to_robot_usd, mopo_robot_name) = get_robot_params(robot_name)
+        self._cfg_robot_params_ok = ok
+        self._cfg_robot_prim_path = robot_prim_path
+        self._cfg_artpath = artpath
+        self._cfg_path_to_robot_usd = path_to_robot_usd
+        self._cfg_mopo_robot_name = mopo_robot_name
+
+        self._cfg_mg_extension_path = get_extension_path_from_name("omni.isaac.motion_generation")
+        self._cfg_rmp_config_dir = os.path.join(self._cfg_mg_extension_path, "motion_policy_configs")
+        self._cfg_jc_extension_path = get_extension_path_from_name("JakaControl")
+
+        (ok, rdf_path, urdf_path, rmp_config_path, eeframe_name, max_step_size) = get_robot_rmp_params(robot_name)
+        self._cfg_rdf_path = rdf_path
+        self._cfg_urdf_path = urdf_path
+        self._cfg_eeframe_name = eeframe_name
+        self._cfg_max_step_size = max_step_size
+
     def setup_scenario(self):
         pass
 

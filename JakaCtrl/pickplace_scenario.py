@@ -33,12 +33,14 @@ from omni.isaac.core.prims.rigid_prim import RigidPrim
 class PickAndPlaceScenario(ScenarioTemplate):
     _running_scenario = False
     _rmpflow = None
+    _show_collision_bounds = True
     _gripper_type = "none"
 
     def __init__(self):
         pass
 
     def load_scenario(self, robot_name, ground_opt):
+        self.get_robot_config(robot_name, ground_opt)
 
         self._robot_name = robot_name
         self._ground_opt = ground_opt
@@ -245,8 +247,10 @@ class PickAndPlaceScenario(ScenarioTemplate):
             gripper.open()
         self._world.add_physics_callback("sim_step", callback_fn=self.physics_step)
 
+
     def reset_scenario(self):
         gripper = self.get_gripper()
+
         if self._show_collsion_bounds:
             if self._rmpflow is not None:
                 self._rmpflow.reset()

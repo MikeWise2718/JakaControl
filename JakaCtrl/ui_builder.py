@@ -25,6 +25,7 @@ from omni.usd import StageEventType
 from .invkin_scenario import InvkinScenario
 from .rmp_scenario import RMPflowScenario
 from .pickplace_scenario import PickAndPlaceScenario
+from .franka_pickplace_scenario import FrankaPickAndPlaceScenario
 from .sinusoid_scenario import SinusoidJointScenario
 from .object_inspection_scenario import ObjectInspectionScenario
 
@@ -32,8 +33,11 @@ from .senut import get_setting, save_setting, find_prim_by_name, find_prims_by_n
 
 
 class UIBuilder:
+    btwhite = uiclr("#fffff")
+    btblack = uiclr("#000000")
+    btgray = uiclr("#808080")
     btgreen = uiclr("#00ff00")
-    btblue = uiclr("#0000ff")
+    btblue = uiclr("#6060ff")
     btred = uiclr("#ff0000")
     btyellow = uiclr("#ffff00")
     btpurple = uiclr("#ff00ff")
@@ -44,7 +48,7 @@ class UIBuilder:
     dkyellow = uiclr("#404000")
     dkpurple = uiclr("#400040")
     dkcyan = uiclr("#004040")
-    _scenario_names = ["sinusoid-joint", "pick-and-place", "rmpflow","object-inspection", "inverse-kinematics"]
+    _scenario_names = ["sinusoid-joint","franka-pick-and-place","pick-and-place", "rmpflow","object-inspection", "inverse-kinematics"]
     _scenario_name = "sinusoid-joint"
     _robot_names = ["ur3e", "ur5e", "ur10e", "ur10e-gripper", "ur10-suction-short", "jaka-minicobo","jaka-minicobo-1",  "rs007n", "franka", "fancy_franka", "jetbot","m0609"]
     _robot_name = "jaka-minicobo"
@@ -262,21 +266,68 @@ class UIBuilder:
                 self._scenario_state_btn.enabled = False
                 self.wrapped_ui_elements.append(self._scenario_state_btn)
 
+        robot_config_frame = CollapsableFrame("Robot Config")
+
+        with robot_config_frame:
+            self.rob_config_stack = ui.VStack(style=get_style(), spacing=5, height=0)
+            with self.rob_config_stack:
+                self._load_robot_config_btn = Button(
+                        "Load Robot Config", clicked_fn=self._load_robot_config,
+                        style={'background_color': self.dkblue}
+                )
+                self._load_robot_config_btn.enabled = True
+                # self.wrapped_ui_elements.append(self._load_robot_config_btn)
+
+
     ######################################################################################
     # Functions Below This Point Support The Provided Example And Can Be Deleted/Replaced
     ######################################################################################
+
+    cfg_lab_dict = {}
+    def _load_one_param(self, param_name, clr):
+        val = f"Parmeter not found"
+        pname = f"_cfg_{param_name}"
+        if hasattr(self._cur_scenario, pname):
+            val = getattr(self._cur_scenario, pname)
+        l1txt = f"{param_name}"
+        l2txt = f"{val}"
+        if param_name in self.cfg_lab_dict:
+            (l1, l2) = self.cfg_lab_dict[param_name]
+            l1.text = l1txt
+            l2.text = l2txt
+        else:
+            hstack = ui.HStack(style=get_style(), spacing=5, height=0)
+            with hstack:
+                l1 = ui.Label(l1txt, style={'color': self.btwhite}, width=120)
+                l2 = ui.Label(l2txt, style={'color': clr})
+            self.cfg_lab_dict[param_name] = (l1, l2)
+            self.rob_config_stack.add_child(hstack)
+
+    def _load_robot_config(self):
+        bl = self.btblue
+        gn = self.btgreen
+        yt = self.btyellow
+        self._load_one_param("robot_name", bl)
+        self._load_one_param("ground_opt", bl)
+        self._load_one_param("eeframe_name", bl)
+        self._load_one_param("max_step_size", bl)
+
+        self._load_one_param("mg_extension_path", gn)
+        self._load_one_param("rmp_config_dir", gn)
+        self._load_one_param("rdf_path", gn)
+
+        self._load_one_param("jc_extension_path", yt)
+        self._load_one_param("urdf_path", yt)
 
     def pick_scenario(self, scenario_name):
         if scenario_name == "sinusoid-joint":
             self._cur_scenario = SinusoidJointScenario()
         elif scenario_name == "pick-and-place":
             self._cur_scenario = PickAndPlaceScenario()
-            if self._mode == "CollisionSpheres":
-                self._cur_scenario._show_collsion_bounds = True
+        elif scenario_name == "franka-pick-and-place":
+            self._cur_scenario = FrankaPickAndPlaceScenario()
         elif scenario_name == "rmpflow":
             self._cur_scenario = RMPflowScenario()
-            if self._mode == "CollisionSpheres":
-                self._cur_scenario._show_collsion_bounds = True
         elif scenario_name == "object-inspection":
             self._cur_scenario = ObjectInspectionScenario()
         elif scenario_name == "inverse-kinematics":

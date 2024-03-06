@@ -46,7 +46,7 @@ from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelp
 
 class InvkinScenario(ScenarioTemplate):
     _running_scenario = False
-    _show_collsion_bounds = False
+    _show_collsion_bounds = True
 
 
     def __init__(self):
@@ -56,7 +56,9 @@ class InvkinScenario(ScenarioTemplate):
         self._articulation = None
         self._target = None
 
+
     def load_scenario(self, robot_name, ground_opt):
+        self.get_robot_config(robot_name, ground_opt)
         self.phystep = 0
         self.ikerrs = 0
         self.tot_damping_factor = 1.0
@@ -81,19 +83,10 @@ class InvkinScenario(ScenarioTemplate):
 
 
         # Setup Robot ARm
-        (ok, robot_prim_path, artpath, path_to_robot_usd, mopo_robot_name) = get_robot_params(self._robot_name)
-        print(f"robot_prim_path:{robot_prim_path}")
-        print(f"artpath:{artpath}")
-        print(f"path_to_robot_usd:{path_to_robot_usd}")
-        print(f"mopo_robot_name:{mopo_robot_name}")
-        if not ok:
-            print(f"Unknown robot name {self._robot_name}")
-            return
+        if self._cfg_path_to_robot_usd is not None:
+            add_reference_to_stage(self._cfg_path_to_robot_usd, self._cfg_robot_prim_path)
 
-        if path_to_robot_usd is not None:
-            add_reference_to_stage(path_to_robot_usd, robot_prim_path)
-
-        self._articulation = Articulation(artpath)
+        self._articulation = Articulation(self._cfg_artpath)
 
         if self._articulation is not None:
             world.scene.add(self._articulation)
@@ -128,10 +121,8 @@ class InvkinScenario(ScenarioTemplate):
         self._njoints = len(self._lower_joint_limits)
         print(f"jaka - njoints:{self._njoints} lower:{self._lower_joint_limits} upper:{self._upper_joint_limits}")
 
-        # teleport robot to lower joint range
-        epsilon = 0.001
-        # articulation.set_joint_positions(self._lower_joint_limits + epsilon)
-        self._articulation.set_joint_positions(self._zeros + epsilon)
+        # teleport robot to zeros
+        self._articulation.set_joint_positions(self._zeros)
 
 
         # RMPflow config files for supported robots are stored in the motion_generation extension under "/motion_policy_configs"
@@ -139,29 +130,20 @@ class InvkinScenario(ScenarioTemplate):
         rmp_config_dir = os.path.join(mg_extension_path, "motion_policy_configs")
         print("rmp_config_dir",rmp_config_dir)
 
-        (ok, rdf_path, urdf_path, rmp_config_path, eeframe_name, max_step_size) = get_robot_rmp_params(self._robot_name)
-        print("rdf_path:",rdf_path)
-        print("urdf_path:",urdf_path)
-        print("rmp_config_path:",rmp_config_path)
-        print("eeframe_name:",eeframe_name)
-        print("max_step_size:",max_step_size)
-        # Initialize an RmpFlow object
-        kinematics_config_dir = os.path.join(mg_extension_path, "motion_policy_configs")
+
         self._kinematics_solver = LulaKinematicsSolver(
-            robot_description_path = rdf_path,
-            urdf_path = urdf_path
+            robot_description_path = self._cfg_rdf_path,
+            urdf_path = self._cfg_urdf_path
         )
         self.lulaHelper = LulaInterfaceHelper(self._kinematics_solver._robot_description)
-        # self._kinematics_solver = LulaKinematicsSolver(
-        #     robot_description_path = kinematics_config_dir + "/franka/rmpflow/robot_descriptor.yaml",
-        #     urdf_path = kinematics_config_dir + "/franka/lula_franka_gen.urdf"
-        # )
 
         if self._robot_name in ["jaka-minicobo","jaka-minicobo-1"]:
-            self.set_stiffness_for_all_joints(10000000.0 / 200) # 1e8 or 10 million seems too high
-            self.set_damping_for_all_joints(100000.0 / 20) # 1e5 or 100 thousand seems too high
+            # self.set_stiffness_for_all_joints(10000000.0 / 200) # 1e8 or 10 million seems too high
+            # self.set_damping_for_all_joints(100000.0 / 20) # 1e5 or 100 thousand seems too high
+            self.set_stiffness_for_all_joints(400.0) # 1e8 or 10 million seems too high
+            self.set_damping_for_all_joints(40) # 1e5 or 100 thousand seems too high
 
-        end_effector_name = eeframe_name
+        end_effector_name = self._cfg_eeframe_name
         self._articulation_kinematics_solver = ArticulationKinematicsSolver(self._articulation,self._kinematics_solver, end_effector_name)
         ee_position,ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
         self._ee_pos = ee_position
@@ -173,7 +155,7 @@ class InvkinScenario(ScenarioTemplate):
 
         self._articulation.apply_action(ArticulationAction(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 1.0])))
 
-        # if self._show_collsion_bounds:
+        # if self._show_collision_bounds:
         #     self._rmpflow.set_ignore_state_updates(True)
         #     self._rmpflow.visualize_collision_spheres()
         #     self._rmpflow.visualize_end_effector_position()
@@ -190,7 +172,7 @@ class InvkinScenario(ScenarioTemplate):
     def reset_scenario(self):
         # self._target.set_world_pose(np.array([0.2,0.2,0.6]),euler_angles_to_quats([0,np.pi,0]))
         self._target.set_world_pose(self._ee_pos, rot_matrices_to_quats(self._ee_rot))
-        # if self._show_collsion_bounds:
+        # if self._show_collision_bounds:
         #     self._rmpflow.reset()
         #     self._rmpflow.visualize_collision_spheres()
         #     self._rmpflow.visualize_end_effector_position()
