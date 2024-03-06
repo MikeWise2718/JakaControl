@@ -126,7 +126,7 @@ class FrankaPickAndPlaceScenario(ScenarioTemplate):
                 jop = np.array([0.05, 0.05])
                 jcp = np.array([0, 0])
                 ad = np.array([0.05, 0.05])
-                art._policy_robot_name = "Franka"
+                art._policy_robot_name in ["Franka","Fancy_Franka"]
                 pg = ParallelGripper(
                     end_effector_prim_path=eepp,
                     joint_prim_names=jpn,

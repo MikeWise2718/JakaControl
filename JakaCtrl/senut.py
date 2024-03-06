@@ -232,6 +232,13 @@ def get_robot_rmp_params(robot_name):
             rmp_config_path = rmp_mppath + "/ur10e/rmpflow/ur10e_rmpflow_config.yaml"
             eeframe_name = "tool0"
             max_step_size = 0.00334
+        case "ur10e-gripper":
+            rmp_mppath = rmp_config_dir + "/universal_robots"
+            rdf_path = rmp_mppath + "/ur10e/rmpflow/ur10e_robot_description.yaml"
+            urdf_path = rmp_mppath + "/ur10e/ur10e.urdf"
+            rmp_config_path = rmp_mppath + "/ur10e/rmpflow/ur10e_rmpflow_config.yaml"
+            eeframe_name = "tool0"
+            max_step_size = 0.00334
         case "ur10-suction-short":
             rmp_mppath = rmp_config_dir
             rdf_path = rmp_mppath + "/ur10/rmpflow_suction/ur10_robot_description.yaml"

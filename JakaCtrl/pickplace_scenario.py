@@ -34,6 +34,7 @@ class PickAndPlaceScenario(ScenarioTemplate):
     _running_scenario = False
     _rmpflow = None
     _show_collision_bounds = True
+    _gripper_type = "none"
 
     def __init__(self):
         pass
@@ -57,6 +58,7 @@ class PickAndPlaceScenario(ScenarioTemplate):
 
         if path_to_robot_usd is not None:
             if self._robot_name == "franka":
+                # make roborg into an xform and give it a position and rotation
                 stage = get_current_stage()
                 pos = Gf.Vec3d([0, 0, 1.1])
                 ang = 180
@@ -109,13 +111,17 @@ class PickAndPlaceScenario(ScenarioTemplate):
         print("load_scenario done - self._object", self._object)
 
     def get_gripper(self):
-        if hasattr(self._articulation,"gripper"):
-            gripper = self._articulation.gripper
+        art = self._articulation
+        if not hasattr(art, "_policy_robot_name"):
+            art._policy_robot_name = self._mopo_robot_name
+        if hasattr(art,"gripper"):
+            gripper = art.gripper
             return gripper
         else:
             art = self._articulation
+            self._gripper_type = "parallel"
             art._policy_robot_name = self._mopo_robot_name
-            if self._robot_name == "franka":
+            if self._robot_name in ["franka","fancy_franka"]:
                 # eepp = "/World/cobotta/onrobot_rg6_base_link"
                 # jpn = ["finger_joint", "right_outer_knuckle_joint"]
                 # jop = np.array([0, 0])
@@ -144,6 +150,7 @@ class PickAndPlaceScenario(ScenarioTemplate):
                 return pg
             elif self._robot_name == "rs007n":
                 art = self._articulation
+                self._gripper_type = "parallel"
                 eepp = "/World/roborg/khi_rs007n/gripper_center"
                 jpn = ["left_inner_finger_joint", "right_inner_finger_joint"]
                 jop = np.array([0.05, 0.05])
@@ -167,7 +174,9 @@ class PickAndPlaceScenario(ScenarioTemplate):
                 return pg
             elif self._robot_name == "ur10-suction-short":
                 art = self._articulation
-                eepp = "/World/roborg/ur10_suction_short/ee_link/gripper_base"
+                self._gripper_type = "suction"
+                eeppgb = "/World/roborg/ur10_suction_short/ee_link/gripper_base"
+                eepp = "/World/roborg/ur10_suction_short/ee_link"
                 jpn = ["left_inner_finger_joint", "right_inner_finger_joint"]
                 jop = np.array([0.05, 0.05])
                 jcp = np.array([0, 0])
@@ -177,19 +186,17 @@ class PickAndPlaceScenario(ScenarioTemplate):
                 sg = SurfaceGripper(
                     end_effector_prim_path=self._end_effector_prim_path, translate=0.1611, direction="x"
                 )
-                self._end_effector = RigidPrim(prim_path=self._end_effector_prim_path, name= "ur10" + "_end_effector")
-                self._end_effector.initialize(None)
+                # self._end_effector = RigidPrim(prim_path=eeppgb, name= "ur10" + "_end_effector")
+                # self._end_effector.initialize(None)
                 sg.initialize(
                     physics_sim_view=None,
                     articulation_num_dofs=len(art.dof_names)
                 )
                 return sg
 
-                #
-                #
-                #
             elif self._robot_name == "jaka-minicobo":
                 art = self._articulation
+                self._gripper_type = "suction"
                 eepp = "/World/roborg/minicobo_v1_4/dummy_tcp"
                 jpn = ["left_inner_finger_joint", "right_inner_finger_joint"]
                 jop = np.array([0.05, 0.05])
@@ -201,8 +208,9 @@ class PickAndPlaceScenario(ScenarioTemplate):
                 if assets_root_path is None:
                     carb.log_error("Could not find Isaac Sim assets folder")
                     return
-                gripper_usd = assets_root_path + "/Isaac/Robots/UR10/Props/short_gripper.usd"
-                add_reference_to_stage(usd_path=gripper_usd, prim_path=self._end_effector_prim_path)
+                # gripper_usd = assets_root_path + "/Isaac/Robots/UR10/Props/short_gripper.usd"
+                # add_reference_to_stage(usd_path=gripper_usd, prim_path=self._end_effector_prim_path)
+                # self._end_effector = RigidPrim(prim_path=eeppgb, name= "ur10" + "_end_effector")
                 sg = SurfaceGripper(
                     end_effector_prim_path=self._end_effector_prim_path, translate=0.1611, direction="z"
                 )
@@ -210,16 +218,6 @@ class PickAndPlaceScenario(ScenarioTemplate):
             else:
                 return None
 
-            # art.gripper = pg
-            #define the manipulator
-            # my_denso = self._world.scene.add(SingleManipulator(prim_path="/franka", name="robot",
-            #                                     end_effector_prim_name="panda_rightfinger", gripper=pg))
-            #set the default positions of the other gripper joints to be opened so
-            #that its out of the way of the joints we want to control when gripping an object for instance.
-            # joints_default_positions = np.zeros(12)
-            # joints_default_positions[7] = 0.628
-            # joints_default_positions[8] = 0.628
-            # my_denso.set_joints_default_state(positions=joints_default_positions)
             return None
 
 
@@ -238,34 +236,29 @@ class PickAndPlaceScenario(ScenarioTemplate):
                     gripper=gripper,
                     robot_articulation=self._articulation
                 )
-            print("gripper.joint_opened_positions",gripper.joint_opened_positions)
-            if self._show_collision_bounds:
+            if self._show_collsion_bounds:
                 self._rmpflow = self._controller._cspace_controller.rmp_flow
                 # self._rmpflow.reset()
                 self._rmpflow.visualize_collision_spheres()
 
+        if self._gripper_type=="parallel":
             gripper.set_joint_positions(gripper.joint_opened_positions)
+        elif self._gripper_type=="suction":
+            gripper.open()
         self._world.add_physics_callback("sim_step", callback_fn=self.physics_step)
+
 
     def reset_scenario(self):
         gripper = self.get_gripper()
-        if self._robot_name in ["fancy_franka", "franka", "rs007n"]:
-            self._controller = franka_PickPlaceController(
-                name="pick_place_controller",
-                gripper=gripper,
-                robot_articulation=self._articulation
-            )
-        elif self._robot_name in ["jaka-minicobo", "ur10-suction-short"]:
-            self._controller = ur10_PickPlaceController(
-                name="pick_place_controller",
-                gripper=gripper,
-                robot_articulation=self._articulation
-            )
-        if self._show_collision_bounds:
+
+        if self._show_collsion_bounds:
             if self._rmpflow is not None:
-                # self._rmpflow.reset()
+                self._rmpflow.reset()
                 self._rmpflow.visualize_collision_spheres()
-        gripper.set_joint_positions(gripper.joint_opened_positions)
+        if self._gripper_type=="parallel":
+            gripper.set_joint_positions(gripper.joint_opened_positions)
+        elif self._gripper_type=="suction":
+            gripper.open()
 
     def physics_step(self, step_size):
         cube_position, _ = self._fancy_cube.get_world_pose()
