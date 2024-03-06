@@ -46,7 +46,7 @@ class UIBuilder:
     dkcyan = uiclr("#004040")
     _scenario_names = ["sinusoid-joint", "pick-and-place", "rmpflow","object-inspection", "inverse-kinematics"]
     _scenario_name = "sinusoid-joint"
-    _robot_names = ["ur3e", "ur5e", "ur10e","ur10-suction-short", "jaka-minicobo","jaka-minicobo-1",  "rs007n", "franka", "fancy_franka", "jetbot","m0609"]
+    _robot_names = ["ur3e", "ur5e", "ur10e", "ur10e-gripper", "ur10-suction-short", "jaka-minicobo","jaka-minicobo-1",  "rs007n", "franka", "fancy_franka", "jetbot","m0609"]
     _robot_name = "jaka-minicobo"
     _ground_opts = ["none", "default", "groundplane", "groundplane-blue"]
     _ground_opt = "default"
@@ -58,9 +58,9 @@ class UIBuilder:
     _action = ""
     _colprims = None
     _visopts = ["Invisible", "Glass", "Red"]
-    _colvisopts = ["Invisible", "Glass", "Red"]
+    _colvisopts = ["Invisible", "Red", "Glass"]
     _collider_vis = "Invisible"
-    _eevisopts = ["Invisible", "Glass", "Blue"]
+    _eevisopts = ["Invisible", "Blue", "Glass"]
     _eetarg_vis = "Invisible"
 
     def __init__(self):
@@ -465,11 +465,14 @@ class UIBuilder:
         provided prim in a circle around the robot.
         """
         print("ui_builder._setup_post_load")
-        self._reset_scenario()
+        # self._reset_scenario() # we can't reset before post_load .... not sure what the intent was
         self._colprims = None
 
 
         self._cur_scenario.post_load_scenario()
+
+        self._cur_scenario.reset_scenario() # should always be able to do a reset after post_load
+
         self.realize_collider_vis()
         self.realize_eetarg_vis()
 
