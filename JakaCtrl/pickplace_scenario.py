@@ -20,6 +20,7 @@ from .senut import ScenarioTemplate
 from omni.isaac.manipulators.grippers.surface_gripper import SurfaceGripper
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.core.prims.rigid_prim import RigidPrim
+from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelper
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
@@ -35,9 +36,24 @@ class PickAndPlaceScenario(ScenarioTemplate):
     _rmpflow = None
     _show_collision_bounds = True
     _gripper_type = "none"
+    _controller = None
 
     def __init__(self):
         pass
+
+    def set_robot_pose(self, robot_name, pos, xang, yang, zang):
+        stage = get_current_stage()
+        roborg = UsdGeom.Xform.Define(stage, "/World/roborg")
+        gfpos = Gf.Vec3d(pos)
+        roborg.AddTranslateOp().Set(gfpos)
+        roborg.AddRotateXOp().Set(xang)
+        roborg.AddRotateYOp().Set(yang)
+        roborg.AddRotateZOp().Set(zang)
+        lulaprim = UsdGeom.Xform.Define(stage, "/lula")
+        lulaprim.AddTranslateOp().Set(gfpos)
+        lulaprim.AddRotateXOp().Set(xang)
+        lulaprim.AddRotateYOp().Set(yang)
+        lulaprim.AddRotateZOp().Set(zang)
 
     def load_scenario(self, robot_name, ground_opt):
         self.get_robot_config(robot_name, ground_opt)
@@ -51,24 +67,17 @@ class PickAndPlaceScenario(ScenarioTemplate):
         need_to_add_articulation = False
         self._robot_name = robot_name
         self._ground_opt = ground_opt
-        (ok, robot_prim_path, artpath, path_to_robot_usd, mopo_robot_name) = get_robot_params(self._robot_name)
-        # if not ok:
-        #     carb.log_error(f"Unknown robot name {self._robot_name}")
-        #     print(f"Unknown robot name {self._robot_name}")
-        #     return
+
+
 
         if self._cfg_path_to_robot_usd is not None:
-            if self._robot_name == "franka":
-                # make roborg into an xform and give it a position and rotation
-                stage = get_current_stage()
-                pos = Gf.Vec3d([0, 0, 1.1])
-                ang = 180
-                roborg = UsdGeom.Xform.Define(stage, "/World/roborg")
-                roborg.AddTranslateOp().Set(pos)
-                roborg.AddRotateXOp().Set(ang)
-                lula = UsdGeom.Xform.Define(stage, "/lula")
-                lula.AddTranslateOp().Set(pos)
-                lula.AddRotateXOp().Set(ang)
+            if self._robot_name == "ur10e-suction":
+                self._start_robot_pose = [0, 0, 1.1]
+                self._start_robot_rot = [0, 0, 0]
+            else:
+                self._start_robot_pose = [0, 0, 1.1]
+                self._start_robot_rot = [180, 0, 0]
+
             add_reference_to_stage(self._cfg_path_to_robot_usd, self._cfg_robot_prim_path)
 
         if need_to_add_articulation:
@@ -83,9 +92,10 @@ class PickAndPlaceScenario(ScenarioTemplate):
 
 
         # mode specific initialization
-        target_pos = np.array([0.3, 0.3, 0.15])
-        target_pos = np.array([1.136, 0.5, 0.15])
-        target_pos = np.array([1.16, 0.5, 0.15])
+        if self._robot_name == "ur10-suction-short":
+            target_pos = np.array([1.16, 0.5, 0.15])
+        else:
+            target_pos = np.array([0.3, 0.3, 0.15])
         self._cuboid = DynamicCuboid(
             "/Scenario/cuboid", position=target_pos, size=0.05, color=np.array([128, 0, 128])
         )
@@ -114,6 +124,53 @@ class PickAndPlaceScenario(ScenarioTemplate):
         self._mopo_robot_name = self._cfg_mopo_robot_name
         print("load_scenario done - self._object", self._object)
 
+
+
+    def post_load_scenario(self):
+
+        # self.lulaHelper = LulaInterfaceHelper(self._kinematics_solver._robot_description)
+
+        self.register_articulation(self._articulation) # this has to happen in post_load_scenario
+
+        gripper = self.get_gripper()
+        if gripper is not None:
+            if self._robot_name in ["fancy_franka", "franka", "rs007n"]:
+                self._gripper_type = "parallel"
+                self._controller = franka_PickPlaceController(
+                    name="pick_place_controller",
+                    gripper=gripper,
+                    robot_articulation=self._articulation
+                )
+            elif self._robot_name in ["jaka-minicobo", "ur10-suction-short"]:
+                self._gripper_type = "suction"
+                self._controller = ur10_PickPlaceController(
+                    name="pick_place_controller",
+                    gripper=gripper,
+                    robot_articulation=self._articulation
+                )
+            if self._show_collision_bounds:
+                if self._rmpflow is not None:
+                    self._rmpflow = self._controller._cspace_controller.rmp_flow
+                    # self._rmpflow.reset()
+                    self._rmpflow.visualize_collision_spheres()
+
+
+
+    def reset_scenario(self):
+        gripper = self.get_gripper()
+
+        if self._controller is not None:
+            self._controller.reset()
+
+        if self._show_collision_bounds:
+            if self._rmpflow is not None:
+                self._rmpflow.reset()
+                self._rmpflow.visualize_collision_spheres()
+
+        if gripper is not None:
+            if gripper.is_closed():
+                gripper.open()
+
     def get_gripper(self):
         art = self._articulation
         if not hasattr(art, "_policy_robot_name"):
@@ -126,11 +183,6 @@ class PickAndPlaceScenario(ScenarioTemplate):
             self._gripper_type = "parallel"
             art._policy_robot_name = self._mopo_robot_name
             if self._robot_name in ["franka","fancy_franka"]:
-                # eepp = "/World/cobotta/onrobot_rg6_base_link"
-                # jpn = ["finger_joint", "right_outer_knuckle_joint"]
-                # jop = np.array([0, 0])
-                # jcp = np.array([0.628, -0.628])
-                # ad = np.array([-0.628, 0.628])
                 eepp = "/World/roborg/franka/panda_rightfinger"
                 jpn = ["panda_finger_joint1", "panda_finger_joint2"]
                 jop = np.array([0.05, 0.05])
@@ -225,68 +277,25 @@ class PickAndPlaceScenario(ScenarioTemplate):
             else:
                 return None
 
-            return None
 
-
-    def post_load_scenario(self):
-        gripper = self.get_gripper()
-        if gripper is not None:
-            if self._robot_name in ["fancy_franka", "franka", "rs007n"]:
-                self._gripper_type = "parallel"
-                self._controller = franka_PickPlaceController(
-                    name="pick_place_controller",
-                    gripper=gripper,
-                    robot_articulation=self._articulation
-                )
-            elif self._robot_name in ["jaka-minicobo", "ur10-suction-short"]:
-                self._gripper_type = "suction"
-                self._controller = ur10_PickPlaceController(
-                    name="pick_place_controller",
-                    gripper=gripper,
-                    robot_articulation=self._articulation
-                )
-            if self._show_collision_bounds:
-                self._rmpflow = self._controller._cspace_controller.rmp_flow
-                # self._rmpflow.reset()
-                self._rmpflow.visualize_collision_spheres()
-
-        if self._gripper_type=="parallel":
-            if gripper is not None:
-                gripper.set_joint_positions(gripper.joint_opened_positions)
-        elif self._gripper_type=="suction":
-            if gripper is not None:
-                gripper.open()
-        self._world.add_physics_callback("sim_step", callback_fn=self.physics_step)
-
-
-    def reset_scenario(self):
-        gripper = self.get_gripper()
-
-        if self._show_collision_bounds:
-            if self._rmpflow is not None:
-                self._rmpflow.reset()
-                self._rmpflow.visualize_collision_spheres()
-        if self._gripper_type=="parallel":
-            if gripper is not None:
-                gripper.set_joint_positions(gripper.joint_opened_positions)
-        elif self._gripper_type=="suction":
-            if gripper is not None:
-                gripper.open()
 
     def physics_step(self, step_size):
         cube_position, _ = self._fancy_cube.get_world_pose()
         goal_position = np.array([-0.3, -0.3, 0.0515 / 2.0])
         current_joint_positions = self._articulation.get_joint_positions()
-        actions = self._controller.forward(
-            picking_position=cube_position,
-            placing_position=goal_position,
-            current_joint_positions=current_joint_positions,
-        )
-        self._articulation.apply_action(actions)
+        if self._controller is not None:
+            actions = self._controller.forward(
+                picking_position=cube_position,
+                placing_position=goal_position,
+                current_joint_positions=current_joint_positions,
+            )
+            if self._articulation is not None:
+                    self._articulation.apply_action(actions)
         # Only for the pick and place controller, indicating if the state
         # machine reached the final state.
-        if self._controller.is_done():
-            self._world.pause()
+        if self._controller is not None:
+            if self._controller.is_done():
+                self._world.pause()
         return
 
     def setup_scenario(self):
@@ -298,3 +307,4 @@ class PickAndPlaceScenario(ScenarioTemplate):
     def update_scenario(self, step: float):
         if not self._running_scenario:
             return
+        self.physics_step(step)

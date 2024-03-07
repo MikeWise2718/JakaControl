@@ -1,5 +1,6 @@
 import math
 import os
+import numpy as np
 
 from pxr import Sdf, UsdLux, UsdPhysics, Usd
 
@@ -331,6 +332,19 @@ class ScenarioTemplate:
         self._cfg_rmp_config_path = rmp_config_path
         self._cfg_eeframe_name = eeframe_name
         self._cfg_max_step_size = max_step_size
+
+    def register_articulation(self, articulation):
+        # this has to happen in post_load_scenario - some initialization must be happening before this
+        # probably as a result of articuation being added to the world.scene
+        self._articulation = articulation
+        self._cfg_lower_joint_limits = self._articulation.dof_properties["lower"]
+        self._cfg_upper_joint_limits = self._articulation.dof_properties["upper"]
+        self._cfg_joint_names = self._articulation.dof_names
+        self._cfg_njoints = len(self._cfg_joint_names)
+        self._cfg_joint_zero_pos = np.zeros(self._cfg_njoints)
+        print(f"{self._cfg_robot_name} - njoints:{self._cfg_njoints} lower:{self._cfg_lower_joint_limits} upper:{self._cfg_upper_joint_limits}")
+        print(f"{self._cfg_robot_name} - {self._cfg_joint_names}")
+
 
     def setup_scenario(self):
         pass
