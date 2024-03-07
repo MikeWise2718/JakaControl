@@ -1,7 +1,5 @@
-import math
 import time
 import numpy as np
-import os
 import carb
 
 from omni.isaac.core.utils.nucleus import get_assets_root_path
@@ -15,16 +13,12 @@ from omni.isaac.core.objects import GroundPlane
 from omni.isaac.core.prims import XFormPrim
 from omni.isaac.core.world import World
 
-from pxr import UsdPhysics, Usd, UsdGeom, Gf
-
-from omni.isaac.core.utils.extensions import get_extension_path_from_name
 
 from omni.isaac.core.utils.numpy.rotations import euler_angles_to_quats, rot_matrices_to_quats
 
-from omni.isaac.motion_generation import RmpFlow, ArticulationMotionPolicy
 
-from .senut import add_light_to_stage, get_robot_params, get_robot_rmp_params
-from .senut import adjust_joint_value, adjust_joint_values, set_stiffness_for_joints, set_damping_for_joints
+from .senut import add_light_to_stage
+from .senut import adjust_joint_values, set_stiffness_for_joints, set_damping_for_joints
 from .senut import ScenarioTemplate
 
 from omni.isaac.motion_generation import ArticulationKinematicsSolver, LulaKinematicsSolver
@@ -91,45 +85,21 @@ class InvkinScenario(ScenarioTemplate):
         if self._articulation is not None:
             world.scene.add(self._articulation)
 
-
-
-
         add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", "/World/target")
         self._target = XFormPrim("/World/target", scale=[.04,.04,.04])
         self._object =  self._target
 
         self._world = world
 
-    def setup_scenario(self):
-        print("InvKin setup_scenario")
+    def post_load_scenario(self):
+        print("InvKin post_load_scenario")
 
-        self.phystep = 0
-        self.ikerrs = 0
-        self.tot_damping_factor = 1.0
-        self.tot_stiffness_factor = 1.0
-
-        self._initial_object_position = self._object.get_world_pose()[0]
-        self._initial_object_phase = np.arctan2(self._initial_object_position[1], self._initial_object_position[0])
-        self._object_radius = np.linalg.norm(self._initial_object_position[:2])
-
-        self._running_scenario = True
-
-        self._joint_index = 0
-        self._lower_joint_limits = self._articulation.dof_properties["lower"]
-        self._upper_joint_limits = self._articulation.dof_properties["upper"]
-        self._zeros = np.zeros(len(self._lower_joint_limits))
-        self._njoints = len(self._lower_joint_limits)
-        print(f"jaka - njoints:{self._njoints} lower:{self._lower_joint_limits} upper:{self._upper_joint_limits}")
+        self.register_articulation(self._articulation) # this has to happen in post_load_scenario
 
         # teleport robot to zeros
-        self._articulation.set_joint_positions(self._zeros)
-
+        self._articulation.set_joint_positions(self._cfg_joint_zero_pos)
 
         # RMPflow config files for supported robots are stored in the motion_generation extension under "/motion_policy_configs"
-        mg_extension_path = get_extension_path_from_name("omni.isaac.motion_generation")
-        rmp_config_dir = os.path.join(mg_extension_path, "motion_policy_configs")
-        print("rmp_config_dir",rmp_config_dir)
-
 
         self._kinematics_solver = LulaKinematicsSolver(
             robot_description_path = self._cfg_rdf_path,
@@ -155,22 +125,13 @@ class InvkinScenario(ScenarioTemplate):
 
         self._articulation.apply_action(ArticulationAction(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 1.0])))
 
-        # if self._show_collision_bounds:
-        #     self._rmpflow.set_ignore_state_updates(True)
-        #     self._rmpflow.visualize_collision_spheres()
-        #     self._rmpflow.visualize_end_effector_position()
-
-
-
-
-
-    def post_load_scenario(self):
-
-        self._world.add_physics_callback("sim_step", callback_fn=self.physics_step)
-        pass
-
     def reset_scenario(self):
         # self._target.set_world_pose(np.array([0.2,0.2,0.6]),euler_angles_to_quats([0,np.pi,0]))
+        self._articulation.set_joint_positions(self._cfg_joint_zero_pos)
+        ee_position,ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
+        self._ee_pos = ee_position
+        self._ee_rot = ee_rot_mat
+
         self._target.set_world_pose(self._ee_pos, rot_matrices_to_quats(self._ee_rot))
         # if self._show_collision_bounds:
         #     self._rmpflow.reset()
@@ -222,6 +183,8 @@ class InvkinScenario(ScenarioTemplate):
     def update_scenario(self, step: float):
         if not self._running_scenario:
             return
+        self.physics_step(step)
+
 
     def set_stiffness_for_all_joints(self, stiffness):
         joint_names = self.lulaHelper.get_active_joints()

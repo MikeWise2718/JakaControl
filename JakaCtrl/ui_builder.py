@@ -577,6 +577,7 @@ class UIBuilder:
         the timeline is paused, which means that no physics steps will occur until the user makes it play either programmatically or
         through the left-hand UI toolbar.
         """
+        self._cur_scenario._running_scenario = True
         self._timeline.play()
 
     def _on_run_scenario_b_text(self):
@@ -592,6 +593,7 @@ class UIBuilder:
         forward by momentum for a few frames after the physics subscription is canceled.  Pausing here makes
         this example prettier, but if curious, the user should observe what happens when this line is removed.
         """
+        self._cur_scenario._running_scenario = False
         self._timeline.pause()
 
     def _reset_extension(self):

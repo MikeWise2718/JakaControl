@@ -54,8 +54,8 @@ class SinusoidJointScenario(ScenarioTemplate):
 
         self._joint_index = 0
         self._max_joint_speed = 4  # rad/sec
-        self._lower_joint_limits = None
-        self._upper_joint_limits = None
+        # self._lower_joint_limits = None
+        # self._upper_joint_limits = None
 
         self._joint_time = 0
         self._path_duration = 0
@@ -74,16 +74,10 @@ class SinusoidJointScenario(ScenarioTemplate):
         self._ground_opt = ground_opt
 
         # Setup Robot ARm
-        (ok, robot_prim_path, artpath, path_to_robot_usd) = get_robot_params(self._robot_name)
-        if not ok:
-            print(f"Unknown robot name {self._robot_name}")
-            return
-
-        if path_to_robot_usd is not None:
-            add_reference_to_stage(path_to_robot_usd, robot_prim_path)
+        add_reference_to_stage(self._cfg_path_to_robot_usd, self._cfg_robot_prim_path)
 
         if need_to_add_articulation:
-            prim = get_current_stage().GetPrimAtPath(artpath)
+            prim = get_current_stage().GetPrimAtPath(self._cfg_artpath)
             UsdPhysics.ArticulationRootAPI.Apply(prim)
 
         if self._robot_name == "fancy_franka":
@@ -91,7 +85,7 @@ class SinusoidJointScenario(ScenarioTemplate):
             self._fancy_robot = Franka(prim_path="/World/Fancy_Franka", name="fancy_franka")
             self._articulation = self._fancy_robot
         else:
-            self._articulation = Articulation(artpath)
+            self._articulation = Articulation(self._cfg_artpath)
 
 
         # mode specific initialization
@@ -123,7 +117,7 @@ class SinusoidJointScenario(ScenarioTemplate):
 
 
 
-    def setup_scenario(self):
+    def post_load_scenario(self):
         # self._articulation = articulation
         # self._object = object_prim
 
@@ -137,16 +131,19 @@ class SinusoidJointScenario(ScenarioTemplate):
         self._running_scenario = True
 
         self._joint_index = 0
-        self._lower_joint_limits = self._articulation.dof_properties["lower"]
-        self._upper_joint_limits = self._articulation.dof_properties["upper"]
-        self._zeros = np.zeros(len(self._lower_joint_limits))
-        self._njoints = len(self._lower_joint_limits)
-        print(f"jaka - njoints:{self._njoints} lower:{self._lower_joint_limits} upper:{self._upper_joint_limits}")
+
+        self.register_articulation(self._articulation) # this has to happen in post_load_scenario
+
+        # self._lower_joint_limits = self._articulation.dof_properties["lower"]
+        # self._upper_joint_limits = self._articulation.dof_properties["upper"]
+        # self._zeros = np.zeros(len(self._lower_joint_limits))
+        # self._njoints = len(self._lower_joint_limits)
+        # print(f"jaka - njoints:{self._njoints} lower:{self._lower_joint_limits} upper:{self._upper_joint_limits}")
 
         # teleport robot to lower joint range
-        epsilon = 0.001
+        # epsilon = 0.001
         # articulation.set_joint_positions(self._lower_joint_limits + epsilon)
-        self._articulation.set_joint_positions(self._zeros + epsilon)
+        self._articulation.set_joint_positions(self._cfg_joint_zero_pos)
 
         self._derive_sinusoid_params(0)
 
@@ -157,8 +154,8 @@ class SinusoidJointScenario(ScenarioTemplate):
         self._running_scenario = False
 
         self._joint_index = 0
-        self._lower_joint_limits = None
-        self._upper_joint_limits = None
+        # self._lower_joint_limits = None
+        # self._upper_joint_limits = None
 
         self._joint_time = 0
         self._path_duration = 0
@@ -181,15 +178,15 @@ class SinusoidJointScenario(ScenarioTemplate):
 
     def _derive_sinusoid_params(self, joint_index: int):
         # Derive the parameters of the joint target sinusoids for joint {joint_index}
-        start_position = self._lower_joint_limits[joint_index]
+        start_position = self._cfg_lower_joint_limits[joint_index]
         start_position = 0
-        llim = self._lower_joint_limits[joint_index]
-        ulim = self._upper_joint_limits[joint_index]
+        llim = self._cfg_lower_joint_limits[joint_index]
+        ulim = self._cfg_upper_joint_limits[joint_index]
         mjs = self._max_joint_speed
 
         print(f"jaka - jidx:{joint_index} start_position:{start_position:.3f} llim:{llim:.3f} ulim:{ulim:.3f}")
 
-        P_max = self._upper_joint_limits[joint_index] - start_position
+        P_max = self._cfg_upper_joint_limits[joint_index] - start_position
         V_max = self._max_joint_speed
         T = P_max * np.pi / V_max
         print(f"jaka - P_max:{P_max:.3f} V_max:{V_max:.3f} path_duration (T):{T:.3f}")
@@ -208,8 +205,8 @@ class SinusoidJointScenario(ScenarioTemplate):
 
 
     def _calculate_position_new(self, time, path_duration):
-        start_position = self._lower_joint_limits[self._joint_index]
-        P_max = self._upper_joint_limits[self._joint_index] - start_position
+        start_position = self._cfg_lower_joint_limits[self._joint_index]
+        P_max = self._cfg_upper_joint_limits[self._joint_index] - start_position
         t1 = start_position
         t2 = -P_max / 2 * np.cos(time * 2 * np.pi / path_duration)
         t3 = P_max / 2
