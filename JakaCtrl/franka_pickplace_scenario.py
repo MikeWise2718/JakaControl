@@ -292,3 +292,8 @@ class FrankaPickAndPlaceScenario(ScenarioTemplate):
     def update_scenario(self, step: float):
         if not self._running_scenario:
             return
+
+    def can_handle_robot(self, robot_name):
+        if robot_name in ["fancy_franka", "franka"]:
+            return True
+        return False
