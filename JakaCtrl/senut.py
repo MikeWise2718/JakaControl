@@ -298,6 +298,14 @@ def get_robot_rmp_params(robot_name):
             max_step_size = 0.00334
     return (ok, rdf_path, urdf_path, rmp_config_path, eeframe_name, max_step_size)
 
+def can_handle_robot(scenario_name, robot_name):
+    rv = True
+    if scenario_name == "franka-pick-and-place":
+        rv = robot_name in ["franka", "fancy_franka"]
+    elif scenario_name == "pick-and-place":
+        rv = robot_name in ["franka", "fancy_franka","rs007n", "ur10-suction-short"]
+    return rv
+
 class ScenarioTemplate:
     def __init__(self):
         pass
@@ -345,6 +353,8 @@ class ScenarioTemplate:
         print(f"{self._cfg_robot_name} - njoints:{self._cfg_njoints} lower:{self._cfg_lower_joint_limits} upper:{self._cfg_upper_joint_limits}")
         print(f"{self._cfg_robot_name} - {self._cfg_joint_names}")
 
+    def can_handle_robot(self, robot_name):
+        return True
 
     def setup_scenario(self):
         pass

@@ -29,7 +29,7 @@ from .franka_pickplace_scenario import FrankaPickAndPlaceScenario
 from .sinusoid_scenario import SinusoidJointScenario
 from .object_inspection_scenario import ObjectInspectionScenario
 
-from .senut import get_setting, save_setting, find_prim_by_name, find_prims_by_name
+from .senut import get_setting, save_setting, find_prim_by_name, find_prims_by_name, can_handle_robot
 
 
 class UIBuilder:
@@ -385,13 +385,33 @@ class UIBuilder:
         self._mode = self.get_next_val_safe(self._modes, self._mode)
         self._mode_btn.text = self._mode
 
+
+    def find_valid_robot_name(self, scenario_name, robot_name, binc=1):
+        cur_robot = robot_name
+        iter = 0
+        maxiters = len(self._robot_names)
+        # iterate until we find a robot that the current scenario can handle
+        while True:
+            robot_name = self.get_next_val_safe(self._robot_names, robot_name, binc)
+            if can_handle_robot(scenario_name, robot_name):
+                break
+            iter += 1
+            if iter > maxiters:
+                return ""
+        return robot_name
+
     def _change_robot_name(self, x, y, b, m):
-        self._robot_name = self.get_next_val_safe(self._robot_names, self._robot_name, self.binc[b])
-        self._robot_btn.text = self._robot_name
+        nx_robot_name = self.find_valid_robot_name(self._scenario_name, self._robot_name, self.binc[b])
+        if nx_robot_name != "":
+            self._robot_name = nx_robot_name
+            self._robot_btn.text = self._robot_name
 
     def _change_scenario_name(self, x, y, b, m):
         self._scenario_name = self.get_next_val_safe(self._scenario_names, self._scenario_name, self.binc[b])
         self._scenario_name_btn.text = self._scenario_name
+        if not can_handle_robot(self._scenario_name, self._robot_name):
+            self._robot_name = self.find_valid_robot_name(self._scenario_name, self._robot_name, 1)
+            self._robot_btn.text = self._robot_name
 
     def _change_collider_vis(self, x, y, b, m):
         self._collider_vis = self.get_next_val_safe(self._colvisopts, self._collider_vis, self.binc[b])
