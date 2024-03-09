@@ -1,4 +1,8 @@
 import numpy as np
+import carb
+
+from pxr import UsdPhysics, Usd, UsdGeom, Gf
+
 
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.core.utils.stage import add_reference_to_stage
@@ -69,6 +73,20 @@ class RMPflowScenario(ScenarioTemplate):
         elif self._ground_opt == "groundplane-blue":
             ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]))
             world.scene.add(ground)
+
+
+        self._start_robot_pos = Gf.Vec3d([0, 0, 0])
+        self._start_robot_rot = [0, 0, 0]
+        if self._robot_name == "ur10-suction-short":
+            self._start_robot_pos = Gf.Vec3d([0, 0, 0.4])
+            self._start_robot_rot = [180, 0, 0]
+
+        stage = get_current_stage()
+        roborg = UsdGeom.Xform.Define(stage, "/World/roborg")
+        roborg.AddTranslateOp().Set(self._start_robot_pos)
+        # roborg.AddRotateXOp().Set(self._start_robot_rot[0])
+
+
 
         # Setup Robot ARm
         add_reference_to_stage(self._cfg_path_to_robot_usd, self._cfg_robot_prim_path)
@@ -146,6 +164,10 @@ class RMPflowScenario(ScenarioTemplate):
         set_damping_for_joints(joint_names, damping)
 
     def physics_step(self, step_size):
+        robot_base_translation,robot_base_orientation = self._articulation.get_world_pose()
+        self._rmpflow.set_robot_base_pose(robot_base_translation,robot_base_orientation)
+
+
         target_position, target_orientation = self._target.get_world_pose()
 
         self._rmpflow.update_world()

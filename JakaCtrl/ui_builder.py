@@ -318,6 +318,7 @@ class UIBuilder:
 
         self._load_one_param("jc_extension_path", yt)
         self._load_one_param("urdf_path", yt)
+        self._load_one_param("path_to_robot_usd", yt)
 
     def pick_scenario(self, scenario_name):
         if scenario_name == "sinusoid-joint":

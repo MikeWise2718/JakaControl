@@ -1,6 +1,10 @@
 import math
 import os
 import numpy as np
+import lula
+from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelper
+
+
 
 from pxr import Sdf, UsdLux, UsdPhysics, Usd
 
@@ -303,7 +307,7 @@ def can_handle_robot(scenario_name, robot_name):
     if scenario_name == "franka-pick-and-place":
         rv = robot_name in ["franka", "fancy_franka"]
     elif scenario_name == "pick-and-place":
-        rv = robot_name in ["franka", "fancy_franka","rs007n", "ur10-suction-short"]
+        rv = robot_name in ["franka", "fancy_franka","rs007n", "ur10-suction-short", "jaka-minicobo", "jaka-minicobo-1"]
     return rv
 
 class ScenarioTemplate:
@@ -311,6 +315,7 @@ class ScenarioTemplate:
         pass
 
     def get_robot_config(self, robot_name, ground_opt):
+        print(f"senut.get_robot_config robot_name:{robot_name} ground_opt:{ground_opt} ")
         self._cfg_robot_name = robot_name
         self._cfg_ground_opt = ground_opt
         (ok, robot_prim_path, artpath, path_to_robot_usd, mopo_robot_name) = get_robot_params(robot_name)
@@ -340,6 +345,9 @@ class ScenarioTemplate:
         self._cfg_rmp_config_path = rmp_config_path
         self._cfg_eeframe_name = eeframe_name
         self._cfg_max_step_size = max_step_size
+
+        self._cfg_robot_description = lula.load_robot(self._cfg_rdf_path, self._cfg_urdf_path)
+        self._cfg_lulaHelper = LulaInterfaceHelper(self._cfg_robot_description)
 
     def register_articulation(self, articulation):
         # this has to happen in post_load_scenario - some initialization must be happening before this
