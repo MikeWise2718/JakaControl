@@ -12,6 +12,8 @@ from omni.isaac.core.objects import GroundPlane
 from omni.isaac.manipulators.grippers import ParallelGripper
 from .franka.controllers import PickPlaceController as franka_PickPlaceController
 from .universal_robots.omni.isaac.universal_robots.controllers import PickPlaceController as ur10_PickPlaceController
+from robs.jaka.controllers.pick_place_controller import PickPlaceController as jaka_PickPlaceController
+
 
 from omni.isaac.core.world import World
 
@@ -104,7 +106,7 @@ class PickAndPlaceScenario(ScenarioTemplate):
             # target_pos = np.array([1.16, 0.5, 0.15])
             target_pos = np.array([1.00, 0.5, 0.15])
         else:
-            target_pos = np.array([0.3, 0.3, 0.15])
+            target_pos = np.array([0.25, 0.25, 0.15])
         self._cuboid = DynamicCuboid(
             "/Scenario/cuboid", position=target_pos, size=0.05, color=np.array([128, 0, 128])
         )
@@ -150,12 +152,38 @@ class PickAndPlaceScenario(ScenarioTemplate):
                     gripper=gripper,
                     robot_articulation=self._articulation
                 )
-            elif self._robot_name in ["jaka-minicobo","jaka-minicobo-1", "ur10-suction-short"]:
+            elif self._robot_name in ["ur10-suction-short"]:
                 self._gripper_type = "suction"
                 self._controller = ur10_PickPlaceController(
                     name="pick_place_controller",
                     gripper=gripper,
                     robot_articulation=self._articulation
+                )
+            elif self._robot_name in ["jaka-minicobo-0","jaka-minicobo-1","jaka-minicobo-2"]:
+                self._gripper_type = "parallel"
+                rmpconfig_o = {
+                    "end_effector_frame_name": self._cfg_eeframe_name,
+                    "maximum_substep_size": self._cfg_max_step_size,
+                    "ignore_robot_state_updates": False,
+                    "relative_asset_paths":{
+                        "urdf_path": self._cfg_urdf_path,
+                        "rmpflow_config_path": self._cfg_rmp_config_path,
+                        "robot_description_path": self._cfg_robot_description
+                    }
+                }
+                rmpconfig = {
+                    "end_effector_frame_name": self._cfg_eeframe_name,
+                    "maximum_substep_size": self._cfg_max_step_size,
+                    "ignore_robot_state_updates": False,
+                    "urdf_path": self._cfg_urdf_path,
+                    "rmpflow_config_path": self._cfg_rmp_config_path,
+                    "robot_description_path": self._cfg_rdf_path
+                }
+                self._controller = jaka_PickPlaceController(
+                    name="pick_place_controller",
+                    gripper=gripper,
+                    robot_articulation=self._articulation,
+                    rmpconfig=rmpconfig
                 )
             if self._show_collision_bounds:
                 self._rmpflow = self._controller._cspace_controller.rmp_flow
@@ -220,10 +248,13 @@ class PickAndPlaceScenario(ScenarioTemplate):
                     dof_names=art.dof_names,
                 )
                 return pg
-            elif self._robot_name == "rs007n":
+            elif self._robot_name in ["rs007n","jaka-minicobo-2"]:
                 art = self._articulation
                 self._gripper_type = "parallel"
-                eepp = "/World/roborg/khi_rs007n/gripper_center"
+                if self._robot_name == "rs007n":
+                    eepp = "/World/roborg/khi_rs007n/gripper_center"
+                else:
+                    eepp = "/World/roborg/minicobo_parallel_onrobot_rg2/minicobo_onrobot_rg2/gripper_center"
                 jpn = ["left_inner_finger_joint", "right_inner_finger_joint"]
                 jop = np.array([0.05, 0.05])
                 jcp = np.array([0, 0])
@@ -236,6 +267,7 @@ class PickAndPlaceScenario(ScenarioTemplate):
                     joint_closed_positions=jcp,
                     action_deltas=ad
                 )
+                print(f"art dof names: {art.dof_names}")
                 pg.initialize(
                     physics_sim_view=None,
                     articulation_apply_action_func=art.apply_action,
