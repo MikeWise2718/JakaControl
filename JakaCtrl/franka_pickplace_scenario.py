@@ -72,13 +72,16 @@ class FrankaPickAndPlaceScenario(ScenarioTemplate):
         self._ground_opt = ground_opt
         # (ok, robot_prim_path, artpath, path_to_robot_usd, mopo_robot_name) = get_robot_params(self._robot_name)
 
-        if self._robot_name in ["franka", "fancy_franka"]:
-            stage = get_current_stage()
+        if self._robot_name in ["fancy_franka"]:
             self._rob_base_pos = Gf.Vec3d([0, 0, 1.1])
             self._rob_base_xang = 180
-            roborg = UsdGeom.Xform.Define(stage, "/World/roborg")
-            roborg.AddTranslateOp().Set(self._rob_base_pos)
-            roborg.AddRotateXOp().Set(self._rob_base_xang)
+        else:
+            self._rob_base_pos = Gf.Vec3d([0, 0, 0])
+            self._rob_base_xang = 0
+        stage = get_current_stage()
+        roborg = UsdGeom.Xform.Define(stage, "/World/roborg")
+        roborg.AddTranslateOp().Set(self._rob_base_pos)
+        roborg.AddRotateXOp().Set(self._rob_base_xang)
             # lula = UsdGeom.Xform.Define(stage, "/lula")
             # lula.AddTranslateOp().Set(pos)
             # lula.AddRotateXOp().Set(ang)
@@ -303,7 +306,7 @@ class FrankaPickAndPlaceScenario(ScenarioTemplate):
         if self.nsteps==0:
             robot_base_translation,robot_base_orientation = self._articulation.get_world_pose()
             self._rmpflow.set_robot_base_pose(robot_base_translation,robot_base_orientation)
-            self._rmpflow.delete_collision_sphere_prims()
+            # self._rmpflow.delete_collision_sphere_prims()
         # self._rmpflow._create_collision_sphere_prims(True)
 
 

@@ -1,6 +1,6 @@
 import numpy as np
 
-from pxr import UsdPhysics, Usd, UsdGeom, Gf
+from pxr import UsdPhysics, Usd, UsdGeom, Gf, Sdf
 
 import carb
 
@@ -25,6 +25,9 @@ from omni.isaac.core.prims.rigid_prim import RigidPrim
 from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelper
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
 
+from omni.isaac.core.utils.prims import delete_prim, is_prim_path_valid
+from omni.isaac.core.utils.string import find_unique_string_name
+from omni.isaac.core import objects
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
@@ -45,19 +48,19 @@ class PickAndPlaceScenario(ScenarioTemplate):
     def __init__(self):
         pass
 
-    def set_robot_pose(self, robot_name, pos, xang, yang, zang):
-        stage = get_current_stage()
-        roborg = UsdGeom.Xform.Define(stage, "/World/roborg")
-        gfpos = Gf.Vec3d(pos)
-        roborg.AddTranslateOp().Set(gfpos)
-        roborg.AddRotateXOp().Set(xang)
-        roborg.AddRotateYOp().Set(yang)
-        roborg.AddRotateZOp().Set(zang)
-        lulaprim = UsdGeom.Xform.Define(stage, "/lula")
-        lulaprim.AddTranslateOp().Set(gfpos)
-        lulaprim.AddRotateXOp().Set(xang)
-        lulaprim.AddRotateYOp().Set(yang)
-        lulaprim.AddRotateZOp().Set(zang)
+    # def set_robot_pose(self, robot_name, pos, xang, yang, zang):
+    #     stage = get_current_stage()
+    #     roborg = UsdGeom.Xform.Define(stage, "/World/roborg")
+    #     gfpos = Gf.Vec3d(pos)
+    #     roborg.AddTranslateOp().Set(gfpos)
+    #     roborg.AddRotateXOp().Set(xang)
+    #     roborg.AddRotateYOp().Set(yang)
+    #     roborg.AddRotateZOp().Set(zang)
+    #     lulaprim = UsdGeom.Xform.Define(stage, "/lula")
+    #     lulaprim.AddTranslateOp().Set(gfpos)
+    #     lulaprim.AddRotateXOp().Set(xang)
+    #     lulaprim.AddRotateYOp().Set(yang)
+    #     lulaprim.AddRotateZOp().Set(zang)
 
     def load_scenario(self, robot_name, ground_opt):
         self.get_robot_config(robot_name, ground_opt)
@@ -78,7 +81,10 @@ class PickAndPlaceScenario(ScenarioTemplate):
         self._start_robot_rot = [0, 0, 0]
         if self._robot_name == "ur10-suction-short":
             self._start_robot_pos = Gf.Vec3d([0, 0, 0.4])
-            self._start_robot_rot = [180, 0, 0]
+            self._start_robot_rot = [0, 0, 0]
+        elif self._robot_name == "jaka-minicobo-3":
+            self._start_robot_pos = Gf.Vec3d([0, 0, 0.85])
+            self._start_robot_rot = [0, 130, 0]
 
 
         quat = euler_angles_to_quat(np.array([0,0,0]))
@@ -86,7 +92,9 @@ class PickAndPlaceScenario(ScenarioTemplate):
         stage = get_current_stage()
         roborg = UsdGeom.Xform.Define(stage, "/World/roborg")
         roborg.AddTranslateOp().Set(self._start_robot_pos)
-        # roborg.AddRotateXOp().Set(self._start_robot_rot[0])
+        roborg.AddRotateXOp().Set(self._start_robot_rot[0])
+        roborg.AddRotateYOp().Set(self._start_robot_rot[1])
+        roborg.AddRotateZOp().Set(self._start_robot_rot[2])
 
         add_reference_to_stage(self._cfg_path_to_robot_usd, self._cfg_robot_prim_path)
 
@@ -159,18 +167,8 @@ class PickAndPlaceScenario(ScenarioTemplate):
                     gripper=gripper,
                     robot_articulation=self._articulation
                 )
-            elif self._robot_name in ["jaka-minicobo-0","jaka-minicobo-1","jaka-minicobo-2"]:
+            elif self._robot_name in ["jaka-minicobo-0","jaka-minicobo-1","jaka-minicobo-2","jaka-minicobo-3"]:
                 self._gripper_type = "parallel"
-                rmpconfig_o = {
-                    "end_effector_frame_name": self._cfg_eeframe_name,
-                    "maximum_substep_size": self._cfg_max_step_size,
-                    "ignore_robot_state_updates": False,
-                    "relative_asset_paths":{
-                        "urdf_path": self._cfg_urdf_path,
-                        "rmpflow_config_path": self._cfg_rmp_config_path,
-                        "robot_description_path": self._cfg_robot_description
-                    }
-                }
                 rmpconfig = {
                     "end_effector_frame_name": self._cfg_eeframe_name,
                     "maximum_substep_size": self._cfg_max_step_size,
@@ -193,6 +191,7 @@ class PickAndPlaceScenario(ScenarioTemplate):
 
 
     def reset_scenario(self):
+        self.nsteps = 0
         gripper = self.get_gripper()
 
         if self._controller is not None:
@@ -248,7 +247,7 @@ class PickAndPlaceScenario(ScenarioTemplate):
                     dof_names=art.dof_names,
                 )
                 return pg
-            elif self._robot_name in ["rs007n","jaka-minicobo-2"]:
+            elif self._robot_name in ["rs007n","jaka-minicobo-2","jaka-minicobo-3"]:
                 art = self._articulation
                 self._gripper_type = "parallel"
                 if self._robot_name == "rs007n":
@@ -256,9 +255,9 @@ class PickAndPlaceScenario(ScenarioTemplate):
                 else:
                     eepp = "/World/roborg/minicobo_parallel_onrobot_rg2/minicobo_onrobot_rg2/gripper_center"
                 jpn = ["left_inner_finger_joint", "right_inner_finger_joint"]
-                jop = np.array([0.05, 0.05])
+                jop = np.array([0.15, 0.15])
                 jcp = np.array([0, 0])
-                ad = np.array([0.05, 0.05])
+                ad = np.array([0.15, 0.15])
                 art._policy_robot_name = "RS007N"
                 pg = ParallelGripper(
                     end_effector_prim_path=eepp,
@@ -329,16 +328,52 @@ class PickAndPlaceScenario(ScenarioTemplate):
             else:
                 return None
 
+    def mw_create_collision_sphere_prims(self, is_visible):
+        print("mwdb - _create_collision_sphere_prims")
+        self._robot_description = self._rmpflow._robot_description
+        self._policy = self._rmpflow._policy
+        self._robot_joint_positions = self._rmpflow._robot_joint_positions
+        self._meters_per_unit = self._rmpflow._meters_per_unit
+        if self._robot_joint_positions is None:
+            joint_positions = self._robot_description.default_c_space_configuration()
+        else:
+            joint_positions = self._robot_joint_positions.astype(np.float64)
+
+        lih = self._rmpflow
+
+        sphere_poses = self._policy.collision_sphere_positions(joint_positions)
+        sphere_radii = self._policy.collision_sphere_radii()
+        nsph = len(sphere_poses)
+        print(f"mwdb - mw_create_collision_sphere_prims - found {nsph} configured spheres")
+        for i, (sphere_pose, sphere_rad) in enumerate(zip(sphere_poses, sphere_radii)):
+            prim_path = find_unique_string_name("/lula/collision_sphere" + str(i), lambda x: not is_prim_path_valid(x))
+            self._rmpflow._collision_spheres.append(
+                objects.sphere.VisualSphere(prim_path, radius=sphere_rad / self._meters_per_unit)
+            )
+        j = 0
+        for sphere, sphere_pose in zip(self._rmpflow._collision_spheres, sphere_poses):
+            new_pose = lih._robot_rot @ sphere_pose + lih._robot_pos
+            if j<4:
+                print(f"mwdb - mw_create_collision_sphere_prims - {j} sphere_pose: {sphere_pose} new_pose: {new_pose}")
+            sphere.set_world_pose(new_pose / self._meters_per_unit)
+            sphere.set_visibility(is_visible)
+            j += 1
+
 
     nsteps = 0
     def physics_step(self, step_size):
         if self.nsteps==0:
             robot_base_translation,robot_base_orientation = self._articulation.get_world_pose()
+            print(f"robot_base_translation: {robot_base_translation}, robot_base_orientation: {robot_base_orientation}")
             self._rmpflow.set_robot_base_pose(robot_base_translation,robot_base_orientation)
-            self._rmpflow.delete_collision_sphere_prims()
+
+        # self._rmpflow.delete_collision_sphere_prims()
+        # self.mw_create_collision_sphere_prims(True)
+            # self._rmpflow._create_collision_sphere_prims(True)
+            # self._rmpflow.visualize_collision_spheres()
 
         cube_position, _ = self._fancy_cube.get_world_pose()
-        goal_position = np.array([-0.3, -0.3, 0.0515 / 2.0])
+        goal_position = np.array([+0.3, -0.3, 0.0515 / 2.0])
         current_joint_positions = self._articulation.get_joint_positions()
         if self._controller is not None:
             actions = self._controller.forward(
