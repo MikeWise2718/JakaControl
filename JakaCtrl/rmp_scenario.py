@@ -80,11 +80,14 @@ class RMPflowScenario(ScenarioTemplate):
         if self._robot_name == "ur10-suction-short":
             self._start_robot_pos = Gf.Vec3d([0, 0, 0.4])
             self._start_robot_rot = [180, 0, 0]
+        elif self._robot_name == "fancy_franka":
+            self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
+            self._start_robot_rot = [180, 0, 0]
 
         stage = get_current_stage()
         roborg = UsdGeom.Xform.Define(stage, "/World/roborg")
         roborg.AddTranslateOp().Set(self._start_robot_pos)
-        # roborg.AddRotateXOp().Set(self._start_robot_rot[0])
+        roborg.AddRotateXOp().Set(self._start_robot_rot[0])
 
 
 
