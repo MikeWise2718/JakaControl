@@ -387,7 +387,7 @@ class ScenarioTemplate:
         self._cfg_lower_joint_limits = self._articulation.dof_properties["lower"]
         self._cfg_upper_joint_limits = self._articulation.dof_properties["upper"]
         self._cfg_joint_names = self._articulation.dof_names
-        self._cfg_njoints = len(self._cfg_joint_names)
+        self._cfg_njoints = self._articulation.num_dof
         self._cfg_joint_zero_pos = np.zeros(self._cfg_njoints)
         print("senut.register_articulation")
         print(f"{self._cfg_robot_name} - njoints:{self._cfg_njoints} lower:{self._cfg_lower_joint_limits} upper:{self._cfg_upper_joint_limits}")

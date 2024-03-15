@@ -419,7 +419,7 @@ class UIBuilder:
     def _change_collider_vis(self, x, y, b, m):
         self._collider_vis = self.get_next_val_safe(self._colvisopts, self._collider_vis, self.binc[b])
         self._collider_vis_btn.text = self._collider_vis
-        self.realize_collider_vis()
+        self.realize_collider_vis_opt()
 
     def _change_eetarg_vis(self, x, y, b, m):
         self._eetarg_vis = self.get_next_val_safe(self._eevisopts, self._eetarg_vis, self.binc[b])
@@ -465,14 +465,14 @@ class UIBuilder:
             except:
                 pass
 
-    def realize_collider_vis(self):
+    def realize_collider_vis_opt(self):
         stage = get_current_stage()
         self._matman = MatMan(stage)
 
         opt = self._collider_vis
         if self._colprims is None:
             self._colprims: List[Usd.Prim] = find_prims_by_name("collision_sphere")
-        print(f"realize_collider_vis:{opt} nspheres:{len(self._colprims)}")
+        print(f"realize_collider_vis_opt:{opt} nspheres:{len(self._colprims)}")
         nfliped = 0
         nexcept = 0
         for prim in self._colprims:
@@ -495,7 +495,7 @@ class UIBuilder:
             except:
                 nexcept += 1
                 pass
-        print(f"Realize_collider_vis nfliped:{nfliped} nexcept:{nexcept}")
+        print(f"Realize_collider_vis_opt changed:{nfliped} exceptions:{nexcept}")
 
     def realize_eetarg_vis(self):
         stage = get_current_stage()
@@ -548,13 +548,14 @@ class UIBuilder:
 
         self._cur_scenario.reset_scenario() # should always be able to do a reset after post_load
 
-        self.realize_collider_vis()
+        self.realize_collider_vis_opt()
         self.realize_eetarg_vis()
 
         # UI management
         self._scenario_state_btn.reset()
         self._scenario_state_btn.enabled = True
         self._reset_btn.enabled = True
+        print("ui_builder._setup_post_load done")
 
     def _reset_scenario(self):
         print("ui_builder._reset_scenario")
@@ -563,6 +564,7 @@ class UIBuilder:
         self._cur_scenario.setup_scenario()
 
         self._cur_scenario.reset_scenario()
+        print("ui_builder._reset_scenario done")
 
 
     def _on_post_reset_btn(self):
