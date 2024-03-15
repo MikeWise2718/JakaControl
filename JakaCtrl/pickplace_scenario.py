@@ -5,6 +5,7 @@ from pxr import UsdPhysics, Usd, UsdGeom, Gf, Sdf
 import carb
 
 from omni.isaac.core.utils.stage import add_reference_to_stage,  get_current_stage
+import omni.timeline
 
 from omni.isaac.core.articulations import Articulation
 from omni.isaac.core.objects.cuboid import DynamicCuboid
@@ -107,6 +108,12 @@ class PickAndPlaceScenario(ScenarioTemplate):
             self._articulation= Franka(prim_path="/World/Fancy_Franka", name="fancy_franka")
         else:
             self._articulation = Articulation(self._cfg_artpath, position=self._start_robot_pos, orientation=quat)
+            # if self._robot_name == "jaka-minicobo-3":
+            #     self._cfg_njoints = self._articulation.num_dof
+            #     self._cfg_joint_zero_pos = np.zeros(self._cfg_njoints)
+            #     self._cfg_joint_zero_pos[2] = 0.9
+            #     self._cfg_joint_zero_pos[4] = 0.9
+            #     self._articulation.set_joints_default_state(self._cfg_joint_zero_pos)
 
 
         # mode specific initialization
@@ -141,15 +148,27 @@ class PickAndPlaceScenario(ScenarioTemplate):
         self._fancy_cube = self._cuboid
         self._world = world
         self._mopo_robot_name = self._cfg_mopo_robot_name
-        print("load_scenario done - self._object", self._object)
+
+
+
+        print("load_scenario done")
 
 
 
     def post_load_scenario(self):
+        print("post_load_scenario - start")
 
         # self.lulaHelper = LulaInterfaceHelper(self._kinematics_solver._robot_description)
 
         self.register_articulation(self._articulation) # this has to happen in post_load_scenario
+
+        if self._robot_name == "jaka-minicobo-3":
+            self._cfg_joint_zero_pos[2] = 0.9
+            self._cfg_joint_zero_pos[4] = 0.9
+            self._articulation.set_joints_default_state(self._cfg_joint_zero_pos)
+            self._articulation.initialize()
+
+        # self._articulation.set_joint_positions(self._cfg_joint_zero_pos)
 
         gripper = self.get_gripper()
         if gripper is not None:
@@ -188,7 +207,12 @@ class PickAndPlaceScenario(ScenarioTemplate):
                     # self._rmpflow.reset()
                 self._rmpflow.visualize_collision_spheres()
 
+        self._timeline = omni.timeline.get_timeline_interface()
+        # self._timeline.set_auto_update(False)
+        self._timeline.forward_one_frame()
+        # self._timeline.set_auto_update(True)
 
+        print("post_load_scenario - done")
 
     def reset_scenario(self):
         self.nsteps = 0
@@ -208,6 +232,11 @@ class PickAndPlaceScenario(ScenarioTemplate):
             elif self._gripper_type == "suction":
                 if gripper.is_closed():
                     gripper.open()
+
+        if self._robot_name == "jaka-minicobo-3":
+            self._cfg_joint_zero_pos[2] = 0.9
+            self._cfg_joint_zero_pos[4] = 0.9
+            self._articulation.set_joint_positions(self._cfg_joint_zero_pos)
 
     def get_gripper(self):
         art = self._articulation
