@@ -196,6 +196,11 @@ def get_robot_params(robot_name):
             artpath = f"{robot_prim_path}/minicobo_onrobot_rg2/world"
             path_to_robot_usd = f"{robsjaka_extension_path}/robs/jaka/usd/minicobo-parallel-onrobot-rg2-6.usda"
             mopo_robot_name = "RS007N"
+        case "jaka-minicobo-suction":
+            robot_prim_path = "/World/roborg/minicobo_suction"
+            artpath = f"{robot_prim_path}/world"
+            path_to_robot_usd = f"{robsjaka_extension_path}/robs/jaka/usd/minicobo-suction.usda"
+            mopo_robot_name = "RS007N"
         case "rs007n":
             robot_prim_path = "/World/roborg/khi_rs007n"
             artpath = robot_prim_path
@@ -310,6 +315,14 @@ def get_robot_rmp_params(robot_name):
             rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
             eeframe_name = "gripper_center"
             max_step_size = 0.00334
+        case "jaka-minicobo-suction":
+            # urpath = rmp_config_dir + "/Jaka/"
+            rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
+            rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description.yaml"
+            urdf_path = rmp_mppath + "/minicobo/minicobo_v14_onrobot_rg2.urdf"
+            rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
+            eeframe_name = "gripper_center"
+            max_step_size = 0.00334
         case "rs007n":
             rmp_mppath = rmp_config_dir + "/Kawasaki"
             rdf_path = rmp_mppath + "/rs007n/rmpflow/rs007n_robot_description.yaml"
@@ -338,7 +351,7 @@ def can_handle_robot(scenario_name, robot_name):
         rv = robot_name in ["franka", "fancy_franka"]
     elif scenario_name == "pick-and-place":
         rv = robot_name in ["franka", "fancy_franka","rs007n", "ur10-suction-short",
-                            "jaka-minicobo-0", "jaka-minicobo-1",  "jaka-minicobo-2", "jaka-minicobo-3"]
+                            "jaka-minicobo-0", "jaka-minicobo-1",  "jaka-minicobo-2", "jaka-minicobo-3", "jaka-minicobo-suction"]
     return rv
 
 class ScenarioTemplate:

@@ -51,7 +51,7 @@ class UIBuilder:
     _scenario_names = ["sinusoid-joint","franka-pick-and-place","pick-and-place", "rmpflow","object-inspection", "inverse-kinematics"]
     _scenario_name = "sinusoid-joint"
     _robot_names = ["ur3e", "ur5e", "ur10e", "ur10e-gripper", "ur10-suction-short",
-                    "jaka-minicobo-0","jaka-minicobo-1", "jaka-minicobo-2", "jaka-minicobo-3",
+                    "jaka-minicobo-0","jaka-minicobo-1", "jaka-minicobo-2", "jaka-minicobo-3","jaka-minicobo-suction",
                     "rs007n", "franka", "fancy_franka", "jetbot","m0609"]
     _robot_name = "jaka-minicobo"
     _ground_opts = ["none", "default", "groundplane", "groundplane-blue"]

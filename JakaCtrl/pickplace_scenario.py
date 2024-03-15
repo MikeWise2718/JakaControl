@@ -63,7 +63,30 @@ class PickAndPlaceScenario(ScenarioTemplate):
     #     lulaprim.AddRotateYOp().Set(yang)
     #     lulaprim.AddRotateZOp().Set(zang)
 
+    def calc_jaka_pose(self, angle):
+        cen = np.array([0, 0, 0.85])
+        rad = 0.35
+        rads = np.pi*angle/180
+        pos = cen + rad*np.array([np.cos(rads), np.sin(rads), 0])
+        pos = Gf.Vec3d(list(pos))
+        zang = angle-180
+        rot = [0, 130, zang]
+        rot = rot
+        # print("pos:",pos," rot:",rot)
+        return pos, rot
+
+    def set_jaka_pose(self, pos, rot):
+        self._rob_tranop.Set(pos)
+        self._rob_zrotop.Set(rot[2])
+        self._rob_yrotop.Set(rot[1])
+        self._rob_xrotop.Set(rot[0])
+        self._start_robot_pos = pos
+        self._start_robot_rot = rot
+
     def load_scenario(self, robot_name, ground_opt):
+        self.nphysstep_calls = 0
+        self.global_time = 0
+        self.global_ang = 0
         self.get_robot_config(robot_name, ground_opt)
 
         self._robot_name = robot_name
@@ -76,26 +99,29 @@ class PickAndPlaceScenario(ScenarioTemplate):
         self._robot_name = robot_name
         self._ground_opt = ground_opt
 
+        stage = get_current_stage()
+        roborg = UsdGeom.Xform.Define(stage, "/World/roborg")
+        self._rob = roborg
+        self._rob_tranop = roborg.AddTranslateOp()
+        self._rob_zrotop = roborg.AddRotateZOp()
+        self._rob_yrotop = roborg.AddRotateYOp()
+        self._rob_xrotop = roborg.AddRotateXOp()
 
 
+        self._rob_ang = 0
         self._start_robot_pos = Gf.Vec3d([0, 0, 0])
         self._start_robot_rot = [0, 0, 0]
         if self._robot_name == "ur10-suction-short":
             self._start_robot_pos = Gf.Vec3d([0, 0, 0.4])
             self._start_robot_rot = [0, 0, 0]
         elif self._robot_name == "jaka-minicobo-3":
-            self._start_robot_pos = Gf.Vec3d([0, 0, 0.85])
-            self._start_robot_rot = [0, 130, 0]
+            # self._start_robot_pos = Gf.Vec3d([-0.35, 0, 0.80])
+            # self._start_robot_rot = [0, 130, 0]
+            pos, rot = self.calc_jaka_pose(self._rob_ang)
+            self._start_robot_pos = pos
+            self._start_robot_rot = rot
 
-
-        quat = euler_angles_to_quat(np.array([0,0,0]))
-
-        stage = get_current_stage()
-        roborg = UsdGeom.Xform.Define(stage, "/World/roborg")
-        roborg.AddTranslateOp().Set(self._start_robot_pos)
-        roborg.AddRotateXOp().Set(self._start_robot_rot[0])
-        roborg.AddRotateYOp().Set(self._start_robot_rot[1])
-        roborg.AddRotateZOp().Set(self._start_robot_rot[2])
+        self.set_jaka_pose(self._start_robot_pos, self._start_robot_rot)
 
         add_reference_to_stage(self._cfg_path_to_robot_usd, self._cfg_robot_prim_path)
 
@@ -107,6 +133,7 @@ class PickAndPlaceScenario(ScenarioTemplate):
             from omni.isaac.franka import Franka
             self._articulation= Franka(prim_path="/World/Fancy_Franka", name="fancy_franka")
         else:
+            quat = euler_angles_to_quat(np.array([0,0,0]))
             self._articulation = Articulation(self._cfg_artpath, position=self._start_robot_pos, orientation=quat)
             # if self._robot_name == "jaka-minicobo-3":
             #     self._cfg_njoints = self._articulation.num_dof
@@ -119,11 +146,18 @@ class PickAndPlaceScenario(ScenarioTemplate):
         # mode specific initialization
         if self._robot_name == "ur10-suction-short":
             # target_pos = np.array([1.16, 0.5, 0.15])
-            target_pos = np.array([1.00, 0.5, 0.15])
+            self._target_pos = np.array([1.00, 0.5, 0.15])
+            self._goal_position = np.array([+0.3, -0.3, 0.0515 / 2.0])
+        elif self._robot_name == "jaka-minicobo-3":
+            self._target_pos = np.array([0.0, 0.1, 0.15])
+            # self._target_pos = np.array([0.0, 0.25, 0.15])
+            self._goal_position = np.array([0.0, -0.3, 0.025])
         else:
-            target_pos = np.array([0.25, 0.25, 0.15])
+            self._target_pos = np.array([0.25, 0.25, 0.15])
+            self._goal_position = np.array([+0.3, -0.3, 0.0515 / 2.0])
+
         self._cuboid = DynamicCuboid(
-            "/Scenario/cuboid", position=target_pos, size=0.05, color=np.array([128, 0, 128])
+            "/Scenario/cuboid", position=self._target_pos, size=0.05, color=np.array([128, 0, 128])
         )
 
         # Add user-loaded objects to the World
@@ -148,8 +182,6 @@ class PickAndPlaceScenario(ScenarioTemplate):
         self._fancy_cube = self._cuboid
         self._world = world
         self._mopo_robot_name = self._cfg_mopo_robot_name
-
-
 
         print("load_scenario done")
 
@@ -186,6 +218,22 @@ class PickAndPlaceScenario(ScenarioTemplate):
                     gripper=gripper,
                     robot_articulation=self._articulation
                 )
+            elif self._robot_name in ["jaka-minicobo-suction"]:
+                self._gripper_type = "suction"
+                rmpconfig = {
+                    "end_effector_frame_name": self._cfg_eeframe_name,
+                    "maximum_substep_size": self._cfg_max_step_size,
+                    "ignore_robot_state_updates": False,
+                    "urdf_path": self._cfg_urdf_path,
+                    "rmpflow_config_path": self._cfg_rmp_config_path,
+                    "robot_description_path": self._cfg_rdf_path
+                }
+                self._controller = jaka_PickPlaceController(
+                    name="pick_place_controller",
+                    gripper=gripper,
+                    robot_articulation=self._articulation,
+                    rmpconfig=rmpconfig
+                )
             elif self._robot_name in ["jaka-minicobo-0","jaka-minicobo-1","jaka-minicobo-2","jaka-minicobo-3"]:
                 self._gripper_type = "parallel"
                 rmpconfig = {
@@ -209,13 +257,17 @@ class PickAndPlaceScenario(ScenarioTemplate):
 
         self._timeline = omni.timeline.get_timeline_interface()
         # self._timeline.set_auto_update(False)
+        print("post_load_scenario - pre-forward_one_frame time: ", self._timeline.get_current_time())
         self._timeline.forward_one_frame()
+        print("post_load_scenario - post-forward_one_frame time: ", self._timeline.get_current_time())
         # self._timeline.set_auto_update(True)
 
         print("post_load_scenario - done")
 
     def reset_scenario(self):
-        self.nsteps = 0
+        self.nphysstep_calls = 0
+        self.global_time = 0
+        self.global_ang = 0
         gripper = self.get_gripper()
 
         if self._controller is not None:
@@ -260,7 +312,6 @@ class PickAndPlaceScenario(ScenarioTemplate):
                 art._policy_robot_name = "Franka"
                 # try getting sim_view from world
 
-
                 pg = ParallelGripper(
                     end_effector_prim_path=eepp,
                     joint_prim_names=jpn,
@@ -304,18 +355,21 @@ class PickAndPlaceScenario(ScenarioTemplate):
                     dof_names=art.dof_names,
                 )
                 return pg
-            elif self._robot_name == "ur10-suction-short":
+            elif self._robot_name in ["ur10-suction-short","jaka-minicobo-suction"]:
                 art = self._articulation
                 self._gripper_type = "suction"
                 # eepp = "/World/roborg/ur10_suction_short/ee_link/gripper_base/xf"
                 # UsdGeom.Xform.Define(get_current_stage(), eepp)
                 # self._end_effector = RigidPrim(prim_path=eepp, name= "ur10" + "_end_effector")
                 # self._end_effector.initialize(None)
-                eepp = "/World/roborg/ur10_suction_short/ee_link"
-                jpn = ["left_inner_finger_joint", "right_inner_finger_joint"]
-                jop = np.array([0.05, 0.05])
-                jcp = np.array([0, 0])
-                ad = np.array([0.05, 0.05])
+                if self._robot_name == "ur10-suction-short":
+                    eepp = "/World/roborg/ur10_suction_short/ee_link"
+                else:
+                    eepp = "/World/roborg/minicobo_suction/short_gripper"
+                # jpn = ["left_inner_finger_joint", "right_inner_finger_joint"]
+                # jop = np.array([0.05, 0.05])
+                # jcp = np.array([0, 0])
+                # ad = np.array([0.05, 0.05])
                 art._policy_robot_name = "UR10"
                 self._end_effector_prim_path = eepp
                 sg = SurfaceGripper(
@@ -389,11 +443,13 @@ class PickAndPlaceScenario(ScenarioTemplate):
             j += 1
 
 
-    nsteps = 0
+    nphysstep_calls = 0
+    global_time = 0
+    global_ang = 0
     def physics_step(self, step_size):
-        if self.nsteps==0:
+        if self.nphysstep_calls==0:
             robot_base_translation,robot_base_orientation = self._articulation.get_world_pose()
-            print(f"robot_base_translation: {robot_base_translation}, robot_base_orientation: {robot_base_orientation}")
+            print(f"physics step zero: robot_base_translation: {robot_base_translation}, robot_base_orientation: {robot_base_orientation}")
             self._rmpflow.set_robot_base_pose(robot_base_translation,robot_base_orientation)
 
         # self._rmpflow.delete_collision_sphere_prims()
@@ -401,8 +457,25 @@ class PickAndPlaceScenario(ScenarioTemplate):
             # self._rmpflow._create_collision_sphere_prims(True)
             # self._rmpflow.visualize_collision_spheres()
 
+        if self._robot_name == "jaka-minicobo-3":
+            ttime = self._timeline.get_current_time()
+            angvel = 20
+            phase = self._controller._event
+            if phase in [1,2,3,4]:
+                angvel = 0
+            elif phase in [5,6]:
+                angvel = 0
+            self.global_ang += angvel*step_size
+            pos, rot = self.calc_jaka_pose(self.global_ang)
+            self.set_jaka_pose(pos, rot)
+            rrot = np.array(rot)*np.pi/180
+            quat = euler_angles_to_quat(rrot)
+            self._rmpflow.set_robot_base_pose(pos ,quat)
+            n = self.nphysstep_calls
+            print(f"physics_step {n} - timeline.time: {ttime:.4f}, step_size: {step_size:.4f} ang: {self.global_ang} phase:{phase}")
+
         cube_position, _ = self._fancy_cube.get_world_pose()
-        goal_position = np.array([+0.3, -0.3, 0.0515 / 2.0])
+        goal_position = self._goal_position
         current_joint_positions = self._articulation.get_joint_positions()
         if self._controller is not None:
             actions = self._controller.forward(
@@ -412,7 +485,8 @@ class PickAndPlaceScenario(ScenarioTemplate):
             )
             if self._articulation is not None:
                     self._articulation.apply_action(actions)
-        self.nsteps += 1
+        self.nphysstep_calls += 1
+        self.global_time += step_size
         # Only for the pick and place controller, indicating if the state
         # machine reached the final state.
         if self._controller is not None:
