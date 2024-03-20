@@ -21,8 +21,18 @@ from omni.isaac.ui.menu import MenuItemDescription
 from omni.kit.menu.utils import add_menu_items, remove_menu_items
 from omni.usd import StageEventType
 
+
 from .global_variables import EXTENSION_DESCRIPTION, EXTENSION_TITLE
 from .ui_builder import UIBuilder
+
+
+# importing things first to avoid getting the wrong references
+# import omni.asimov.manipulators
+# import omni.asimov.manipulators.controllers
+# import omni.asimov.manipulators.grippers
+# from omni.asimov.manipulators.controllers import PickPlaceController
+# import omni.asimov.jaka
+
 
 """
 This file serves as a basic template for the standard boilerplate operations
@@ -47,6 +57,12 @@ class Extension(omni.ext.IExt):
     def on_startup(self, ext_id: str):
         """Initialize extension and UI elements"""
         print("extension on_startup")
+        # self._ppc = omni.asimov.manipulators.controllers.PickPlaceController(
+        #             name="dummy_pick_place_controller",
+        #             cspace_controller=None,
+        #             end_effector_initial_height = 0.3,
+        #             gripper=None
+        # )
         self.ext_id = ext_id
         self._usd_context = omni.usd.get_context()
 
@@ -71,6 +87,7 @@ class Extension(omni.ext.IExt):
 
         # Filled in with User Functions
         self.ui_builder = UIBuilder()
+        # self.ui_builder._ppc = self._ppc
 
         # Events
         self._usd_context = omni.usd.get_context()

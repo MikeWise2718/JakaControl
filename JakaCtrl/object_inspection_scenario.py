@@ -14,12 +14,10 @@ from omni.isaac.core.world import World
 
 from omni.isaac.core.utils.extensions import get_extension_path_from_name
 
-from omni.isaac.core.utils.numpy.rotations import euler_angles_to_quats
-
 from omni.isaac.motion_generation import RmpFlow, ArticulationMotionPolicy
 
-from .senut import add_light_to_stage, get_robot_params, get_robot_rmp_params
-from .senut import ScenarioTemplate
+from .senut import add_light_to_stage
+from .scenario_base import ScenarioBase
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
@@ -31,7 +29,7 @@ from .senut import ScenarioTemplate
 #
 
 
-class ObjectInspectionScenario(ScenarioTemplate):
+class ObjectInspectionScenario(ScenarioBase):
     _running_scenario = False
     _show_collision_bounds = False
 
@@ -59,20 +57,15 @@ class ObjectInspectionScenario(ScenarioTemplate):
             world.scene.add(self._ground)
 
 
-        # Setup Robot ARm
-        (ok, robot_prim_path, artpath, path_to_robot_usd,mopo_robot_name) = get_robot_params(self._robot_name)
-        if not ok:
-            print(f"Unknown robot name {self._robot_name}")
-            return
 
-        if path_to_robot_usd is not None:
+        if self._cfg_path_to_robot_usd is not None:
             stage = get_current_stage()
             roborg = UsdGeom.Xform.Define(stage,"/World/roborg")
             #pos = Gf.Vec3d([0,0,2])
             #roborg.AddTranslateOp().Set(pos)
             #roborg.AddRotateXOp().Set(180)
-            add_reference_to_stage(path_to_robot_usd, robot_prim_path)
-        self._articulation = Articulation(artpath)
+            add_reference_to_stage(self._cfg_path_to_robot_usd, self._cfg_robot_prim_path)
+        self._articulation = Articulation(self._cfg_artpath)
 
         if self._articulation is not None:
             world.scene.add(self._articulation)
@@ -125,24 +118,19 @@ class ObjectInspectionScenario(ScenarioTemplate):
         self._obstacle = FixedCuboid("/World/obstacle",size=.05,position=np.array([0.4, 0.0, 1.65]),color=np.array([0.,0.,1.]))
 
 
-        # RMPflow config files for supported robots are stored in the motion_generation extension under "/motion_policy_configs"
-        mg_extension_path = get_extension_path_from_name("omni.isaac.motion_generation")
-        rmp_config_dir = os.path.join(mg_extension_path, "motion_policy_configs")
-        print("rmp_config_dir",rmp_config_dir)
 
-        (ok, rdf_path, urdf_path, rmp_config_path, eeframe_name, max_step_size) = get_robot_rmp_params(self._robot_name)
-        print("rdf_path:",rdf_path)
-        print("urdf_path:",urdf_path)
-        print("rmp_config_path:",rmp_config_path)
-        print("eeframe_name:",eeframe_name)
-        print("max_step_size:",max_step_size)
+        print("rdf_path:",self._cfg_rdf_path)
+        print("urdf_path:",self._cfg_urdf_path)
+        print("rmp_config_path:",self._cfg_rmp_config_path)
+        print("eeframe_name:",self._cfg_eeframe_name)
+        print("max_step_size:",self._cfg_max_step_size)
         # Initialize an RmpFlow object
         self._rmpflow = RmpFlow(
-            robot_description_path = rdf_path,
-            urdf_path = urdf_path,
-            rmpflow_config_path = rmp_config_path,
-            end_effector_frame_name = eeframe_name,
-            maximum_substep_size = max_step_size
+            robot_description_path = self._cfg_rdf_path,
+            urdf_path = self._cfg_urdf_path,
+            rmpflow_config_path = self._cfg_rmp_config_path,
+            end_effector_frame_name = self._cfg_eeframe_name,
+            maximum_substep_size = self._cfg_max_step_size
         )
         self._rmpflow.add_obstacle(self._obstacle)
 

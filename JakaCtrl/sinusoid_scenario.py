@@ -13,8 +13,8 @@ from omni.isaac.core.objects import GroundPlane
 from omni.isaac.core.utils.types import ArticulationAction
 from omni.isaac.core.world import World
 
-from .senut import add_light_to_stage, get_robot_params
-from .senut import ScenarioTemplate
+from .senut import add_light_to_stage
+from .scenario_base import ScenarioBase
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
@@ -39,7 +39,7 @@ the logic that runs the example from the UI design.
 
 
 
-class SinusoidJointScenario(ScenarioTemplate):
+class SinusoidJointScenario(ScenarioBase):
     def __init__(self):
         self._object = None
         self._articulation = None

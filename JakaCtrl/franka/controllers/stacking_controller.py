@@ -8,10 +8,10 @@
 #
 from typing import List
 
-import omni.isaac.manipulators.controllers as manipulators_controllers
+import omni.asimov.manipulators.controllers as manipulators_controllers
 from omni.isaac.core.articulations import Articulation
 from omni.isaac.franka.controllers.pick_place_controller import PickPlaceController
-from omni.isaac.manipulators.grippers.parallel_gripper import ParallelGripper
+from omni.asimov.manipulators.grippers.parallel_gripper import ParallelGripper
 
 
 class StackingController(manipulators_controllers.StackingController):

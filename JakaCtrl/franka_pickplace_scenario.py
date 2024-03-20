@@ -9,15 +9,16 @@ from omni.isaac.core.utils.stage import add_reference_to_stage,  get_current_sta
 from omni.isaac.core.articulations import Articulation
 from omni.isaac.core.objects.cuboid import DynamicCuboid
 from omni.isaac.core.objects import GroundPlane
-from omni.isaac.manipulators.grippers import ParallelGripper
+from omni.asimov.manipulators.grippers import ParallelGripper
 from .franka.controllers import PickPlaceController as franka_PickPlaceController
 from .universal_robots.omni.isaac.universal_robots.controllers import PickPlaceController as ur10_PickPlaceController
 
 from omni.isaac.core.world import World
 
-from .senut import add_light_to_stage, get_robot_params
-from .senut import ScenarioTemplate
-from omni.isaac.manipulators.grippers.surface_gripper import SurfaceGripper
+from .senut import add_light_to_stage
+from .scenario_base import ScenarioBase
+
+from omni.asimov.manipulators.grippers.surface_gripper import SurfaceGripper
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.core.prims.rigid_prim import RigidPrim
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
@@ -31,35 +32,22 @@ from omni.isaac.core.utils.rotations import euler_angles_to_quat
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 #
 
-def printquat(name, eangs):
-    quat = euler_angles_to_quat(eangs)
-    print(f"{name} euler:{str(eangs):>40}   quat:{quat}")
 
-class FrankaPickAndPlaceScenario(ScenarioTemplate):
+class FrankaPickAndPlaceScenario(ScenarioBase):
     _running_scenario = False
     _rmpflow = None
     _show_collision_bounds = True
     _rob_base_pos = Gf.Vec3d([0, 0, 0])
     _rob_base_xang = 0
     _gripper_type = "parallel"
+    _show_rmp_target = False
+    _show_rmp_target_opt = "invisible"
 
     def __init__(self):
         pass
 
     def load_scenario(self, robot_name, ground_opt):
         self.get_robot_config(robot_name, ground_opt)
-
-        pang = 360 * np.pi / 180
-        nang = -pang
-        printquat("zero--",np.array([0, 0, 0]))
-        printquat("xqrotn",np.array([nang, 0, 0]))
-        printquat("xqrotp",np.array([pang, 0, 0]))
-        printquat("xqrotn",np.array([nang, 0, 0]))
-        printquat("yqrotp",np.array([0, pang, 0]))
-        printquat("yqrotn",np.array([0, nang, 0]))
-        printquat("zqrotp",np.array([0, 0, pang]))
-        printquat("zqrotn",np.array([0, 0, nang]))
-
 
         self._robot_name = robot_name
         self._ground_opt = ground_opt
@@ -70,7 +58,6 @@ class FrankaPickAndPlaceScenario(ScenarioTemplate):
         need_to_add_articulation = False
         self._robot_name = robot_name
         self._ground_opt = ground_opt
-        # (ok, robot_prim_path, artpath, path_to_robot_usd, mopo_robot_name) = get_robot_params(self._robot_name)
 
         if self._robot_name in ["fancy_franka"]:
             self._rob_base_pos = Gf.Vec3d([0, 0, 1.1])
@@ -212,9 +199,6 @@ class FrankaPickAndPlaceScenario(ScenarioTemplate):
                 self._gripper_type = "suction"
                 return sg
 
-                #
-                #
-                #
             elif self._robot_name == "jaka-minicobo":
                 art = self._articulation
                 eepp = "/World/roborg/minicobo_v1_4/dummy_tcp"
@@ -242,16 +226,6 @@ class FrankaPickAndPlaceScenario(ScenarioTemplate):
             else:
                 return None
 
-            # art.gripper = pg
-            #define the manipulator
-            # my_denso = self._world.scene.add(SingleManipulator(prim_path="/franka", name="robot",
-            #                                     end_effector_prim_name="panda_rightfinger", gripper=pg))
-            #set the default positions of the other gripper joints to be opened so
-            #that its out of the way of the joints we want to control when gripping an object for instance.
-            # joints_default_positions = np.zeros(12)
-            # joints_default_positions[7] = 0.628
-            # joints_default_positions[8] = 0.628
-            # my_denso.set_joints_default_state(positions=joints_default_positions)
             return None
 
 
@@ -277,6 +251,9 @@ class FrankaPickAndPlaceScenario(ScenarioTemplate):
             if self._show_collision_bounds:
                 # self._rmpflow.reset()
                 self._rmpflow.visualize_collision_spheres()
+                self._rmpflow.visualize_end_effector_position()
+                self.realize_rmptarg_vis(self._show_rmp_target_opt)
+
 
             gripper.set_joint_positions(gripper.joint_opened_positions)
 
@@ -293,6 +270,9 @@ class FrankaPickAndPlaceScenario(ScenarioTemplate):
             if self._rmpflow is not None:
                 self._rmpflow.reset()
                 self._rmpflow.visualize_collision_spheres()
+                self._rmpflow.visualize_end_effector_position()
+                self.realize_rmptarg_vis(self._show_rmp_target_opt)
+
 
         if gripper is not None:
             if self._gripper_type == "parallel":
