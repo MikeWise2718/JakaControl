@@ -22,7 +22,7 @@ from omni.isaac.core.utils.numpy.rotations import euler_angles_to_quats, rot_mat
 
 from .senut import add_light_to_stage
 from .senut import adjust_joint_values, set_stiffness_for_joints, set_damping_for_joints
-from .senut import ScenarioTemplate
+from .scenario_base import ScenarioBase
 
 from omni.isaac.motion_generation import ArticulationKinematicsSolver, LulaKinematicsSolver
 from omni.isaac.motion_generation import interface_config_loader
@@ -41,7 +41,7 @@ from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelp
 #
 
 
-class InvkinScenario(ScenarioTemplate):
+class InvkinScenario(ScenarioBase):
     _running_scenario = False
     _show_collision_bounds = True
 
@@ -87,20 +87,16 @@ class InvkinScenario(ScenarioTemplate):
         stage = get_current_stage()
         roborg = UsdGeom.Xform.Define(stage, "/World/roborg")
         roborg.AddTranslateOp().Set(self._start_robot_pos)
-        # roborg.AddRotateXOp().Set(self._start_robot_rot[0])
+        roborg.AddRotateXOp().Set(self._start_robot_rot[0])
 
 
         # Setup Robot ARm
-        if self._cfg_path_to_robot_usd is not None:
-            add_reference_to_stage(self._cfg_path_to_robot_usd, self._cfg_robot_prim_path)
-
+        add_reference_to_stage(self._cfg_path_to_robot_usd, self._cfg_robot_prim_path)
         self._articulation = Articulation(self._cfg_artpath)
-
         world.scene.add(self._articulation)
 
         add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", "/World/target")
         self._target = XFormPrim("/World/target", scale=[.04,.04,.04])
-        self._object =  self._target
 
         self._world = world
 
@@ -136,7 +132,6 @@ class InvkinScenario(ScenarioTemplate):
 
         print("Valid frame names at which to compute kinematics:", self._kinematics_solver.get_all_frame_names())
 
-        self._articulation.apply_action(ArticulationAction(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 1.0])))
 
     def reset_scenario(self):
         # self._target.set_world_pose(np.array([0.2,0.2,0.6]),euler_angles_to_quats([0,np.pi,0]))
@@ -218,7 +213,7 @@ class InvkinScenario(ScenarioTemplate):
         adjust_joint_values(joint_names,"damping",fak)
         self.tot_damping_factor = self.tot_damping_factor * fak
 
-    def action(self, actionname, mouse_button=0 ):
+    def scenario_action(self, actionname, mouse_button=0 ):
         print("InvkinScenario action:",actionname, "   mouse_button:",mouse_button)
         if actionname == "Toggle IkSolving":
             self.ik_solving_active = not self.ik_solving_active
@@ -238,6 +233,6 @@ class InvkinScenario(ScenarioTemplate):
         else:
             print(f"Unknown actionname: {actionname}")
 
-    def get_actions(self):
+    def get_scenario_actions(self):
         rv = ["Move Target to EE","Adjust Stiffness - All Joints","Adjust Damping - All Joints","Toggle IkSolving" ]
         return rv

@@ -18,8 +18,7 @@ icon = "data/icon.png"
 [dependencies]
 "omni.isaac.core" = {}
 "omni.isaac.motion_generation" = {}
-"omni.isaac.manipulators" = {}
+"omni.asimov.manipulators" = {}
 
 [[python.module]]
 name = "omni.isaac.universal_robots"
-

@@ -16,13 +16,13 @@ from omni.isaac.core.world import World
 from omni.isaac.core.utils.numpy.rotations import euler_angles_to_quats, rot_matrices_to_quats
 
 from omni.isaac.motion_generation import RmpFlow, ArticulationMotionPolicy
+from omni.isaac.motion_generation import ArticulationKinematicsSolver
 
 from .senut import add_light_to_stage
-from .senut import ScenarioTemplate
+from .scenario_base import ScenarioBase
 
 from omni.isaac.core.utils.stage import add_reference_to_stage,  get_current_stage
 from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelper
-from omni.isaac.motion_generation import ArticulationKinematicsSolver
 
 from .senut import adjust_joint_values, set_stiffness_for_joints, set_damping_for_joints
 
@@ -37,7 +37,7 @@ from .senut import adjust_joint_values, set_stiffness_for_joints, set_damping_fo
 #
 
 
-class RMPflowScenario(ScenarioTemplate):
+class RMPflowScenario(ScenarioBase):
     _running_scenario = False
     _show_collision_bounds = True
 
@@ -133,7 +133,6 @@ class RMPflowScenario(ScenarioTemplate):
         self._articulation_rmpflow = ArticulationMotionPolicy(self._articulation,self._rmpflow)
         self._kinematics_solver = self._rmpflow.get_kinematics_solver()
 
-
         self._articulation_kinematics_solver = ArticulationKinematicsSolver(self._articulation,self._kinematics_solver, self._cfg_eeframe_name)
         ee_pos, ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
 
@@ -187,7 +186,6 @@ class RMPflowScenario(ScenarioTemplate):
         self._ee_pos = ee_pos
         self._ee_rot = ee_rot_mat
 
-
     def teardown_scenario(self):
         pass
 
@@ -196,8 +194,7 @@ class RMPflowScenario(ScenarioTemplate):
             return
         self.physics_step(step)
 
-
-    def get_actions(self):
+    def get_scenario_actions(self):
         rv = ["Move Target to EE","Adjust Stiffness - All Joints","Adjust Damping - All Joints" ]
         return rv
 
@@ -213,7 +210,7 @@ class RMPflowScenario(ScenarioTemplate):
         adjust_joint_values(joint_names,"damping",fak)
         self.tot_damping_factor = self.tot_damping_factor * fak
 
-    def action(self, actionname, mouse_button=0 ):
+    def scenario_action(self, actionname, mouse_button=0 ):
         print("InvkinScenario action:",actionname, "   mouse_button:",mouse_button)
         if actionname == "Move Target to EE":
             # self._target.set_world_pose(np.array([0.0,-0.006,0.7668]),euler_angles_to_quats([0,0,0]))

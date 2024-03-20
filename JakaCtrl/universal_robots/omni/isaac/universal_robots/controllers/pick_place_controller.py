@@ -9,11 +9,11 @@
 from typing import List, Optional
 
 import numpy as np
-import omni.isaac.manipulators.controllers as manipulators_controllers
+import omni.asimov.manipulators.controllers as manipulators_controllers
 from omni.isaac.core.articulations import Articulation
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
 from omni.isaac.core.utils.types import ArticulationAction
-from omni.isaac.manipulators.grippers.surface_gripper import SurfaceGripper
+from omni.asimov.manipulators.grippers.surface_gripper import SurfaceGripper
 from omni.isaac.universal_robots.controllers.rmpflow_controller import RMPFlowController
 
 

@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python: Attach (bla bla)",
+      "name": "Python: Attach to ... something",
       "type": "python",
       "request": "attach",
       "localRoot": "${workspaceFolder}",

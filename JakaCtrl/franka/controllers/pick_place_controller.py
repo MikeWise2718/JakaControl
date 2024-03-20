@@ -8,10 +8,10 @@
 #
 from typing import List, Optional
 
-import omni.isaac.manipulators.controllers as manipulators_controllers
+import omni.asimov.manipulators.controllers as manipulators_controllers
 from omni.isaac.core.articulations import Articulation
 from JakaCtrl.franka.controllers.rmpflow_controller import RMPFlowController
-from omni.isaac.manipulators.grippers.parallel_gripper import ParallelGripper
+from omni.asimov.manipulators.grippers.parallel_gripper import ParallelGripper
 
 
 class PickPlaceController(manipulators_controllers.PickPlaceController):
