@@ -18,7 +18,9 @@ from omni.isaac.core.prims import XFormPrim
 
 from omni.isaac.core.utils.extensions import get_extension_path_from_name
 
-from .senut import get_assets_root_path, get_extension_path_from_name, cleanup_path
+from omni.isaac.core.utils.nucleus import get_assets_root_path
+
+from .senut import get_extension_path_from_name, cleanup_path
 from .senut import find_prim_by_name, find_prims_by_name
 
 import carb.settings
@@ -29,7 +31,7 @@ def get_robot_params(robot_name):
     mg_extension_path = get_extension_path_from_name("omni.isaac.motion_generation")
     jakacontrol_extension_path = cleanup_path(get_extension_path_from_name("JakaControl"))
     # robsjaka_extension_path = cleanup_path(get_extension_path_from_name("robs.jaka"))
-    robsjaka_extension_path = cleanup_path(get_extension_path_from_name("omni.asimov.jaka"))
+    asimovjaka_extension_path = cleanup_path(get_extension_path_from_name("omni.asimov.jaka"))
     mopo_robot_name = ""
     path_to_robot_usd = ""
     artpath = ""
@@ -69,30 +71,41 @@ def get_robot_params(robot_name):
             artpath = f"{robot_prim_path}/world"
             path_to_robot_usd = f"{jakacontrol_extension_path}/usd/jaka2.usda"
             mopo_robot_name = "Franka"
-        case "jaka-minicobo-1":
-            robot_prim_path = "/World/roborg/minicobo_v1_4"
-            artpath = f"{robot_prim_path}/world"
-            path_to_robot_usd = f"{jakacontrol_extension_path}/usd/jaka_v14_1.usda"
-            mopo_robot_name = "Franka"
         case "jaka-minicobo-2":
             robot_prim_path = "/World/roborg/minicobo_parallel_onrobot_rg2"
             artpath = f"{robot_prim_path}/minicobo_onrobot_rg2/world"
-            path_to_robot_usd = f"{robsjaka_extension_path}/usd/minicobo-parallel-onrobot-rg2-6.usda"
+            path_to_robot_usd = f"{asimovjaka_extension_path}/usd/minicobo-parallel-onrobot-rg2-6.usda"
             mopo_robot_name = "RS007N"
         case "minicobo-rg2-high":
             robot_prim_path = "/World/roborg/minicobo_parallel_onrobot_rg2"
             artpath = f"{robot_prim_path}/minicobo_onrobot_rg2/world"
-            path_to_robot_usd = f"{robsjaka_extension_path}/usd/minicobo-parallel-onrobot-rg2-6.usda"
+            path_to_robot_usd = f"{asimovjaka_extension_path}/usd/minicobo-parallel-onrobot-rg2-6.usda"
+            mopo_robot_name = "RS007N"
+        case "jaka-minicobo-1":
+            robot_prim_path = "/World/roborg/minicobo_v1_4"
+            artpath = f"{robot_prim_path}/world"
+            path_to_robot_usd = f"{jakacontrol_extension_path}/usd/jaka_v14_1.usda"
+            mopo_robot_name = "RS007N"
+        case "minicobo-suction-dual":
+            # robot_prim_path = "/World/roborg/minicobo_suction"
+            # artpath = f"{robot_prim_path}/world"
+            # path_to_robot_usd = f"{robsjaka_extension_path}/usd/minicobo-suction.usda"
+            robot_prim_path = "/World/roborg/minicobo_suction_dual"
+            artpath = f"{robot_prim_path}/minicobo_suction/world"
+            path_to_robot_usd = f"{asimovjaka_extension_path}/usd/minicobo-suction-dual-4.usda"
             mopo_robot_name = "RS007N"
         case "minicobo-suction":
-            robot_prim_path = "/World/roborg/minicobo_suction"
-            artpath = f"{robot_prim_path}/world"
-            path_to_robot_usd = f"{robsjaka_extension_path}/usd/minicobo-suction.usda"
+            # robot_prim_path = "/World/roborg/minicobo_suction"
+            # artpath = f"{robot_prim_path}/world"
+            # path_to_robot_usd = f"{robsjaka_extension_path}/usd/minicobo-suction.usda"
+            robot_prim_path = "/World/roborg/minicobo_suction_short"
+            artpath = f"{robot_prim_path}/minicobo_suction/world"
+            path_to_robot_usd = f"{asimovjaka_extension_path}/usd/minicobo-suction-2.usda"
             mopo_robot_name = "RS007N"
         case "minicobo-suction-high":
             robot_prim_path = "/World/roborg/minicobo_suction_short"
             artpath = f"{robot_prim_path}/minicobo_suction/world"
-            path_to_robot_usd = f"{robsjaka_extension_path}/usd/minicobo-suction-2.usda"
+            path_to_robot_usd = f"{asimovjaka_extension_path}/usd/minicobo-suction-2.usda"
             mopo_robot_name = "RS007N"
         case "rs007n":
             robot_prim_path = "/World/roborg/khi_rs007n"
@@ -129,6 +142,7 @@ def get_robot_rmp_params(robot_name):
     mg_extension_path = get_extension_path_from_name("omni.isaac.motion_generation")
     rmp_config_dir = cleanup_path(mg_extension_path + "/motion_policy_configs")
     jakacontrol_extension_path = cleanup_path(get_extension_path_from_name("JakaControl"))
+    asimovjaka_extension_path = cleanup_path(get_extension_path_from_name("omni.asimov.jaka"))
 
     ok = True
     match robot_name:
@@ -183,14 +197,6 @@ def get_robot_rmp_params(robot_name):
             rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
             eeframe_name = "dummy_tcp"
             max_step_size = 0.00334
-        case "jaka-minicobo-1":
-            # urpath = rmp_config_dir + "/Jaka/"
-            rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
-            rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description.yaml"
-            urdf_path = rmp_mppath + "/minicobo/minicobo_v14_1.urdf"
-            rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
-            eeframe_name = "dummy_tcp"
-            max_step_size = 0.00334
         case "jaka-minicobo-2":
             # urpath = rmp_config_dir + "/Jaka/"
             rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
@@ -201,18 +207,48 @@ def get_robot_rmp_params(robot_name):
             max_step_size = 0.00334
         case "minicobo-rg2-high":
             # urpath = rmp_config_dir + "/Jaka/"
-            rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
-            rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description.yaml"
-            urdf_path = rmp_mppath + "/minicobo/minicobo_v14_onrobot_rg2.urdf"
-            rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
+            # rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
+            # rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description.yaml"
+            # urdf_path = rmp_mppath + "/minicobo/minicobo_v14_onrobot_rg2.urdf"
+            rmp_mppath = f"{asimovjaka_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
+            rdf_path = f"{asimovjaka_extension_path}/rdf/minicobo_robot_description.yaml"
+            rmp_config_path = f"{asimovjaka_extension_path}/rdf/minicobo_rmpflow_config.yaml"
+            urdf_path = f"{asimovjaka_extension_path}/urdf/minicobo_v14_onrobot_rg2.urdf"
             eeframe_name = "gripper_center"
             max_step_size = 0.00334
-        case "minicobo-suction" | "minicobo-suction-high":
+        case "jaka-minicobo-1":
             # urpath = rmp_config_dir + "/Jaka/"
             rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
             rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description.yaml"
-            urdf_path = rmp_mppath + "/minicobo/minicobo_v14_onrobot_rg2.urdf"
+            urdf_path = rmp_mppath + "/minicobo/minicobo_v14_1.urdf"
             rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
+            eeframe_name = "dummy_tcp"
+            max_step_size = 0.00334
+        case "minicobo-suction-dual":
+            # rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
+            # rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description.yaml"
+            # urdf_path = rmp_mppath + "/minicobo/minicobo_v14_onrobot_rg2.urdf"
+            # rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
+            # eeframe_name = "dual_gripper"
+            rmp_mppath = f"{asimovjaka_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
+            rdf_path = f"{asimovjaka_extension_path}/rdf/minicobo_robot_description.yaml"
+            rmp_config_path = f"{asimovjaka_extension_path}/rdf/minicobo_rmpflow_config.yaml"
+            urdf_path = f"{asimovjaka_extension_path}/urdf/minicobo_v14_onrobot_rg2.urdf"
+            eeframe_name = "gripper_center"
+            # eeframe_name = "dual_gripper"
+            # eeframe_name = "DUAL_SMC_ADAPTER_v002"
+
+            max_step_size = 0.00334
+        case "minicobo-suction" | "minicobo-suction-high":
+            # urpath = rmp_config_dir + "/Jaka/"
+            # rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
+            # rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description.yaml"
+            # urdf_path = rmp_mppath + "/minicobo/minicobo_v14_onrobot_rg2.urdf"
+            # rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
+            rmp_mppath = f"{asimovjaka_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
+            rdf_path = f"{asimovjaka_extension_path}/rdf/minicobo_robot_description.yaml"
+            rmp_config_path = f"{asimovjaka_extension_path}/rdf/minicobo_rmpflow_config.yaml"
+            urdf_path = f"{asimovjaka_extension_path}/urdf/minicobo_v14_onrobot_rg2.urdf"
             eeframe_name = "gripper_center"
             max_step_size = 0.00334
         case "rs007n":
@@ -249,15 +285,10 @@ def can_handle_robot(scenario_name, robot_name):
         case "pick-and-place" | "rmpflow" | "object-inspection" | "inverse-kinematics":
             rv = robot_name in ["franka", "fancy_franka","rs007n", "ur10-suction-short",
                                "jaka-minicobo-0", "jaka-minicobo-1",  "jaka-minicobo-2",
-                               "minicobo-rg2-high", "minicobo-suction", "minicobo-suction-high"]
+                               "minicobo-rg2-high", "minicobo-suction-dual", "minicobo-suction", "minicobo-suction-high"]
+        case "gripper":
+            rv = robot_name in ["cone","sphere","suction-short"]
     return rv
-
-_scenario_names = ["sinusoid-joint","franka-pick-and-place","pick-and-place", "rmpflow","object-inspection", "inverse-kinematics"]
-
-_robot_names = ["ur3e", "ur5e", "ur10e", "ur10e-gripper", "ur10-suction-short",
-                "jaka-minicobo-0","jaka-minicobo-1", "jaka-minicobo-2",
-                "minicobo-rg2-high","minicobo-suction","minicobo-suction-high",
-                "rs007n", "franka", "fancy_franka", "jetbot","m0609"]
 
 class ScenarioBase:
     def __init__(self):
@@ -302,13 +333,19 @@ class ScenarioBase:
             return
 
         if not os.path.isfile(self._cfg_rdf_path):
-            msg = f"Robot {robot_name} rdf_path not found:{self._cfg_rdf_path}"
+            msg = f"Robot {robot_name} rdf_path bad - file not found:{self._cfg_rdf_path}"
             carb.log_error(msg)
             print(msg)
             return
 
         if not os.path.isfile(self._cfg_urdf_path):
-            msg = f"Robot {robot_name} urdf_path not found:{self._cfg_urdf_path}"
+            msg = f"Robot {robot_name} urdf_path bad - file not found:{self._cfg_urdf_path}"
+            carb.log_error(msg)
+            print(msg)
+            return
+
+        if not os.path.isfile(self._cfg_rmp_config_path):
+            msg = f"Robot {robot_name} rmp_config_path bad - file not found:{self._cfg_rmp_config_path}"
             carb.log_error(msg)
             print(msg)
             return
@@ -317,7 +354,7 @@ class ScenarioBase:
             self._cfg_robot_description = lula.load_robot(self._cfg_rdf_path, self._cfg_urdf_path)
             self._cfg_lulaHelper = LulaInterfaceHelper(self._cfg_robot_description)
         except Exception as e:
-            msg = f"Robot {robot_name} lula.load_robot failed:{e}"
+            msg = f"ScenarioBase - Robot {robot_name} lula.load_robot of rdf and urdf failed:{e}"
             carb.log_error(msg)
             print(msg)
             return
@@ -456,8 +493,8 @@ class ScenarioBase:
 
         prim = find_prim_by_name("end_effector")
         if prim is None:
-            msg = 'realize_eetarg_vis:prim "end_effector" not found'
-            carb.log_warn(msg)
+            # msg = 'realize_eetarg_vis:prim "end_effector" not found'
+            # carb.log_warn(msg)
             return
         gprim = UsdGeom.Gprim(prim)
         try:

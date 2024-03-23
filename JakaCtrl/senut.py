@@ -11,7 +11,6 @@ from typing import Tuple, List
 
 from pxr import Sdf, UsdLux, UsdPhysics, Usd
 
-from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.core.utils.stage import get_current_stage
 
 from omni.isaac.core.prims import XFormPrim

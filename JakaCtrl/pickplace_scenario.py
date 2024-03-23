@@ -8,12 +8,13 @@ from omni.isaac.core.utils.stage import add_reference_to_stage,  get_current_sta
 import omni.timeline
 
 from omni.isaac.core.articulations import Articulation
-from omni.isaac.core.objects.cuboid import DynamicCuboid
+from omni.isaac.core.objects.cuboid import DynamicCuboid, VisualCuboid
+from omni.isaac.core.objects import cuboid, sphere, capsule
 from omni.isaac.core.objects import GroundPlane
-from .franka.controllers import PickPlaceController as franka_PickPlaceController
+# from .franka.controllers import PickPlaceController as franka_PickPlaceController
+from omni.asimov.jaka.controllers.pick_place_controller import PickPlaceController as jaka_PickPlaceController
 from .universal_robots.omni.isaac.universal_robots.controllers import PickPlaceController as ur10_PickPlaceController
 # from robs.jaka.controllers.pick_place_controller import PickPlaceController as jaka_PickPlaceController
-from omni.asimov.jaka.controllers.pick_place_controller import PickPlaceController as jaka_PickPlaceController
 
 from omni.isaac.motion_generation import ArticulationMotionPolicy
 from omni.isaac.motion_generation import ArticulationKinematicsSolver
@@ -29,6 +30,9 @@ from omni.asimov.manipulators.grippers.parallel_gripper import ParallelGripper
 from omni.asimov.manipulators.grippers.surface_gripper import SurfaceGripper
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
+
+from omni.isaac.core.prims.rigid_prim import RigidPrim
+from .senut import find_prim_by_name, find_prims_by_name
 
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
@@ -148,12 +152,30 @@ class PickAndPlaceScenario(ScenarioBase):
             self._target_pos = np.array([0.25, 0.25, 0.15])
             self._goal_position = np.array([+0.3, -0.3, 0.0515 / 2.0])
 
-        self._cuboid = DynamicCuboid(
-            "/Scenario/cuboid", position=self._target_pos, size=0.05, color=np.array([128, 0, 128])
+        world = World.instance()
+
+        # world.scene.add(cuboid.DynamicCuboid(
+        #     "/visualcube",
+        #     # prim_path="/World/spawn_region",
+        #     position=[0.7, 0, 0.45],
+        #     scale=np.array([0.4, 1.0, 0.3]),
+        #     color=np.array([1, 0, 1]),
+        # ))
+
+        orient = euler_angles_to_quat(np.array([0, 0, 44*np.pi/180]))
+        self._cuboid = cuboid.DynamicCuboid(
+            "/Scenario/cuboid",
+            position=self._target_pos,
+            orientation=orient,
+            scale=np.array([0.04, 0.1, 0.11]),
+            color=np.array([128, 0, 128]
+            )
         )
+        # self._cuboid = DynamicCuboid(
+        #     "/Scenario/cuboid", position=self._target_pos, size=0.05, color=np.array([128, 0, 128])
+        # )
 
         # Add user-loaded objects to the World
-        world = World.instance()
         if self._articulation is not None:
             world.scene.add(self._articulation)
         if self._cuboid is not None:
@@ -207,7 +229,7 @@ class PickAndPlaceScenario(ScenarioBase):
         if gripper is not None:
             if self._robot_name in ["fancy_franka", "franka", "rs007n"]:
                 self._gripper_type = "parallel"
-                self._controller = franka_PickPlaceController(
+                self._controller = jaka_PickPlaceController(
                     name="pick_place_controller",
                     gripper=gripper,
                     robot_articulation=self._articulation
@@ -219,7 +241,7 @@ class PickAndPlaceScenario(ScenarioBase):
                     gripper=gripper,
                     robot_articulation=self._articulation
                 )
-            elif self._robot_name in ["minicobo-suction","minicobo-suction-high",]:
+            elif self._robot_name in ["minicobo-suction","minicobo-suction-high","jaka-minicobo-1","minicobo-suction-dual"]:
                 self._gripper_type = "suction"
                 rmpconfig = {
                     "end_effector_frame_name": self._cfg_eeframe_name,
@@ -235,7 +257,7 @@ class PickAndPlaceScenario(ScenarioBase):
                     robot_articulation=self._articulation,
                     rmpconfig=rmpconfig
                 )
-            elif self._robot_name in ["jaka-minicobo-0","jaka-minicobo-1","jaka-minicobo-2","minicobo-rg2-high"]:
+            elif self._robot_name in ["jaka-minicobo-0","jaka-minicobo-2","minicobo-rg2-high"]:
                 self._gripper_type = "parallel"
                 rmpconfig = {
                     "end_effector_frame_name": self._cfg_eeframe_name,
@@ -376,7 +398,7 @@ class PickAndPlaceScenario(ScenarioBase):
                     dof_names=art.dof_names,
                 )
                 return pg
-            elif self._robot_name in ["ur10-suction-short","minicobo-suction","minicobo-suction-high"]:
+            elif self._robot_name in ["ur10-suction-short","jaka-minicobo-1","minicobo-suction-dual","minicobo-suction","minicobo-suction-high"]:
                 art = self._articulation
                 self._gripper_type = "suction"
                 # eepp = "/World/roborg/ur10_suction_short/ee_link/gripper_base/xf"
@@ -386,9 +408,20 @@ class PickAndPlaceScenario(ScenarioBase):
                 if self._robot_name == "ur10-suction-short":
                     eepp = "/World/roborg/ur10_suction_short/ee_link"
                 elif self._robot_name == "minicobo-suction":
-                    eepp = "/World/roborg/minicobo_suction/short_gripper"
+                    # eepp = "/World/roborg/minicobo_suction/short_gripper"
+                    eepp = "/World/roborg/minicobo_suction_short/minicobo_suction/short_gripper"
                 elif self._robot_name == "minicobo-suction-high":
                     eepp = "/World/roborg/minicobo_suction_short/minicobo_suction/short_gripper"
+                elif self._robot_name == "minicobo-suction-dual":
+                    eepp = "/World/roborg/minicobo_suction_dual/minicobo_suction/dual_gripper"
+                    # eepp = "/World/roborg/minicobo_suction_dual/minicobo_suction/dual_gripper/JAKA___MOTO_200mp_v4"
+
+                    # self._end_effector = RigidPrim(prim_path=eepp, name= "minicobo_dual_gripper" + "_end_effector")
+                    # self._end_effector.initialize(self.physics_sim_view)
+                elif self._robot_name == "jaka-minicobo-1":
+                    eepp = "/World/roborg/minicobo_v1_4/Link6/jaka_camera_endpoint/JAKA___MOTO_200mp_v4/ZPR25CNK10_06_A10_v007"
+                    self._end_effector = RigidPrim(prim_path=eepp, name= "jaka-minicobo-1" + "_end_effector")
+                    self._end_effector.initialize(self.physics_sim_view)
                 else:
                     print("Unknown robot name for suction gripper")
                 # jpn = ["left_inner_finger_joint", "right_inner_finger_joint"]
@@ -398,8 +431,12 @@ class PickAndPlaceScenario(ScenarioBase):
                 art._policy_robot_name = "UR10"
                 self._end_effector_prim_path = eepp
                 sg = SurfaceGripper(
-                    end_effector_prim_path=self._end_effector_prim_path, translate=0.1611, direction="x",
-                    grip_threshold=0.5
+                    end_effector_prim_path=self._end_effector_prim_path,
+#                     translate=0.1611,
+#                    translate=0.223, # minicobo-suction works between -0.001 and 0.222 - fails at 0.223 and -0.002
+                    translate=0.16, # minicobo-suction works between -0.001 and 0.222 - fails at 0.223 and -0.002
+                    direction="x",
+                    grip_threshold=1.51,  # between 0.01 and 0.5 work for minicobo-suction for the big cube
                 )
                 # self._end_effector = RigidPrim(prim_path=eeppgb, name= "ur10" + "_end_effector")
                 # self._end_effector.initialize(None)
@@ -423,9 +460,7 @@ class PickAndPlaceScenario(ScenarioBase):
                 if assets_root_path is None:
                     carb.log_error("Could not find Isaac Sim assets folder")
                     return
-                # gripper_usd = assets_root_path + "/Isaac/Robots/UR10/Props/short_gripper.usd"
-                # add_reference_to_stage(usd_path=gripper_usd, prim_path=self._end_effector_prim_path)
-                # self._end_effector = RigidPrim(prim_path=eeppgb, name= "ur10" + "_end_effector")
+
                 sg = SurfaceGripper(
                     end_effector_prim_path=self._end_effector_prim_path, translate=0.1611, direction="z"
                 )
@@ -436,39 +471,6 @@ class PickAndPlaceScenario(ScenarioBase):
                 return sg
             else:
                 return None
-
-    # def mw_create_collision_sphere_prims(self, is_visible):
-    #     print("mwdb - _create_collision_sphere_prims")
-    #     self._robot_description = self._rmpflow._robot_description
-    #     self._policy = self._rmpflow._policy
-    #     self._robot_joint_positions = self._rmpflow._robot_joint_positions
-    #     self._meters_per_unit = self._rmpflow._meters_per_unit
-    #     if self._robot_joint_positions is None:
-    #         joint_positions = self._robot_description.default_c_space_configuration()
-    #     else:
-    #         joint_positions = self._robot_joint_positions.astype(np.float64)
-
-    #     lih = self._rmpflow
-
-    #     sphere_poses = self._policy.collision_sphere_positions(joint_positions)
-    #     sphere_radii = self._policy.collision_sphere_radii()
-    #     nsph = len(sphere_poses)
-    #     print(f"mwdb - mw_create_collision_sphere_prims - found {nsph} configured spheres")
-    #     for i, (sphere_pose, sphere_rad) in enumerate(zip(sphere_poses, sphere_radii)):
-    #         prim_path = find_unique_string_name("/lula/collision_sphere" + str(i), lambda x: not is_prim_path_valid(x))
-    #         self._rmpflow._collision_spheres.append(
-    #             objects.sphere.VisualSphere(prim_path, radius=sphere_rad / self._meters_per_unit)
-    #         )
-    #     j = 0
-    #     for sphere, sphere_pose in zip(self._rmpflow._collision_spheres, sphere_poses):
-    #         new_pose = lih._robot_rot @ sphere_pose + lih._robot_pos
-    #         if j<4:
-    #             print(f"mwdb - mw_create_collision_sphere_prims - {j} sphere_pose: {sphere_pose} new_pose: {new_pose}")
-    #         sphere.set_world_pose(new_pose / self._meters_per_unit)
-    #         sphere.set_visibility(is_visible)
-    #         j += 1
-
-
 
     nphysstep_calls = 0
     global_time = 0
