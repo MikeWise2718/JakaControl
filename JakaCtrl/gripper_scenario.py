@@ -20,7 +20,7 @@ from omni.isaac.core.objects import GroundPlane
 from omni.isaac.core.utils.types import ArticulationAction
 from omni.isaac.core.world import World
 
-from .senut import add_light_to_stage, deg_euler_to_quat
+from .senut import add_light_to_stage, deg_euler_to_quat, deg_euler_to_quatd, deg_euler_to_quatf
 from .senut import find_prim_by_name, find_prims_by_name, GetXformOps
 
 from .scenario_base import ScenarioBase
@@ -118,12 +118,15 @@ class GripperScenario(ScenarioBase):
         self.mat_open = "Green_Glass"
         grippername = "Gripper"
         self.gripperActorPath = f"/{grippername}"
+        self.gripperRigidBodyPath = f"{self.gripperActorPath}"
 
         # Cone that will represent the gripper
         make_rigid_shape = False
         load_asset = False
         assets_root_path = get_assets_root_path()
         disable_gravity = True
+        gripper_pt_size = 0.01
+        scale = 1
         if self._robot_name == "cone":
             start_pt = [0, 0, 0.301]
             start_rot = [0, 0, 0]
@@ -149,15 +152,63 @@ class GripperScenario(ScenarioBase):
             form = UsdGeom.Sphere
             disable_gravity = False
             mass = 0.1
+        elif self._robot_name == "cylinder":
+            # start_pt = [0, 0, 0.301]
+            start_pt = [0, 0, 0.4]
+            start_rot = [0, 0, 0]
+            gripper_pt = [0, 0, -0.101]
+            make_rigid_shape = True
+            form = UsdGeom.Cylinder
+            disable_gravity = False
+            mass = 0.1
+        elif self._robot_name == "cube":
+            # start_pt = [0, 0, 0.301]
+            start_pt = [0, 0, 0.4]
+            start_rot = [0, 0, 0]
+            gripper_pt = [0, 0, -0.101]
+            make_rigid_shape = True
+            form = UsdGeom.Cube
+            disable_gravity = False
+            mass = 0.1
+        elif self._robot_name == "cube-yrot":
+            # start_pt = [0, 0, 0.301]
+            start_pt = [0, 0, 0.4]
+            start_rot = [0, 90, 0]
+            # gripper_pt = [0, 0, -0.101]
+            gripper_pt = [0.101, 0, 0]
+            make_rigid_shape = True
+            form = UsdGeom.Cube
+            disable_gravity = False
+            mass = 0.1
         elif self._robot_name == "suction-short":
             start_pt = [0, 0, 0.4]
             start_rot = [0, 90, 0]
-            gripper_pt = [0, 0, -0.1001]
+            gripper_pt = [0.165, 0, 0]
+            # gripper_pt = [0, 0, -0.165]
             load_asset = True
-            mass = 0.2
+            mass = 0.1
+            gripper_pt_size = 0.001
+            disable_gravity = False
             # asset_path = "http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/2023.1.1/Isaac/Robots/UR10/Props/short_gripper.usd"
             # asset_path = assets_root_path + "/Isaac/Samples/Gripper/short_gripper.usd"
             asset_path = assets_root_path + "/Isaac/Robots/UR10/Props/short_gripper.usd"
+        elif self._robot_name == "suction-dual":
+            start_pt = [0, 0, 0.4]
+            start_rot = [-90, 0, 0]
+            gripper_pt = [0, 0.165, 0]
+            # gripper_pt = [0, 0, -0.165]
+            load_asset = True
+            mass = 0.001
+            gripper_pt_size = 0.01
+            disable_gravity = True
+            scale = 0.01
+            # asset_path = "http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/2023.1.1/Isaac/Robots/UR10/Props/short_gripper.usd"
+            # asset_path = assets_root_path + "/Isaac/Samples/Gripper/short_gripper.usd"
+            asset_path = "D:/nv/ov/exts/omni.asimov.jaka/usd/dual_gripper_2.usda"
+            self.gripperRigidBodyPath = f"{self.gripperActorPath}/dual_gripper"
+
+        self.grip_point = Gf.Vec3f(gripper_pt)
+        self.start_rot = start_rot
 
 
         if make_rigid_shape:
@@ -173,35 +224,49 @@ class GripperScenario(ScenarioBase):
                 self.color_open,
             )
         if load_asset:
-            quat = euler_angles_to_quat(start_rot)
+            quat = deg_euler_to_quat(start_rot)
             self.gripper_start_pose = dc.Transform(start_pt, quat)
             self.gripperGeom = add_reference_to_stage(asset_path, self.gripperActorPath)
             if self.gripperGeom is None:
                 print("Failed to load gripper asset")
                 return
             gprim : UsdGeom.Gprim = UsdGeom.Gprim(self.gripperGeom)
-            (t,r,s) = GetXformOps(self.gripperGeom)
+            (t,r,q,s) = GetXformOps(self.gripperGeom)
+            if scale != 1:
+                scvek = Gf.Vec3d([scale, scale, scale])
+                s.Set(scvek)
             t.Set(Gf.Vec3d(start_pt))
-            r.Set(Gf.Vec3d(start_rot))
-            mapi = UsdPhysics.MassAPI.Get(self._stage, self.gripperActorPath)
+            if r is None:
+                quatf = deg_euler_to_quatf(start_rot)
+                q.Set(quatf)
+            else:
+                r.Set(Gf.Vec3d(start_rot))
+            mapi = UsdPhysics.MassAPI.Get(self._stage, self.gripperRigidBodyPath)
             if mapi is None:
                 mapi = UsdPhysics.MassAPI.Apply(self.gripperGeom)
             mapi.CreateMassAttr(mass).Set(mass)
-            rigi = UsdPhysics.RigidBodyAPI.Get(self._stage, self.gripperActorPath)
+            rigi = UsdPhysics.RigidBodyAPI.Get(self._stage, self.gripperRigidBodyPath)
             if rigi is None:
                 rigi = UsdPhysics.RigidBodyAPI.Apply(self.gripperGeom)
             physxRigidBody = PhysxSchema.PhysxRigidBodyAPI.Apply(self.gripperGeom)
             physxRigidBody.GetDisableGravityAttr().Set(disable_gravity)
 
 
-        self.gripperComPath = f"{self.gripperActorPath}_COM"
-        mk_pt = Gf.Vec3f(start_pt) + Gf.Vec3f(gripper_pt)
-        self.createMarkerBody(
+        self.gripperGripPointPath = f"{self.gripperActorPath}_GripPoint"
+        quatd = deg_euler_to_quatd(start_rot)
+        rot = Gf.Rotation(quatd)
+        newgripot = rot.TransformDir(self.grip_point)
+        mk_pt = Gf.Vec3f(start_pt) + newgripot
+        # self.gripperGripPointPath = f"{self.gripperActorPath}/GripPoint"
+        # mk_pt = Gf.Vec3f(gripper_pt)
+        orient = euler_angles_to_quat([0, 0, 0])
+        sz = gripper_pt_size
+        self.gripperGripPointPrim = self.createMarkerBody(
             UsdGeom.Sphere,
-            self.gripperComPath ,
-            [0.01, 0.01, 0.01],
+            self.gripperGripPointPath ,
+            [sz, sz, sz],
             mk_pt,
-            self.gripper_start_pose.r,
+            orient,
             Gf.Vec3f([1, 0.41, 0.7])
         )
 
@@ -214,7 +279,7 @@ class GripperScenario(ScenarioBase):
         )
 
         # Reordering the quaternion to follow DC convention for later use.
-        self.gripper_start_pose = dc.Transform([0, 0, 0.301], [0, 0, 0, 1])
+
         self.box_start_pose = dc.Transform([0, 0, 0.10], [0, 0, 0, 1])
 
         # Gripper properties
@@ -235,18 +300,19 @@ class GripperScenario(ScenarioBase):
         self.sgp.offset.p.y = gripper_pt[1]
         self.sgp.offset.p.z = gripper_pt[2]
         self.sgp.offset.r = [0.7071, 0, 0.7071, 0]  # Rotate to point gripper in Z direction
-        self.sgp.gripThreshold = 0.02
+        self.sgp.gripThreshold = 0.1 # orig 0.02
         self.sgp.forceLimit = 1.0e2
         self.sgp.torqueLimit = 1.0e3
-        self.sgp.bendAngle = np.pi / 4
+        # self.sgp.bendAngle = np.pi / 4
         self.sgp.stiffness = 1.0e4
         self.sgp.damping = 1.0e3
 
         self.surface_gripper = Surface_Gripper(self._dc)
         self.surface_gripper.initialize(self.sgp)
         # Set camera to a nearby pose and looking directly at the Gripper cone
+        self.cone_start_pose = dc.Transform([0, 0, 0.301], [0, 0, 0, 1])
         set_camera_view(
-            eye=[4.00, 4.00, 4.00], target=self.gripper_start_pose.p, camera_prim_path="/OmniverseKit_Persp"
+            eye=[4.00, 4.00, 4.00], target=self.cone_start_pose.p, camera_prim_path="/OmniverseKit_Persp"
         )
 
         # self._physx_subs = _physx.get_physx_interface().subscribe_physics_step_events(self._on_simulation_step)
@@ -318,23 +384,21 @@ class GripperScenario(ScenarioBase):
         print(bodyPrim.GetPath().pathString)
         return bodyGeom
 
-    def move_com_marker(self):
+
+    def move_gripperpt_marker(self):
         # Move the COM marker to the center of mass of the gripper
-        mapi = UsdPhysics.MassAPI.Get(self._stage, self.gripperActorPath)
-        com = mapi.GetCenterOfMassAttr().Get()
-        mass = mapi.GetMassAttr().Get()
-        isok = np.isfinite(com[0]) and np.isfinite(com[1]) and np.isfinite(com[2])
-        if not isok:
-            msg = f'move_com_marker:prim {self.gripperActorPath} bad com:{com} mass:{mass:.3f}'
-            carb.log_warn(msg)
-            return
-        mkprim = self._stage.GetPrimAtPath(self.gripperComPath)
+        mkprim = self.gripperGripPointPrim
         if mkprim is None:
-            msg = f'move_com_marker:prim {self.gripperComPath} not found'
+            msg = f'move_com_marker:prim {self.gripperGripPointPath} not found'
             carb.log_warn(msg)
             return
-        mkprim.GetAttribute("xformOp:translate").Set(com)
-        pass
+        (tranp, _, _, _) = GetXformOps(self.gripperGeom)
+        (tranc, _, _, _) = GetXformOps(mkprim)
+        quatd = deg_euler_to_quatd(self.start_rot)
+        rot = Gf.Rotation(quatd)
+        newgripot = rot.TransformDir(self.grip_point)
+        mk_pt = Gf.Vec3f(tranp.Get()) + newgripot
+        tranc.Set(mk_pt)
 
 
     def post_load_scenario(self):
@@ -363,7 +427,7 @@ class GripperScenario(ScenarioBase):
         if self.nphysstep_calls==0:
             pass
 
-        # self.move_com_marker()
+        self.move_gripperpt_marker()
 
         self.check_gripper_status()
 
@@ -385,7 +449,7 @@ class GripperScenario(ScenarioBase):
     def apply_material(self, matname):
         prim = self._stage.GetPrimAtPath(self.gripperActorPath)
         if prim is None:
-            msg = f'realize_eetarg_vis:prim {self.gripperActorPath} not found'
+            msg = f'apply_material:prim {self.gripperActorPath} not found'
             carb.log_warn(msg)
             return
         gprim = UsdGeom.Gprim(prim)
@@ -396,8 +460,14 @@ class GripperScenario(ScenarioBase):
         print("Gripper scenario action:",actionname, "   mouse_button:",mouse_button)
         if actionname == "Close Gripper":
             self.surface_gripper.close()
+            isclosed = self.surface_gripper.is_closed()
+            msg = f"Gripper Close executed - gripper isclosed:{isclosed}"
+            carb.log_warn(msg)
         elif actionname == "Open Gripper":
             self.surface_gripper.open()
+            isclosed = self.surface_gripper.is_closed()
+            msg = f"Gripper Open executed - gripper isclosed:{isclosed}"
+            carb.log_warn(msg)
         else:
             print(f"Unknown actionname: {actionname}")
 

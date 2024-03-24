@@ -286,13 +286,13 @@ def get_scenario_robots(scenario_name):
                                "jaka-minicobo-0", "jaka-minicobo-1",  "jaka-minicobo-2",
                                "minicobo-rg2-high", "minicobo-suction-dual", "minicobo-suction", "minicobo-suction-high"]
         case "gripper":
-            rv = ["cone","inverted-cone","sphere","suction-short"]
+            rv = ["cone","inverted-cone","sphere","cube","cube-yrot","cylinder","suction-short","suction-dual"]
         case _:
             rv = ["ur3e", "ur5e", "ur10e", "ur10e-gripper", "ur10-suction-short",
                   "jaka-minicobo-0","jaka-minicobo-1", "jaka-minicobo-2",
                   "minicobo-rg2-high","minicobo-suction-dual","minicobo-suction","minicobo-suction-high",
                   "rs007n", "franka", "fancy_franka", "jetbot","m0609",
-                  "cone","inverted-cone","sphere","suction-short"]
+                  "cone","inverted-cone","sphere","cube","cube-yrot","cylinder","suction-short","suction-dual"]
     return rv
 
 def can_handle_robot(scenario_name, robot_name):

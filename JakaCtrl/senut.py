@@ -144,6 +144,7 @@ def GetXformOps(prim: Usd.Prim):
     xformable = UsdGeom.Xformable(prim)
     tformop = None
     rformop = None
+    qformop = None
     sformop = None
     gprim : UsdGeom.Gprim = UsdGeom.Gprim(prim)
     oops = gprim.GetOrderedXformOps()
@@ -154,18 +155,32 @@ def GetXformOps(prim: Usd.Prim):
                     tformop = op
                 case UsdGeom.XformOp.TypeRotateXYZ:
                     rformop = op
+                case UsdGeom.XformOp.TypeOrient:
+                    qformop = op
                 case UsdGeom.XformOp.TypeScale:
                     sformop = op
     if tformop is None:
         tformop = UsdGeom.XformOp(gprim.AddTranslateOp())
-    if rformop is None:
-        rformop = UsdGeom.XformOp(gprim.AddRotateXYZOp())
+    if rformop is None and qformop is None:
+        qformop = UsdGeom.XformOp(gprim.AddOrientOp())
     if sformop is None:
         sformop = UsdGeom.XformOp(gprim.AddScaleOp())
     # might need to set the op order here
-    return tformop, rformop, sformop
+    return tformop, rformop, qformop, sformop
 
 def deg_euler_to_quat(deg_euler):
     deg = np.array(deg_euler)*np.pi/180
     quat = euler_angles_to_quat(deg)
     return quat
+
+def deg_euler_to_quatf(deg_euler):
+    deg = np.array(deg_euler)*np.pi/180
+    quat = euler_angles_to_quat(deg)
+    quatf = Gf.Quatf(quat[0], quat[1], quat[2], quat[3])
+    return quatf
+
+def deg_euler_to_quatd(deg_euler):
+    deg = np.array(deg_euler)*np.pi/180
+    quat = euler_angles_to_quat(deg)
+    quatd = Gf.Quatd(quat[0], quat[1], quat[2], quat[3])
+    return quatd
