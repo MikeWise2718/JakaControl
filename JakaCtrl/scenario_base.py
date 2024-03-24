@@ -273,21 +273,31 @@ def get_robot_rmp_params(robot_name):
             max_step_size = 0.00334
     return (ok, rdf_path, urdf_path, rmp_config_path, eeframe_name, max_step_size)
 
-def can_handle_robot(scenario_name, robot_name):
-    rv = True
+def get_scenario_robots(scenario_name):
     match scenario_name:
         case "sinusoid-joint":
-            rv = robot_name in ["franka", "ur10e", "ur5e", "ur3e", "jaka-minicobo-0"]
+            rv = ["franka", "ur10e", "ur5e", "ur3e", "jaka-minicobo-0"]
         case "object-inspection":
-            rv = robot_name in ["franka", "ur10e", "ur5e", "ur3e", "jaka-minicobo-0"]
+            rv = ["franka", "ur10e", "ur5e", "ur3e", "jaka-minicobo-0"]
         case "franka-pick-and-place":
-            rv = robot_name in ["franka", "fancy_franka"]
+            rv = ["franka", "fancy_franka"]
         case "pick-and-place" | "rmpflow" | "object-inspection" | "inverse-kinematics":
-            rv = robot_name in ["franka", "fancy_franka","rs007n", "ur10-suction-short",
+            rv = ["franka", "fancy_franka","rs007n", "ur10-suction-short",
                                "jaka-minicobo-0", "jaka-minicobo-1",  "jaka-minicobo-2",
                                "minicobo-rg2-high", "minicobo-suction-dual", "minicobo-suction", "minicobo-suction-high"]
         case "gripper":
-            rv = robot_name in ["cone","sphere","suction-short"]
+            rv = ["cone","inverted-cone","sphere","suction-short"]
+        case _:
+            rv = ["ur3e", "ur5e", "ur10e", "ur10e-gripper", "ur10-suction-short",
+                  "jaka-minicobo-0","jaka-minicobo-1", "jaka-minicobo-2",
+                  "minicobo-rg2-high","minicobo-suction-dual","minicobo-suction","minicobo-suction-high",
+                  "rs007n", "franka", "fancy_franka", "jetbot","m0609",
+                  "cone","inverted-cone","sphere","suction-short"]
+    return rv
+
+def can_handle_robot(scenario_name, robot_name):
+    robs = get_scenario_robots(scenario_name)
+    rv = robot_name in robs
     return rv
 
 class ScenarioBase:

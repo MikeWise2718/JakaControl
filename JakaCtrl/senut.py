@@ -7,7 +7,7 @@ from .matman import MatMan
 from pxr import Usd, UsdGeom, UsdShade, Gf
 from typing import Tuple, List
 
-
+from omni.isaac.core.utils.rotations import euler_angles_to_quat
 
 from pxr import Sdf, UsdLux, UsdPhysics, Usd
 
@@ -139,3 +139,33 @@ def cleanup_path(path: str) -> str:
         path = path.replace("\\", "/")
         path = path.replace("//", "/")
     return path
+
+def GetXformOps(prim: Usd.Prim):
+    xformable = UsdGeom.Xformable(prim)
+    tformop = None
+    rformop = None
+    sformop = None
+    gprim : UsdGeom.Gprim = UsdGeom.Gprim(prim)
+    oops = gprim.GetOrderedXformOps()
+    if oops is not None:
+        for op in oops:
+            match op.GetOpType():
+                case UsdGeom.XformOp.TypeTranslate:
+                    tformop = op
+                case UsdGeom.XformOp.TypeRotateXYZ:
+                    rformop = op
+                case UsdGeom.XformOp.TypeScale:
+                    sformop = op
+    if tformop is None:
+        tformop = UsdGeom.XformOp(gprim.AddTranslateOp())
+    if rformop is None:
+        rformop = UsdGeom.XformOp(gprim.AddRotateXYZOp())
+    if sformop is None:
+        sformop = UsdGeom.XformOp(gprim.AddScaleOp())
+    # might need to set the op order here
+    return tformop, rformop, sformop
+
+def deg_euler_to_quat(deg_euler):
+    deg = np.array(deg_euler)*np.pi/180
+    quat = euler_angles_to_quat(deg)
+    return quat

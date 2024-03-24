@@ -4,7 +4,7 @@ import os
 
 import carb
 
-from pxr import Gf, Sdf, UsdGeom, UsdLux, UsdPhysics, UsdShade
+from pxr import Gf, Sdf, UsdGeom, UsdLux, UsdPhysics, UsdShade,  PhysxSchema
 
 import omni
 import omni.physx as _physx
@@ -20,8 +20,8 @@ from omni.isaac.core.objects import GroundPlane
 from omni.isaac.core.utils.types import ArticulationAction
 from omni.isaac.core.world import World
 
-from .senut import add_light_to_stage
-from .senut import find_prim_by_name, find_prims_by_name
+from .senut import add_light_to_stage, deg_euler_to_quat
+from .senut import find_prim_by_name, find_prims_by_name, GetXformOps
 
 from .scenario_base import ScenarioBase
 from omni.isaac.core.objects import cuboid, sphere, capsule
@@ -123,28 +123,46 @@ class GripperScenario(ScenarioBase):
         make_rigid_shape = False
         load_asset = False
         assets_root_path = get_assets_root_path()
+        disable_gravity = True
         if self._robot_name == "cone":
             start_pt = [0, 0, 0.301]
+            start_rot = [0, 0, 0]
             gripper_pt = [0, 0, -0.1001]
             make_rigid_shape = True
             form = UsdGeom.Cone
+            disable_gravity = False
+            mass = 0.1
+        elif self._robot_name == "inverted-cone":
+            start_pt = [0, 0, 0.301]
+            start_rot = [0, 180, 0]
+            gripper_pt = [0, 0, -0.1001]
+            make_rigid_shape = True
+            form = UsdGeom.Cone
+            disable_gravity = False
+            mass = 0.2
         elif self._robot_name == "sphere":
             # start_pt = [0, 0, 0.301]
             start_pt = [0, 0, 0.4]
+            start_rot = [0, 0, 0]
             gripper_pt = [0, 0, -0.100]
             make_rigid_shape = True
             form = UsdGeom.Sphere
+            disable_gravity = False
+            mass = 0.1
         elif self._robot_name == "suction-short":
             start_pt = [0, 0, 0.4]
+            start_rot = [0, 90, 0]
             gripper_pt = [0, 0, -0.1001]
             load_asset = True
+            mass = 0.2
             # asset_path = "http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/2023.1.1/Isaac/Robots/UR10/Props/short_gripper.usd"
             # asset_path = assets_root_path + "/Isaac/Samples/Gripper/short_gripper.usd"
             asset_path = assets_root_path + "/Isaac/Robots/UR10/Props/short_gripper.usd"
 
 
         if make_rigid_shape:
-            self.gripper_start_pose = dc.Transform(start_pt, [1, 0, 0, 0])
+            quat = deg_euler_to_quat(start_rot)
+            self.gripper_start_pose = dc.Transform(start_pt, quat)
             self.gripperGeom = self.createRigidBody(
                 form,
                 self.gripperActorPath,
@@ -155,21 +173,26 @@ class GripperScenario(ScenarioBase):
                 self.color_open,
             )
         if load_asset:
-            self.gripper_start_pose = dc.Transform(start_pt, [1, 0, 0, 0])
+            quat = euler_angles_to_quat(start_rot)
+            self.gripper_start_pose = dc.Transform(start_pt, quat)
             self.gripperGeom = add_reference_to_stage(asset_path, self.gripperActorPath)
             if self.gripperGeom is None:
                 print("Failed to load gripper asset")
                 return
             gprim : UsdGeom.Gprim = UsdGeom.Gprim(self.gripperGeom)
-            oops = gprim.GetOrderedXformOps()
-            o0 = oops[0].GetOpName()
-            o1 = oops[1].GetOpName()
-            o2 = oops[2].GetOpName()
-            oops[0].Set(Gf.Vec3d(start_pt))
-            oops[1].Set(Gf.Vec3d([0,90,0]))
+            (t,r,s) = GetXformOps(self.gripperGeom)
+            t.Set(Gf.Vec3d(start_pt))
+            r.Set(Gf.Vec3d(start_rot))
+            mapi = UsdPhysics.MassAPI.Get(self._stage, self.gripperActorPath)
+            if mapi is None:
+                mapi = UsdPhysics.MassAPI.Apply(self.gripperGeom)
+            mapi.CreateMassAttr(mass).Set(mass)
+            rigi = UsdPhysics.RigidBodyAPI.Get(self._stage, self.gripperActorPath)
+            if rigi is None:
+                rigi = UsdPhysics.RigidBodyAPI.Apply(self.gripperGeom)
+            physxRigidBody = PhysxSchema.PhysxRigidBodyAPI.Apply(self.gripperGeom)
+            physxRigidBody.GetDisableGravityAttr().Set(disable_gravity)
 
-            # top =  gprim.AddTranslateOp()
-            # top.Set(self.gripper_start_pose)
 
         self.gripperComPath = f"{self.gripperActorPath}_COM"
         mk_pt = Gf.Vec3f(start_pt) + Gf.Vec3f(gripper_pt)
