@@ -141,7 +141,6 @@ def cleanup_path(path: str) -> str:
     return path
 
 def GetXformOps(prim: Usd.Prim):
-    xformable = UsdGeom.Xformable(prim)
     tformop = None
     rformop = None
     qformop = None

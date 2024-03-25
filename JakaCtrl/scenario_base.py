@@ -86,7 +86,7 @@ def get_robot_params(robot_name):
             artpath = f"{robot_prim_path}/world"
             path_to_robot_usd = f"{jakacontrol_extension_path}/usd/jaka_v14_1.usda"
             mopo_robot_name = "RS007N"
-        case "minicobo-suction-dual":
+        case "minicobo-suction-dual" | "minicobo-dual-high":
             # robot_prim_path = "/World/roborg/minicobo_suction"
             # artpath = f"{robot_prim_path}/world"
             # path_to_robot_usd = f"{robsjaka_extension_path}/usd/minicobo-suction.usda"
@@ -224,7 +224,7 @@ def get_robot_rmp_params(robot_name):
             rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
             eeframe_name = "dummy_tcp"
             max_step_size = 0.00334
-        case "minicobo-suction-dual":
+        case "minicobo-suction-dual" |"minicobo-dual-high":
             # rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
             # rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description.yaml"
             # urdf_path = rmp_mppath + "/minicobo/minicobo_v14_onrobot_rg2.urdf"
@@ -283,14 +283,14 @@ def get_scenario_robots(scenario_name):
             rv = ["franka", "fancy_franka"]
         case "pick-and-place" | "rmpflow" | "object-inspection" | "inverse-kinematics":
             rv = ["franka", "fancy_franka","rs007n", "ur10-suction-short",
-                               "jaka-minicobo-0", "jaka-minicobo-1",  "jaka-minicobo-2",
-                               "minicobo-rg2-high", "minicobo-suction-dual", "minicobo-suction", "minicobo-suction-high"]
+                  "jaka-minicobo-0", "jaka-minicobo-1",  "jaka-minicobo-2",
+                  "minicobo-rg2-high", "minicobo-suction-dual", "minicobo-suction", "minicobo-suction-high", "minicobo-dual-high"]
         case "gripper":
             rv = ["cone","inverted-cone","sphere","cube","cube-yrot","cylinder","suction-short","suction-dual"]
         case _:
             rv = ["ur3e", "ur5e", "ur10e", "ur10e-gripper", "ur10-suction-short",
                   "jaka-minicobo-0","jaka-minicobo-1", "jaka-minicobo-2",
-                  "minicobo-rg2-high","minicobo-suction-dual","minicobo-suction","minicobo-suction-high",
+                  "minicobo-rg2-high","minicobo-suction-dual","minicobo-suction","minicobo-suction-high","minicobo-dual-high",
                   "rs007n", "franka", "fancy_franka", "jetbot","m0609",
                   "cone","inverted-cone","sphere","cube","cube-yrot","cylinder","suction-short","suction-dual"]
     return rv

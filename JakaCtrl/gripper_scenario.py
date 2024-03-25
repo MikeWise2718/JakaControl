@@ -187,7 +187,7 @@ class GripperScenario(ScenarioBase):
             # gripper_pt = [0, 0, -0.165]
             load_asset = True
             mass = 0.1
-            gripper_pt_size = 0.001
+            gripper_pt_size = 0.01
             disable_gravity = False
             # asset_path = "http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/2023.1.1/Isaac/Robots/UR10/Props/short_gripper.usd"
             # asset_path = assets_root_path + "/Isaac/Samples/Gripper/short_gripper.usd"
@@ -195,7 +195,7 @@ class GripperScenario(ScenarioBase):
         elif self._robot_name == "suction-dual":
             start_pt = [0, 0, 0.4]
             start_rot = [-90, 0, 0]
-            gripper_pt = [0, 0.165, 0]
+            gripper_pt = [0, 0.15, 0]
             # gripper_pt = [0, 0, -0.165]
             load_asset = True
             mass = 0.001
@@ -204,11 +204,12 @@ class GripperScenario(ScenarioBase):
             scale = 0.01
             # asset_path = "http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/2023.1.1/Isaac/Robots/UR10/Props/short_gripper.usd"
             # asset_path = assets_root_path + "/Isaac/Samples/Gripper/short_gripper.usd"
-            asset_path = "D:/nv/ov/exts/omni.asimov.jaka/usd/dual_gripper_2.usda"
-            self.gripperRigidBodyPath = f"{self.gripperActorPath}/dual_gripper"
+            asset_path = "D:/nv/ov/exts/omni.asimov.jaka/usd/dual_gripper_3.usda"
+            # self.gripperRigidBodyPath = f"{self.gripperActorPath}/dual_gripper"
 
         self.grip_point = Gf.Vec3f(gripper_pt)
         self.start_rot = start_rot
+        self.scale = scale
 
 
         if make_rigid_shape:
@@ -248,15 +249,21 @@ class GripperScenario(ScenarioBase):
             rigi = UsdPhysics.RigidBodyAPI.Get(self._stage, self.gripperRigidBodyPath)
             if rigi is None:
                 rigi = UsdPhysics.RigidBodyAPI.Apply(self.gripperGeom)
-            physxRigidBody = PhysxSchema.PhysxRigidBodyAPI.Apply(self.gripperGeom)
+            prim = self._stage.GetPrimAtPath(self.gripperRigidBodyPath)
+            physxRigidBody = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
             physxRigidBody.GetDisableGravityAttr().Set(disable_gravity)
+            zero = Gf.Vec3f(0, 0, 0)
+            rigi.GetVelocityAttr().Set(zero)
+            self.gripperRigidBodyPrim = UsdGeom.Gprim(prim)
 
 
         self.gripperGripPointPath = f"{self.gripperActorPath}_GripPoint"
         quatd = deg_euler_to_quatd(start_rot)
         rot = Gf.Rotation(quatd)
-        newgripot = rot.TransformDir(self.grip_point)
+        self.grip_scale = 1
+        newgripot = rot.TransformDir(self.grip_point*self.grip_scale)
         mk_pt = Gf.Vec3f(start_pt) + newgripot
+        self.lastmk_pt = mk_pt
         # self.gripperGripPointPath = f"{self.gripperActorPath}/GripPoint"
         # mk_pt = Gf.Vec3f(gripper_pt)
         orient = euler_angles_to_quat([0, 0, 0])
@@ -270,8 +277,6 @@ class GripperScenario(ScenarioBase):
             Gf.Vec3f([1, 0.41, 0.7])
         )
 
-
-
         # Box to be picked
         self.box_start_pose = dc.Transform([0, 0, 0.10], [1, 0, 0, 0])
         self.boxGeom = self.createRigidBody(
@@ -284,8 +289,8 @@ class GripperScenario(ScenarioBase):
 
         # Gripper properties
         self.sgp = Surface_Gripper_Properties()
-        self.sgp.d6JointPath = f"{self.gripperActorPath}/SurfaceGripper"
-        self.sgp.parentPath = f"{self.gripperActorPath}"
+        self.sgp.d6JointPath = f"{self.gripperRigidBodyPath}/SurfaceGripper"
+        self.sgp.parentPath = f"{self.gripperRigidBodyPath}"
         self.sgp.offset = dc.Transform()
         self.sgp.offset.p.x = 0
         # self.sgp.offset.p.z = 0.1001  # does not close -  no error
@@ -385,20 +390,23 @@ class GripperScenario(ScenarioBase):
         return bodyGeom
 
 
+
+    lastmk_pt = None
+
     def move_gripperpt_marker(self):
-        # Move the COM marker to the center of mass of the gripper
-        mkprim = self.gripperGripPointPrim
-        if mkprim is None:
-            msg = f'move_com_marker:prim {self.gripperGripPointPath} not found'
-            carb.log_warn(msg)
-            return
-        (tranp, _, _, _) = GetXformOps(self.gripperGeom)
-        (tranc, _, _, _) = GetXformOps(mkprim)
+        # Move the gripper point marker right place
+        (tranp, _, _, _) = GetXformOps(self.gripperRigidBodyPrim)
+        (tranc, _, _, _) = GetXformOps(self.gripperGripPointPrim)
         quatd = deg_euler_to_quatd(self.start_rot)
         rot = Gf.Rotation(quatd)
-        newgripot = rot.TransformDir(self.grip_point)
-        mk_pt = Gf.Vec3f(tranp.Get()) + newgripot
+        newgripot = rot.TransformDir(self.grip_point*self.grip_scale)
+        grip_pt = Gf.Vec3f(tranp.Get())
+        mk_pt = grip_pt + newgripot
+        if Gf.Vec3f(mk_pt-self.lastmk_pt).GetLength() < 0.001:
+            return
+        print(f"move_gripperpt_marker - grip_pt:{grip_pt} mk_pt:{mk_pt}")
         tranc.Set(mk_pt)
+        self.lastmk_pt = mk_pt
 
 
     def post_load_scenario(self):
@@ -414,11 +422,11 @@ class GripperScenario(ScenarioBase):
             self.laststat = newstat
             if newstat == "Closed":
                 # self.coneGeom.GetDisplayColorAttr().Set([self.color_closed])
-                self.apply_material(self.mat_closed)
+                self.apply_material_to_prim_and_children(self.mat_closed, self.gripperActorPath)
 
             else:
                 # self.coneGeom.GetDisplayColorAttr().Set([self.color_open])
-                self.apply_material(self.mat_open)
+                self.apply_material_to_prim_and_children(self.mat_open, self.gripperActorPath)
 
     nphysstep_calls = 0
     global_time = 0
@@ -446,15 +454,29 @@ class GripperScenario(ScenarioBase):
             return
         self.physics_step(step)
 
-    def apply_material(self, matname):
-        prim = self._stage.GetPrimAtPath(self.gripperActorPath)
+    def apply_material_to_prim(self, matname, primname):
+        prim = self._stage.GetPrimAtPath(primname)
         if prim is None:
-            msg = f'apply_material:prim {self.gripperActorPath} not found'
+            msg = f'apply_material:prim {primname} not found'
             carb.log_warn(msg)
             return
         gprim = UsdGeom.Gprim(prim)
         material = self._matman.GetMaterial(matname)
         UsdShade.MaterialBindingAPI(gprim).Bind(material)
+
+    def apply_material_to_prim_and_children_recur(self, matname, primname, level):
+        if level > 4:
+            return
+        self.apply_material_to_prim(matname, primname)
+        prim = self._stage.GetPrimAtPath(primname)
+        children = prim.GetChildren()
+        for child in children:
+            self.apply_material_to_prim_and_children_recur(matname, child.GetPath(), level+1)
+
+    def apply_material_to_prim_and_children(self, matname, primname):
+        self.apply_material_to_prim_and_children_recur(matname, primname, 0)
+
+
 
     def scenario_action(self, actionname, mouse_button=0 ):
         print("Gripper scenario action:",actionname, "   mouse_button:",mouse_button)

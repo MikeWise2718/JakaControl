@@ -108,7 +108,7 @@ class PickAndPlaceScenario(ScenarioBase):
         if self._robot_name == "ur10-suction-short":
             self._start_robot_pos = Gf.Vec3d([0, 0, 0.4])
             self._start_robot_rot = [0, 0, 0]
-        elif self._robot_name in ["minicobo-rg2-high","minicobo-suction-high"]:
+        elif self._robot_name in ["minicobo-rg2-high","minicobo-suction-high","minicobo-dual-high"]:
             # self._start_robot_pos = Gf.Vec3d([-0.35, 0, 0.80])
             # self._start_robot_rot = [0, 130, 0]
             pos, rot = self.calc_jaka_pose(self._rob_ang)
@@ -144,8 +144,8 @@ class PickAndPlaceScenario(ScenarioBase):
             # target_pos = np.array([1.16, 0.5, 0.15])
             self._target_pos = np.array([1.00, 0.5, 0.15])
             self._goal_position = np.array([+0.3, -0.3, 0.0515 / 2.0])
-        elif self._robot_name in ["minicobo-rg2-high","minicobo-suction-high"]:
-            self._target_pos = np.array([0.0, 0.1, 0.15])
+        elif self._robot_name in ["minicobo-rg2-high","minicobo-suction-high","minicobo-dual-high"]:
+            self._target_pos = np.array([0.1, 0.1, 0.15])
             # self._target_pos = np.array([0.0, 0.25, 0.15])
             self._goal_position = np.array([0.0, -0.3, 0.025])
         else:
@@ -167,7 +167,7 @@ class PickAndPlaceScenario(ScenarioBase):
             "/Scenario/cuboid",
             position=self._target_pos,
             orientation=orient,
-            scale=np.array([0.04, 0.1, 0.11]),
+            scale=np.array([0.08, 0.16, 0.02]), # 0.7
             color=np.array([128, 0, 128]
             )
         )
@@ -224,6 +224,7 @@ class PickAndPlaceScenario(ScenarioBase):
         # self._articulation.set_joint_positions(self._cfg_joint_zero_pos)
 
 
+        events_dt = [0.008, 0.005, 0.1,  0.1, 0.005, 0.005, 0.005, 0.1, 0.008, 0.08]
 
         gripper = self.get_gripper()
         if gripper is not None:
@@ -232,7 +233,8 @@ class PickAndPlaceScenario(ScenarioBase):
                 self._controller = jaka_PickPlaceController(
                     name="pick_place_controller",
                     gripper=gripper,
-                    robot_articulation=self._articulation
+                    robot_articulation=self._articulation,
+                    events_dt=events_dt
                 )
             elif self._robot_name in ["ur10-suction-short"]:
                 self._gripper_type = "suction"
@@ -241,7 +243,7 @@ class PickAndPlaceScenario(ScenarioBase):
                     gripper=gripper,
                     robot_articulation=self._articulation
                 )
-            elif self._robot_name in ["minicobo-suction","minicobo-suction-high","jaka-minicobo-1","minicobo-suction-dual"]:
+            elif self._robot_name in ["minicobo-suction","minicobo-suction-high","jaka-minicobo-1","minicobo-suction-dual","minicobo-dual-high"]:
                 self._gripper_type = "suction"
                 rmpconfig = {
                     "end_effector_frame_name": self._cfg_eeframe_name,
@@ -251,11 +253,13 @@ class PickAndPlaceScenario(ScenarioBase):
                     "rmpflow_config_path": self._cfg_rmp_config_path,
                     "robot_description_path": self._cfg_rdf_path
                 }
+                events_dt = [0.008, 0.005, 0.1,  0.1, 0.005, 0.005, 0.005, 0.1, 0.008, 0.08]
                 self._controller = jaka_PickPlaceController(
                     name="pick_place_controller",
                     gripper=gripper,
                     robot_articulation=self._articulation,
-                    rmpconfig=rmpconfig
+                    rmpconfig=rmpconfig,
+                    events_dt=events_dt
                 )
             elif self._robot_name in ["jaka-minicobo-0","jaka-minicobo-2","minicobo-rg2-high"]:
                 self._gripper_type = "parallel"
@@ -271,7 +275,8 @@ class PickAndPlaceScenario(ScenarioBase):
                     name="pick_place_controller",
                     gripper=gripper,
                     robot_articulation=self._articulation,
-                    rmpconfig=rmpconfig
+                    rmpconfig=rmpconfig,
+                    events_dt=events_dt
                 )
             if self._show_collision_bounds:
                 self._rmpflow = self._controller._cspace_controller.rmp_flow
@@ -398,13 +403,18 @@ class PickAndPlaceScenario(ScenarioBase):
                     dof_names=art.dof_names,
                 )
                 return pg
-            elif self._robot_name in ["ur10-suction-short","jaka-minicobo-1","minicobo-suction-dual","minicobo-suction","minicobo-suction-high"]:
+            elif self._robot_name in ["ur10-suction-short","jaka-minicobo-1",
+                                      "minicobo-suction-dual","minicobo-suction",
+                                      "minicobo-dual-high","minicobo-suction-high"]:
                 art = self._articulation
                 self._gripper_type = "suction"
                 # eepp = "/World/roborg/ur10_suction_short/ee_link/gripper_base/xf"
                 # UsdGeom.Xform.Define(get_current_stage(), eepp)
                 # self._end_effector = RigidPrim(prim_path=eepp, name= "ur10" + "_end_effector")
                 # self._end_effector.initialize(None)
+                grip_direction = "x"
+                grip_threshold = 0.02
+                grip_translate = 0.1611
                 if self._robot_name == "ur10-suction-short":
                     eepp = "/World/roborg/ur10_suction_short/ee_link"
                 elif self._robot_name == "minicobo-suction":
@@ -412,12 +422,15 @@ class PickAndPlaceScenario(ScenarioBase):
                     eepp = "/World/roborg/minicobo_suction_short/minicobo_suction/short_gripper"
                 elif self._robot_name == "minicobo-suction-high":
                     eepp = "/World/roborg/minicobo_suction_short/minicobo_suction/short_gripper"
-                elif self._robot_name == "minicobo-suction-dual":
+                elif self._robot_name in ["minicobo-suction-dual","minicobo-dual-high"]:
                     eepp = "/World/roborg/minicobo_suction_dual/minicobo_suction/dual_gripper"
                     # eepp = "/World/roborg/minicobo_suction_dual/minicobo_suction/dual_gripper/JAKA___MOTO_200mp_v4"
 
                     # self._end_effector = RigidPrim(prim_path=eepp, name= "minicobo_dual_gripper" + "_end_effector")
                     # self._end_effector.initialize(self.physics_sim_view)
+                    grip_direction = "y"
+                    grip_threshold = 0.1
+                    grip_translate = 0.17
                 elif self._robot_name == "jaka-minicobo-1":
                     eepp = "/World/roborg/minicobo_v1_4/Link6/jaka_camera_endpoint/JAKA___MOTO_200mp_v4/ZPR25CNK10_06_A10_v007"
                     self._end_effector = RigidPrim(prim_path=eepp, name= "jaka-minicobo-1" + "_end_effector")
@@ -434,9 +447,9 @@ class PickAndPlaceScenario(ScenarioBase):
                     end_effector_prim_path=self._end_effector_prim_path,
 #                     translate=0.1611,
 #                    translate=0.223, # minicobo-suction works between -0.001 and 0.222 - fails at 0.223 and -0.002
-                    translate=0.16, # minicobo-suction works between -0.001 and 0.222 - fails at 0.223 and -0.002
-                    direction="x",
-                    grip_threshold=1.51,  # between 0.01 and 0.5 work for minicobo-suction for the big cube
+                    translate=grip_translate, # minicobo-suction works between -0.001 and 0.222 - fails at 0.223 and -0.002
+                    direction=grip_direction,
+                    grip_threshold=grip_threshold,  # between 0.01 and 0.5 work for minicobo-suction for the big cube
                 )
                 # self._end_effector = RigidPrim(prim_path=eeppgb, name= "ur10" + "_end_effector")
                 # self._end_effector.initialize(None)
@@ -506,10 +519,12 @@ class PickAndPlaceScenario(ScenarioBase):
         goal_position = self._goal_position
         current_joint_positions = self._articulation.get_joint_positions()
         if self._controller is not None:
+            eeoff = np.array([0,0,-0.03]) # -0.03 works for minicobo-suction-dual
             actions = self._controller.forward(
                 picking_position=cube_position,
                 placing_position=goal_position,
                 current_joint_positions=current_joint_positions,
+                end_effector_offset=eeoff
             )
             if self._articulation is not None:
                     self._articulation.apply_action(actions)
