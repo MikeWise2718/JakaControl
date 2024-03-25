@@ -25,9 +25,10 @@ from .pickplace_scenario import PickAndPlaceScenario
 from .franka_pickplace_scenario import FrankaPickAndPlaceScenario
 from .sinusoid_scenario import SinusoidJointScenario
 from .object_inspection_scenario import ObjectInspectionScenario
+from .gripper_scenario import GripperScenario
 
 from .senut import get_setting, save_setting
-from .scenario_base import can_handle_robot
+from .scenario_base import can_handle_robot, get_scenario_robots
 
 class UIBuilder:
     btwhite = uiclr("#fffff")
@@ -45,13 +46,10 @@ class UIBuilder:
     dkyellow = uiclr("#404000")
     dkpurple = uiclr("#400040")
     dkcyan = uiclr("#004040")
-    _scenario_names = ["sinusoid-joint","franka-pick-and-place","pick-and-place", "rmpflow","object-inspection", "inverse-kinematics"]
-    _scenario_name = "sinusoid-joint"
-    _robot_names = ["ur3e", "ur5e", "ur10e", "ur10e-gripper", "ur10-suction-short",
-                    "jaka-minicobo-0","jaka-minicobo-1", "jaka-minicobo-2",
-                    "minicobo-rg2-high","minicobo-suction","minicobo-suction-high",
-                    "rs007n", "franka", "fancy_franka", "jetbot","m0609"]
-    _robot_name = "jaka-minicobo"
+    _scenario_names = ["sinusoid-joint","franka-pick-and-place","pick-and-place", "rmpflow","object-inspection", "inverse-kinematics","gripper"]
+    _scenario_name = "pick-and-placet"
+    _robot_names = ["ur3e"]
+    _robot_name = "ur3e"
     _ground_opts = ["none", "default", "groundplane", "groundplane-blue"]
     _ground_opt = "default"
     _modes = ["CollisionSpheres","none"]
@@ -62,7 +60,7 @@ class UIBuilder:
     _action = "--none--"
     _colprims = None
     _visopts = ["Invisible", "Glass", "Red"]
-    _colvis_opts = ["Invisible", "Red", "Glass"]
+    _colvis_opts = ["Invisible", "Red", "RedGlass", "Glass"]
     _collider_vis = "Invisible"
     _eevis_opts = ["Invisible", "Blue", "BlueGlass", "Glass"]
     _eetarg_vis = "Invisible"
@@ -79,6 +77,9 @@ class UIBuilder:
 
         # Get access to the timeline to control stop/pause/play programmatically
         self._timeline = omni.timeline.get_timeline_interface()
+
+        self._robot_names = get_scenario_robots("all")
+        self._robot_name = self.find_valid_robot_name(self._scenario_name, self._robot_name, 1)
 
 
         # Run initialization for the provided example
@@ -352,6 +353,8 @@ class UIBuilder:
             self._cur_scenario = ObjectInspectionScenario()
         elif scenario_name == "inverse-kinematics":
             self._cur_scenario = InvkinScenario()
+        elif scenario_name == "gripper":
+            self._cur_scenario = GripperScenario()
         else:
             raise ValueError(f"Unknown scenario name {scenario_name}")
 

@@ -117,7 +117,7 @@ class Franka(Robot):
         """[summary]"""
         super().initialize(physics_sim_view)
         self._end_effector = RigidPrim(prim_path=self._end_effector_prim_path, name=self.name + "_end_effector")
-        self._end_effector.initialize(physics_sim_view)
+c
         self._gripper.initialize(
             physics_sim_view=physics_sim_view,
             articulation_apply_action_func=self.apply_action,
