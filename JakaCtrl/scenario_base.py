@@ -278,7 +278,7 @@ def get_scenario_robots(scenario_name):
         case "sinusoid-joint":
             rv = ["franka", "ur10e", "ur5e", "ur3e", "jaka-minicobo-0"]
         case "object-inspection":
-            rv = ["franka", "ur10e", "ur5e", "ur3e", "jaka-minicobo-0"]
+            rv = ["franka", "ur10e", "ur5e", "ur3e", "jaka-minicobo-0","minicobo-dual-high"]
         case "franka-pick-and-place":
             rv = ["franka", "fancy_franka"]
         case "pick-and-place" | "rmpflow" | "object-inspection" | "inverse-kinematics":
@@ -286,13 +286,13 @@ def get_scenario_robots(scenario_name):
                   "jaka-minicobo-0", "jaka-minicobo-1",  "jaka-minicobo-2",
                   "minicobo-rg2-high", "minicobo-suction-dual", "minicobo-suction", "minicobo-suction-high", "minicobo-dual-high"]
         case "gripper":
-            rv = ["cone","inverted-cone","sphere","cube","cube-yrot","cylinder","suction-short","suction-dual"]
+            rv = ["cone","inverted-cone","sphere","cube","cube-yrot","cylinder","suction-short","suction-dual","suction-dual-0"]
         case _:
             rv = ["ur3e", "ur5e", "ur10e", "ur10e-gripper", "ur10-suction-short",
                   "jaka-minicobo-0","jaka-minicobo-1", "jaka-minicobo-2",
                   "minicobo-rg2-high","minicobo-suction-dual","minicobo-suction","minicobo-suction-high","minicobo-dual-high",
                   "rs007n", "franka", "fancy_franka", "jetbot","m0609",
-                  "cone","inverted-cone","sphere","cube","cube-yrot","cylinder","suction-short","suction-dual"]
+                  "cone","inverted-cone","sphere","cube","cube-yrot","cylinder","suction-short","suction-dual","suction-dual-0"]
     return rv
 
 def can_handle_robot(scenario_name, robot_name):

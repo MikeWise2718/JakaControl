@@ -17,6 +17,8 @@ from omni.isaac.core.utils.extensions import get_extension_path_from_name
 from omni.isaac.motion_generation import RmpFlow, ArticulationMotionPolicy
 
 from .senut import add_light_to_stage
+from .senut import calc_robot_circle_pose
+
 from .scenario_base import ScenarioBase
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
@@ -56,15 +58,36 @@ class ObjectInspectionScenario(ScenarioBase):
             self._ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]),position=[0,0,-1.03313])
             world.scene.add(self._ground)
 
+        stage = get_current_stage()
+        roborg = UsdGeom.Xform.Define(stage,"/World/roborg")
+        self._rob_tranop = roborg.AddTranslateOp()
+        self._rob_zrotop = roborg.AddRotateZOp()
+        self._rob_yrotop = roborg.AddRotateYOp()
+        self._rob_xrotop = roborg.AddRotateXOp()
 
 
-        if self._cfg_path_to_robot_usd is not None:
-            stage = get_current_stage()
-            roborg = UsdGeom.Xform.Define(stage,"/World/roborg")
-            #pos = Gf.Vec3d([0,0,2])
-            #roborg.AddTranslateOp().Set(pos)
-            #roborg.AddRotateXOp().Set(180)
-            add_reference_to_stage(self._cfg_path_to_robot_usd, self._cfg_robot_prim_path)
+        self._rob_ang = 180
+        self._start_robot_pos = Gf.Vec3d([0, 0, 0])
+        self._start_robot_rot = [0, 0, 0]
+        if self._robot_name == "ur10-suction-short":
+            self._start_robot_pos = Gf.Vec3d([0, 0, 0.4])
+            self._start_robot_rot = [0, 0, 0]
+        elif self._robot_name in ["minicobo-rg2-high","minicobo-suction-high","minicobo-dual-high"]:
+            # self._start_robot_pos = Gf.Vec3d([-0.35, 0, 0.80])
+            # self._start_robot_rot = [0, 130, 0]
+            cen = [0.11, 0, 0.77]
+            rad = 0.35
+            xang = 0
+            yang = 150
+            pos, rot = calc_robot_circle_pose(self._rob_ang, cen=cen, rad=rad, xang=xang, yang=yang)
+            self._start_robot_pos = pos
+            self._start_robot_rot = rot
+
+        self.set_robot_circle_pose(self._start_robot_pos, self._start_robot_rot)
+
+        add_reference_to_stage(self._cfg_path_to_robot_usd, self._cfg_robot_prim_path)
+
+
         self._articulation = Articulation(self._cfg_artpath)
 
         if self._articulation is not None:
@@ -148,6 +171,14 @@ class ObjectInspectionScenario(ScenarioBase):
 
         # self._target.set_world_pose(np.array([.5,0,.7]),euler_angles_to_quats([0,np.pi,0]))
 
+    def set_robot_circle_pose(self, pos, rot):
+        self._rob_tranop.Set(pos)
+        self._rob_zrotop.Set(rot[2])
+        self._rob_yrotop.Set(rot[1])
+        self._rob_xrotop.Set(rot[0])
+        self._start_robot_pos = pos
+        self._start_robot_rot = rot
+
 
     def post_load_scenario(self):
         self._rmpflow.add_obstacle(self._obstacle)
@@ -160,9 +191,6 @@ class ObjectInspectionScenario(ScenarioBase):
         if self._show_collision_bounds:
             self._rmpflow.reset()
             self._rmpflow.visualize_collision_spheres()
-
-
-
 
     def physics_step(self, step_size):
         target_position, target_orientation = self._target.get_world_pose()

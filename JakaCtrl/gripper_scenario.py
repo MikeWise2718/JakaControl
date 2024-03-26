@@ -198,7 +198,21 @@ class GripperScenario(ScenarioBase):
             gripper_pt = [0, 0.15, 0]
             # gripper_pt = [0, 0, -0.165]
             load_asset = True
-            mass = 0.001
+            mass = 0.1
+            gripper_pt_size = 0.01
+            disable_gravity = True
+            scale = 0.01
+            # asset_path = "http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/2023.1.1/Isaac/Robots/UR10/Props/short_gripper.usd"
+            # asset_path = assets_root_path + "/Isaac/Samples/Gripper/short_gripper.usd"
+            asset_path = "D:/nv/ov/exts/omni.asimov.jaka/usd/dual_gripper_3.usda"
+            # self.gripperRigidBodyPath = f"{self.gripperActorPath}/dual_gripper"
+        elif self._robot_name == "suction-dual-0":
+            start_pt = [0, 0, 0.4]
+            start_rot = [0, 0, 0]
+            gripper_pt = [0, 0.15, 0]
+            # gripper_pt = [0, 0, -0.165]
+            load_asset = True
+            mass = 0.1
             gripper_pt_size = 0.01
             disable_gravity = True
             scale = 0.01

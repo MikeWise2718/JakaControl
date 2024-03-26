@@ -183,3 +183,13 @@ def deg_euler_to_quatd(deg_euler):
     quat = euler_angles_to_quat(deg)
     quatd = Gf.Quatd(quat[0], quat[1], quat[2], quat[3])
     return quatd
+
+def calc_robot_circle_pose(angle, cen=[0, 0, 0.85], rad=0.35, xang=0, yang=130):
+    rads = np.pi*angle/180
+    pos = cen + rad*np.array([np.cos(rads), np.sin(rads), 0])
+    pos = Gf.Vec3d(list(pos))
+    zang = angle-180
+    rot = [xang, yang, zang]
+    rot = rot
+    # print("pos:",pos," rot:",rot)
+    return pos, rot
