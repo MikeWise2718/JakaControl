@@ -4,7 +4,7 @@ import numpy as np
 import lula
 from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelper
 from .matman import MatMan
-from pxr import Usd, UsdGeom, UsdShade, Gf
+from pxr import Usd, UsdGeom, UsdShade, Gf, UsdPhysics, UsdPhysics
 from typing import Tuple, List
 
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
@@ -190,6 +190,71 @@ def calc_robot_circle_pose(angle, cen=[0, 0, 0.85], rad=0.35, xang=0, yang=130):
     pos = Gf.Vec3d(list(pos))
     zang = angle-180
     rot = [xang, yang, zang]
-    rot = rot
     # print("pos:",pos," rot:",rot)
     return pos, rot
+
+# def apply_material_to_prim_and_children_recur(stage, material, prim, level):
+#     if level > 4:
+#         return
+#     gprim = UsdGeom.Gprim(prim)
+#     UsdShade.MaterialBindingAPI(gprim).Bind(material)
+#     children = prim.GetChildren()
+#     for child in children:
+#         apply_material_to_prim_and_children_recur(stage, material, child, level+1)
+
+
+def apply_material_to_prim_and_children_recur(stage, material, prim, level):
+    if level > 8:
+        return
+    nhit = 0
+    gprim = UsdGeom.Gprim(prim)
+    matapi = UsdShade.MaterialBindingAPI(gprim)
+    if matapi is not None:
+        matapi.Bind(material)
+        nhit += 1
+    children = prim.GetChildren()
+    for child in children:
+        nhit += apply_material_to_prim_and_children_recur(stage, material, child, level+1)
+    return nhit
+
+def apply_material_to_prim_and_children(stage, matman, matname, primname):
+    material = matman.GetMaterial(matname)
+    prim = stage.GetPrimAtPath(primname)
+    nhit = apply_material_to_prim_and_children_recur(stage, material, prim, 0)
+    return nhit
+    print("apply_material_to_prim_and_children:",primname," matname:",matname," nhit:",nhit)
+
+
+def apply_convex_decomposition_to_mesh_and_children_recur(stage, prim, level):
+    if level > 4:
+        return
+    # https://forums.developer.nvidia.com/t/script-for-convex-decomposition-collisions/259649/2
+    # collApi = UsdPhysics.CollisionAPI(prim)
+    # if collApi is not None:
+    #     collApi.GetPhysicsApproximationAttr().Set(UsdPhysics.Tokens.convexDecomposition)
+    nhit = 0
+    schemas = prim.GetAppliedSchemas()
+    # print("prim:",prim.GetPath()," schemas:",schemas)
+    if "PhysicsMeshCollisionAPI" in schemas:
+        collApi = UsdPhysics.MeshCollisionAPI(prim)
+        if collApi is not None:
+            sans = collApi.GetSchemaAttributeNames()
+            aproxatr = collApi.GetApproximationAttr()
+            if aproxatr is not None:
+                aproxatr.Set(UsdPhysics.Tokens.convexDecomposition)
+                nhit += 1
+            # aaa = collApi.GetAttribute("physics:approximation")
+            # if aaa is not None:
+            #     aaa.Set("convexDecomposition")
+        # # aproxatr.Set(UsdPhysics.Tokens.convexDecomposition)
+        # collApi.GetAttribute("physics:approximation").Set("convexDecomposition")
+    children = prim.GetChildren()
+    for child in children:
+        nhit += apply_convex_decomposition_to_mesh_and_children_recur(stage, child, level+1)
+    return nhit
+
+def apply_convex_decomposition_to_mesh_and_children(stage, primname):
+    prim = stage.GetPrimAtPath(primname)
+    nhit = apply_convex_decomposition_to_mesh_and_children_recur(stage, prim, 0)
+    print("apply_convex_decomposition_to_mesh_and_children",primname," nit:",nhit)
+    return nhit

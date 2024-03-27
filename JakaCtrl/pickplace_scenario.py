@@ -58,8 +58,6 @@ class PickAndPlaceScenario(ScenarioBase):
     def __init__(self):
         pass
 
-
-
     def load_scenario(self, robot_name, ground_opt):
         self.nphysstep_calls = 0
         self.global_time = 0
