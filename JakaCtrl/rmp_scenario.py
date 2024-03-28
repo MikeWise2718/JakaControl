@@ -25,6 +25,7 @@ from omni.isaac.core.utils.stage import add_reference_to_stage,  get_current_sta
 from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelper
 
 from .senut import adjust_joint_values, set_stiffness_for_joints, set_damping_for_joints
+from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
 
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
@@ -40,6 +41,8 @@ from .senut import adjust_joint_values, set_stiffness_for_joints, set_damping_fo
 class RMPflowScenario(ScenarioBase):
     _running_scenario = False
     _show_collision_bounds = True
+    _colorScheme = ""
+    _enable_obstacle = False
 
     def __init__(self):
         pass
@@ -48,6 +51,7 @@ class RMPflowScenario(ScenarioBase):
         # Here we do object loading and simple initialization
 
         self.get_robot_config(robot_name, ground_opt)
+        self._robcfg = self.get_robcfg(robot_name, ground_opt)
 
         self.tot_damping_factor = 1.0
         self.tot_stiffness_factor = 1.0
@@ -55,7 +59,8 @@ class RMPflowScenario(ScenarioBase):
         self._robot_name = robot_name
         self._ground_opt = ground_opt
 
-        self._target_start_pos = np.array([0.5, 0.0, 0.7])
+        # self._target_start_pos = np.array([0.5, 0.0, 0.7])
+        self._target_start_pos = np.array([0.4, 0.0, 0.6])
         self._target_start_rot = euler_angles_to_quats([0, np.pi, 0])
         self._obstacle_start_pos = np.array([0.4, 0.0, 0.65])
         self._obstacle_start_rot = euler_angles_to_quats([0, np.pi, 0])
@@ -93,6 +98,8 @@ class RMPflowScenario(ScenarioBase):
 
         # Setup Robot ARm
         add_reference_to_stage(self._cfg_path_to_robot_usd, self._cfg_robot_prim_path)
+        apply_convex_decomposition_to_mesh_and_children(stage, self._cfg_robot_prim_path)
+
         self._articulation = Articulation(self._cfg_artpath)
         world.scene.add(self._articulation)
 
@@ -103,7 +110,8 @@ class RMPflowScenario(ScenarioBase):
 
         self._world = world
 
-        self._obstacle = FixedCuboid("/World/obstacle",size=.05,color=np.array([0.,0.,1.]))
+        if self._enable_obstacle:
+            self._obstacle = FixedCuboid("/World/obstacle",size=.05,color=np.array([0.,0.,1.]))
 
 
     def post_load_scenario(self):
@@ -122,7 +130,6 @@ class RMPflowScenario(ScenarioBase):
             end_effector_frame_name = self._cfg_eeframe_name,
             maximum_substep_size = self._cfg_max_step_size
         )
-        self._rmpflow.add_obstacle(self._obstacle)
 
         self.lulaHelper = LulaInterfaceHelper(self._rmpflow._robot_description)
 
@@ -139,7 +146,8 @@ class RMPflowScenario(ScenarioBase):
         self._ee_pos = ee_pos
         self._ee_rot = ee_rot_mat
 
-        self._rmpflow.add_obstacle(self._obstacle)
+        if self._enable_obstacle:
+            self._rmpflow.add_obstacle(self._obstacle)
 
     def reset_scenario(self):
         # teleport robot to its zero position
@@ -147,7 +155,9 @@ class RMPflowScenario(ScenarioBase):
 
         # self._target.set_world_pose(np.array([.5,0,.7]),euler_angles_to_quats([0,np.pi,0]))
         self._target.set_world_pose(self._target_start_pos,self._target_start_rot)
-        self._obstacle.set_world_pose(self._obstacle_start_pos,self._obstacle_start_rot)
+
+        if self._enable_obstacle:
+            self._obstacle.set_world_pose(self._obstacle_start_pos,self._obstacle_start_rot)
 
 
         self._rmpflow.reset()

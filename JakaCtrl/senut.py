@@ -204,8 +204,8 @@ def calc_robot_circle_pose(angle, cen=[0, 0, 0.85], rad=0.35, xang=0, yang=130):
 
 
 def apply_material_to_prim_and_children_recur(stage, material, prim, level):
-    if level > 8:
-        return
+    if level > 16:
+        return 0
     nhit = 0
     gprim = UsdGeom.Gprim(prim)
     matapi = UsdShade.MaterialBindingAPI(gprim)
@@ -226,8 +226,8 @@ def apply_material_to_prim_and_children(stage, matman, matname, primname):
 
 
 def apply_convex_decomposition_to_mesh_and_children_recur(stage, prim, level):
-    if level > 4:
-        return
+    if level > 12:
+        return 0
     # https://forums.developer.nvidia.com/t/script-for-convex-decomposition-collisions/259649/2
     # collApi = UsdPhysics.CollisionAPI(prim)
     # if collApi is not None:

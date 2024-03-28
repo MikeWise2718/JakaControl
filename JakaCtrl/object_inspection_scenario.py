@@ -21,6 +21,7 @@ from omni.asimov.jaka.minicobo import Minicobo
 
 from .senut import add_light_to_stage
 from .senut import calc_robot_circle_pose
+from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
 
 from .scenario_base import ScenarioBase
 
@@ -36,7 +37,8 @@ from .scenario_base import ScenarioBase
 
 class ObjectInspectionScenario(ScenarioBase):
     _running_scenario = False
-    _show_collision_bounds = False
+    _show_collision_bounds = True
+    _colorScheme = "transparent"
 
     def __init__(self):
         pass
@@ -110,14 +112,16 @@ class ObjectInspectionScenario(ScenarioBase):
         self.set_robot_circle_pose(self._start_robot_pos, self._start_robot_rot)
 
         add_reference_to_stage(self._robcfg.path_to_robot_usd, self._robcfg.robot_prim_path)
+        apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg.robot_prim_path)
 
         self.set_robot_circle_pose1(self._start_robot_pos1, self._start_robot_rot1)
 
-        self._robcfg1.robot_prim_path1 = self._robcfg1.robot_prim_path.replace("roborg", "roborg1")
+        self._robcfg1.robot_prim_path = self._robcfg1.robot_prim_path.replace("roborg", "roborg1")
 
-        add_reference_to_stage(self._robcfg1.path_to_robot_usd, self._robcfg1.robot_prim_path1)
+        add_reference_to_stage(self._robcfg1.path_to_robot_usd, self._robcfg1.robot_prim_path)
+        apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg1.robot_prim_path)
 
-        self.robot = Minicobo(self._robcfg.robot_prim_path, self._robot_name, self._robcfg.path_to_robot_usd)
+        # self.robot = Minicobo(self._robcfg.robot_prim_path, self._robot_name, self._robcfg.path_to_robot_usd)
 
 
         self._articulation = Articulation(self._robcfg.artpath,"mico-0")
@@ -147,9 +151,16 @@ class ObjectInspectionScenario(ScenarioBase):
         jakacontrol_extension_path = get_extension_path_from_name("JakaControl")
 
         path_to_cage_usd = f"{jakacontrol_extension_path}/usd/cage_v1.usd"
+        # path_to_cage_usd = f"{jakacontrol_extension_path}/usd/FlexBenchV1.usda"
         add_reference_to_stage(path_to_cage_usd, "/World/cage_v1")
         # self._cage = XFormPrim("/World/cage_v1", scale=[1,1,1], position=[-0.38605,0,-0.00045])
-        self._cage = XFormPrim("/World/cage_v1", scale=[1,1,1], position=[0,0,0])
+        cagepath = "/World/cage_v1"
+        self._cage = XFormPrim(cagepath, scale=[1,1,1], position=[0,0,0])
+        if self._colorScheme == "default":
+            self._cage.set_color([0.5, 0.5, 0.5, 1.0])
+        elif self._colorScheme == "transparent":
+            self.ensure_matman()
+            apply_material_to_prim_and_children(stage, self._matman, "Steel_Blued", cagepath)
 
         self._world = world
 
@@ -246,9 +257,14 @@ class ObjectInspectionScenario(ScenarioBase):
 
     def reset_scenario(self):
         # self._target.set_world_pose(np.array([.5,0,.7]),euler_angles_to_quats([0,np.pi,0]))
+
+        # self._rmpflow.reset()
+        # self._rmpflow1.reset()
         if self._show_collision_bounds:
-            self._rmpflow.reset()
             self._rmpflow.visualize_collision_spheres()
+            self._rmpflow.visualize_end_effector_position()
+            self._rmpflow1.visualize_collision_spheres()
+            self._rmpflow1.visualize_end_effector_position()
 
     def physics_step(self, step_size):
         target_position, target_orientation = self._target.get_world_pose()

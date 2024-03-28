@@ -183,8 +183,8 @@ def get_robot_params_robcfg(robot_name):
 
             rmp_mppath = f"{asimovjaka_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
             rdf_path = f"{asimovjaka_extension_path}/rdf/minicobo_robot_description.yaml"
-            rmp_config_path = f"{asimovjaka_extension_path}/rdf/minicobo_rmpflow_config.yaml"
             urdf_path = f"{asimovjaka_extension_path}/urdf/minicobo_v14_onrobot_rg2.urdf"
+            rmp_config_path = f"{asimovjaka_extension_path}/rdf/minicobo_rmpflow_config.yaml"
             eeframe_name = "gripper_center"
             max_step_size = 0.00334
 
@@ -195,8 +195,8 @@ def get_robot_params_robcfg(robot_name):
             mopo_robot_name = "RS007N"
             rmp_mppath = f"{asimovjaka_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
             rdf_path = f"{asimovjaka_extension_path}/rdf/minicobo_robot_description.yaml"
-            rmp_config_path = f"{asimovjaka_extension_path}/rdf/minicobo_rmpflow_config.yaml"
             urdf_path = f"{asimovjaka_extension_path}/urdf/minicobo_v14_onrobot_rg2.urdf"
+            rmp_config_path = f"{asimovjaka_extension_path}/rdf/minicobo_rmpflow_config.yaml"
             eeframe_name = "gripper_center"
             max_step_size = 0.00334
 
@@ -208,8 +208,8 @@ def get_robot_params_robcfg(robot_name):
             mopo_robot_name = "RS007N"
             rmp_mppath = f"{asimovjaka_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
             rdf_path = f"{asimovjaka_extension_path}/rdf/minicobo_robot_description.yaml"
-            rmp_config_path = f"{asimovjaka_extension_path}/rdf/minicobo_rmpflow_config.yaml"
             urdf_path = f"{asimovjaka_extension_path}/urdf/minicobo_v14_onrobot_rg2.urdf"
+            rmp_config_path = f"{asimovjaka_extension_path}/rdf/minicobo_rmpflow_config.yaml"
             eeframe_name = "gripper_center"
             max_step_size = 0.00334
 
@@ -519,12 +519,11 @@ def get_scenario_robots(scenario_name):
         case "sinusoid-joint":
             rv = ["franka", "ur10e", "ur5e", "ur3e", "jaka-minicobo-0"]
         case "object-inspection":
-            rv = ["franka", "ur10e", "ur5e", "ur3e", "jaka-minicobo-0","minicobo-dual-high"]
+            rv = ["minicobo-dual-high","minicobo-rg2-high","rs007n"]
         case "franka-pick-and-place":
             rv = ["franka", "fancy_franka"]
         case "pick-and-place" | "rmpflow" | "object-inspection" | "inverse-kinematics":
             rv = ["franka", "fancy_franka","rs007n", "ur10-suction-short",
-                  "jaka-minicobo-0", "jaka-minicobo-1",  "jaka-minicobo-2",
                   "minicobo-rg2-high", "minicobo-suction-dual", "minicobo-suction", "minicobo-suction-high", "minicobo-dual-high"]
         case "gripper":
             rv = ["cone","inverted-cone","sphere","cube","cube-yrot","cylinder","suction-short","suction-dual","suction-dual-0"]
@@ -710,6 +709,11 @@ class ScenarioBase:
     _colprims = None
     _matman = None
 
+    def ensure_matman(self):
+        stage = get_current_stage()
+        if self._matman is None:
+            self._matman = MatMan(stage)
+
     def change_colliders_viz(self, action):
         stage = get_current_stage()
         if self._matman is None:
@@ -780,29 +784,26 @@ class ScenarioBase:
         stage = get_current_stage()
         self._matman = MatMan(stage)
 
-        prim = find_prim_by_name("end_effector")
-        if prim is None:
-            # msg = 'realize_eetarg_vis:prim "end_effector" not found'
-            # carb.log_warn(msg)
-            return
-        gprim = UsdGeom.Gprim(prim)
-        try:
-            if opt == "Blue":
-                gprim.MakeVisible()
-                material = self._matman.GetMaterial("blue")
-                UsdShade.MaterialBindingAPI(gprim).Bind(material)
-            elif opt == "Glass":
-                gprim.MakeVisible()
-                material = self._matman.GetMaterial("Clear_Glass")
-                UsdShade.MaterialBindingAPI(gprim).Bind(material)
-            elif opt == "BlueGlass":
-                gprim.MakeVisible()
-                material = self._matman.GetMaterial("Blue_Glass")
-                UsdShade.MaterialBindingAPI(gprim).Bind(material)
-            elif opt == "Invisible":
-                # lula = Usd.GetPrimAtPath("lula")
-                # lula.GetVisibilityAttr().Set(False)
-                gprim.MakeInvisible()
-                # UsdGeom.Imageable(prim).MakeInvisible()
-        except:
-            pass
+        prims = find_prims_by_name("end_effector")
+        for prim in prims:
+            gprim = UsdGeom.Gprim(prim)
+            try:
+                if opt == "Blue":
+                    gprim.MakeVisible()
+                    material = self._matman.GetMaterial("blue")
+                    UsdShade.MaterialBindingAPI(gprim).Bind(material)
+                elif opt == "Glass":
+                    gprim.MakeVisible()
+                    material = self._matman.GetMaterial("Clear_Glass")
+                    UsdShade.MaterialBindingAPI(gprim).Bind(material)
+                elif opt == "BlueGlass":
+                    gprim.MakeVisible()
+                    material = self._matman.GetMaterial("Blue_Glass")
+                    UsdShade.MaterialBindingAPI(gprim).Bind(material)
+                elif opt == "Invisible":
+                    # lula = Usd.GetPrimAtPath("lula")
+                    # lula.GetVisibilityAttr().Set(False)
+                    gprim.MakeInvisible()
+                    # UsdGeom.Imageable(prim).MakeInvisible()
+            except:
+                pass
