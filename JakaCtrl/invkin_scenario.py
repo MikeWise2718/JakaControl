@@ -91,7 +91,7 @@ class InvkinScenario(ScenarioBase):
 
 
         # Setup Robot ARm
-        add_reference_to_stage(self._cfg_path_to_robot_usd, self._cfg_robot_prim_path)
+        add_reference_to_stage(self._cfg_robot_usd_file_path, self._cfg_robot_prim_path)
         self._articulation = Articulation(self._cfg_artpath)
         world.scene.add(self._articulation)
 
@@ -116,11 +116,17 @@ class InvkinScenario(ScenarioBase):
         )
         self.lulaHelper = LulaInterfaceHelper(self._kinematics_solver._robot_description)
 
-        if self._robot_name in ["jaka-minicobo","jaka-minicobo-1"]:
+        if self._robot_name in ["jaka-minicobo-0","jaka-minicobo-1","minicobo-rg2-high"]:
             # self.set_stiffness_for_all_joints(10000000.0 / 200) # 1e8 or 10 million seems too high
             # self.set_damping_for_all_joints(100000.0 / 20) # 1e5 or 100 thousand seems too high
             self.set_stiffness_for_all_joints(400.0) # 1e8 or 10 million seems too high
             self.set_damping_for_all_joints(40) # 1e5 or 100 thousand seems too high
+
+        if self._cfg_stiffness>0:
+            self.set_stiffness_for_all_joints(self._cfg_stiffness) # 1e8 or 10 million seems too high
+            
+        if self._cfg_damping>0:
+            self.set_damping_for_all_joints(self._cfg_damping) # 1e5 or 100 thousand seems too high
 
         end_effector_name = self._cfg_eeframe_name
         self._articulation_kinematics_solver = ArticulationKinematicsSolver(self._articulation,self._kinematics_solver, end_effector_name)

@@ -10,6 +10,8 @@
 import carb
 
 import omni.timeline
+import omni.kit
+
 import omni.ui as ui
 from omni.isaac.core.utils.stage import create_new_stage
 from omni.ui import Button
@@ -46,7 +48,7 @@ class UIBuilder:
     dkyellow = uiclr("#404000")
     dkpurple = uiclr("#400040")
     dkcyan = uiclr("#004040")
-    _scenario_names = ["sinusoid-joint","franka-pick-and-place","pick-and-place", "rmpflow","object-inspection", "inverse-kinematics","gripper"]
+    _scenario_names = [ "inverse-kinematics","gripper","rmpflow","object-inspection","sinusoid-joint","franka-pick-and-place","pick-and-place"]
     _scenario_name = "pick-and-placet"
     _robot_names = ["ur3e"]
     _robot_name = "ur3e"
@@ -304,6 +306,7 @@ class UIBuilder:
     ######################################################################################
 
     cfg_lab_dict = {}
+    line_list = []
     def _load_one_param(self, param_name, clr):
         val = f"Parmeter not found"
         pname = f"_cfg_{param_name}"
@@ -311,6 +314,7 @@ class UIBuilder:
             val = getattr(self._cur_scenario, pname)
         l1txt = f"{param_name}"
         l2txt = f"{val}"
+        self.line_list.append(f"{l1txt}: {l2txt}")
         if param_name in self.cfg_lab_dict:
             (l1, l2) = self.cfg_lab_dict[param_name]
             l1.text = l1txt
@@ -323,22 +327,58 @@ class UIBuilder:
             self.cfg_lab_dict[param_name] = (l1, l2)
             self.rob_config_stack.add_child(hstack)
 
+    def _add_title(self, title, clr):
+        self.line_list.append(f"{title}")
+        hstack = ui.HStack(style=get_style(), spacing=5, height=0)
+        with hstack:
+            ui.Label(title, style={'color': clr}, width=120)
+        self.rob_config_stack.add_child(hstack)
+
+    def _copy_to_clipboard(self):
+        str = "\n".join(self.line_list)
+        omni.kit.clipboard.copy(str)
+
     def _load_robot_config(self):
+        self.rob_config_stack.clear()
+        self.cfg_lab_dict = {}
+        self.line_list = []
+        with self.rob_config_stack:
+            with ui.HStack(style=get_style(), spacing=5, height=0):
+                self._load_robot_config_btn = Button(
+                        "Load Robot Config", clicked_fn=self._load_robot_config,
+                        style={'background_color': self.dkblue}
+                )
+                self._load_robot_config_btn.enabled = True
+                self._copy_clipboard_btn = Button(
+                        "Copy to Clipboard", clicked_fn=self._copy_to_clipboard,
+                        style={'background_color': self.dkblue}
+                )
+                self._copy_clipboard_btn.enabled = True
+
+
         bl = self.btblue
         gn = self.btgreen
         yt = self.btyellow
-        self._load_one_param("robot_name", bl)
-        self._load_one_param("ground_opt", bl)
-        self._load_one_param("eeframe_name", bl)
-        self._load_one_param("max_step_size", bl)
+        cy = self.btcyan
+        self._add_title("Parameters", bl)
+        self._load_one_param("robot_name", cy)
+        self._load_one_param("robot_prim_path", cy)
+        self._load_one_param("ground_opt", cy)
+        self._load_one_param("eeframe_name", cy)
+        self._load_one_param("max_step_size", cy)
+        self._load_one_param("stiffness", cy)
+        self._load_one_param("damping", cy)
 
-        self._load_one_param("mg_extension_path", gn)
+        self._add_title("Directories", bl)
+        self._load_one_param("mg_extension_dir", gn)
         self._load_one_param("rmp_config_dir", gn)
-        self._load_one_param("rdf_path", gn)
+        self._load_one_param("jc_extension_dir", gn)
 
-        self._load_one_param("jc_extension_path", yt)
+        self._add_title("Config Files", bl)
         self._load_one_param("urdf_path", yt)
-        self._load_one_param("path_to_robot_usd", yt)
+        self._load_one_param("rdf_path", yt)
+        self._load_one_param("rmp_config_path", yt)
+        self._load_one_param("robot_usd_file_path", yt)
 
     def pick_scenario(self, scenario_name):
         if scenario_name == "sinusoid-joint":

@@ -97,8 +97,8 @@ class RMPflowScenario(ScenarioBase):
 
 
         # Setup Robot ARm
-        add_reference_to_stage(self._cfg_path_to_robot_usd, self._cfg_robot_prim_path)
-        apply_convex_decomposition_to_mesh_and_children(stage, self._cfg_robot_prim_path)
+        add_reference_to_stage(self._cfg_robot_usd_file_path, self._cfg_robot_prim_path)
+        # apply_convex_decomposition_to_mesh_and_children(stage, self._cfg_robot_prim_path)
 
         self._articulation = Articulation(self._cfg_artpath)
         world.scene.add(self._articulation)
@@ -210,13 +210,13 @@ class RMPflowScenario(ScenarioBase):
 
     def adjust_stiffness_for_all_joints(self,fak):
         joint_names = self.lulaHelper.get_active_joints()
-        print(f"joint_names:{joint_names} fak:{fak:.2f} tot_stiffness:{self.tot_stiffness_factor:.4e}")
+        # print(f"joint_names:{joint_names} fak:{fak:.2f} tot_stiffness:{self.tot_stiffness_factor:.4e}")
         adjust_joint_values(joint_names,"stiffness",fak)
         self.tot_stiffness_factor = self.tot_stiffness_factor * fak
 
     def adjust_damping_for_all_joints(self,fak):
         joint_names = self.lulaHelper.get_active_joints()
-        print(f"joint_names:{joint_names} fak:{fak:.2f} tot_damping:{self.tot_damping_factor:.4e}")
+        # print(f"joint_names:{joint_names} fak:{fak:.2f} tot_damping:{self.tot_damping_factor:.4e}")
         adjust_joint_values(joint_names,"damping",fak)
         self.tot_damping_factor = self.tot_damping_factor * fak
 

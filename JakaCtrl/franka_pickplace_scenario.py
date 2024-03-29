@@ -74,8 +74,8 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
             # lula.AddRotateXOp().Set(ang)
 
 
-        if self._cfg_path_to_robot_usd is not None:
-            add_reference_to_stage(self._cfg_path_to_robot_usd, self._cfg_robot_prim_path)
+        if self._cfg_robot_usd_file_path is not None:
+            add_reference_to_stage(self._cfg_robot_usd_file_path, self._cfg_robot_prim_path)
 
         if need_to_add_articulation:
             prim = get_current_stage().GetPrimAtPath(self._cfg_artpath)

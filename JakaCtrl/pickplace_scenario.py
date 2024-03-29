@@ -102,7 +102,7 @@ class PickAndPlaceScenario(ScenarioBase):
 
         self.set_robot_circle_pose(self._start_robot_pos, self._start_robot_rot)
 
-        add_reference_to_stage(self._cfg_path_to_robot_usd, self._cfg_robot_prim_path)
+        add_reference_to_stage(self._cfg_robot_usd_file_path, self._cfg_robot_prim_path)
 
         if self._robot_name == "fancy_franka":
             self._articulation= Franka(prim_path="/World/roborg/Fancy_Franka", name="fancy_franka")
