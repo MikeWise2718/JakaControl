@@ -237,7 +237,7 @@
   <joint name="flange-tool0" type="fixed">
     <!-- default toolframe - X+ left, Y+ up, Z+ front -->
     <origin rpy="1.5707963267948966 0 1.5707963267948966" xyz="0 0 0"/>
-    <parent link="dummy-tcp"/>
+    <parent link="dummy_tcp"/>
     <child link="tool0"/>
   </joint>
 

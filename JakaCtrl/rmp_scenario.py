@@ -88,6 +88,12 @@ class RMPflowScenario(ScenarioBase):
         elif self._robot_name == "fancy_franka":
             self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
             self._start_robot_rot = [180, 0, 0]
+        # elif self._robot_name == "jaka-minicobo-1a":
+        #     self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
+        #     self._start_robot_rot = [180, 0, 0]
+        elif self._robot_name == "rs007n":
+            self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
+            self._start_robot_rot = [180, 0, 0]
 
         stage = get_current_stage()
         roborg = UsdGeom.Xform.Define(stage, "/World/roborg")
@@ -98,7 +104,7 @@ class RMPflowScenario(ScenarioBase):
 
         # Setup Robot ARm
         add_reference_to_stage(self._cfg_robot_usd_file_path, self._cfg_robot_prim_path)
-        # apply_convex_decomposition_to_mesh_and_children(stage, self._cfg_robot_prim_path)
+        apply_convex_decomposition_to_mesh_and_children(stage, self._cfg_robot_prim_path)
 
         self._articulation = Articulation(self._cfg_artpath)
         world.scene.add(self._articulation)
@@ -112,14 +118,16 @@ class RMPflowScenario(ScenarioBase):
 
         if self._enable_obstacle:
             self._obstacle = FixedCuboid("/World/obstacle",size=.05,color=np.array([0.,0.,1.]))
+            self._rmpflow.add_obstacle(self._obstacle)
 
 
     def post_load_scenario(self):
+        print("post_load_scenario")
         # Here we do multi-object initialization - things that needs to be done after all objects are loaded
 
         self.register_articulation(self._articulation) # this has to happen in post_load_scenario
 
-        # teleport robot to its zero position
+        # # teleport robot to its zero position
         self._articulation.set_joint_positions(self._cfg_joint_zero_pos)
 
         # Initialize an RmpFlow object
@@ -133,9 +141,12 @@ class RMPflowScenario(ScenarioBase):
 
         self.lulaHelper = LulaInterfaceHelper(self._rmpflow._robot_description)
 
-        if self._robot_name in ["jaka-minicobo","jaka-minicobo-1"]:
-            self.set_stiffness_for_all_joints(10000000.0 / 200) # 1e8 or 10 million seems too high
-            self.set_damping_for_all_joints(100000.0 / 20) # 1e5 or 100 thousand seems too high
+        if self._cfg_stiffness>0:
+            self.set_stiffness_for_all_joints(self._cfg_stiffness) # 1e8 or 10 million seems too high
+
+        if self._cfg_damping>0:
+            self.set_damping_for_all_joints(self._cfg_damping) # 1e5 or 100 thousand seems too high
+
 
         self._articulation_rmpflow = ArticulationMotionPolicy(self._articulation,self._rmpflow)
         self._kinematics_solver = self._rmpflow.get_kinematics_solver()
@@ -146,8 +157,7 @@ class RMPflowScenario(ScenarioBase):
         self._ee_pos = ee_pos
         self._ee_rot = ee_rot_mat
 
-        if self._enable_obstacle:
-            self._rmpflow.add_obstacle(self._obstacle)
+        print("post_load_scenario done")
 
     def reset_scenario(self):
         # teleport robot to its zero position

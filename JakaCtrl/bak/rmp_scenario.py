@@ -92,7 +92,7 @@ class RMPflowScenario(ScenarioBase):
 
 
         # Setup Robot ARm
-        add_reference_to_stage(self._cfg_path_to_robot_usd, self._cfg_robot_prim_path)
+        add_reference_to_stage(self._cfg_robot_usd_file_path, self._cfg_robot_prim_path)
         self._articulation = Articulation(self._cfg_artpath)
         world.scene.add(self._articulation)
 

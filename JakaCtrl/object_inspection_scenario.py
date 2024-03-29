@@ -85,7 +85,7 @@ class ObjectInspectionScenario(ScenarioBase):
         if self._robot_name == "ur10-suction-short":
             self._start_robot_pos = Gf.Vec3d([0, 0, 0.4])
             self._start_robot_rot = [0, 0, 0]
-        elif self._robot_name in ["minicobo-rg2-high","minicobo-suction-high","minicobo-dual-high"]:
+        elif self._robot_name in ["minicobo-rg2-high","minicobo-suction-high","jaka-minicobo-1a","minicobo-dual-high"]:
             # self._start_robot_pos = Gf.Vec3d([-0.35, 0, 0.80])
             # self._start_robot_rot = [0, 130, 0]
             # cen = [0.11, 0, 0.77]
@@ -111,17 +111,17 @@ class ObjectInspectionScenario(ScenarioBase):
 
         self.set_robot_circle_pose(self._start_robot_pos, self._start_robot_rot)
 
-        add_reference_to_stage(self._robcfg.path_to_robot_usd, self._robcfg.robot_prim_path)
+        add_reference_to_stage(self._robcfg.robot_usd_file_path, self._robcfg.robot_prim_path)
         apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg.robot_prim_path)
 
         self.set_robot_circle_pose1(self._start_robot_pos1, self._start_robot_rot1)
 
         self._robcfg1.robot_prim_path = self._robcfg1.robot_prim_path.replace("roborg", "roborg1")
 
-        add_reference_to_stage(self._robcfg1.path_to_robot_usd, self._robcfg1.robot_prim_path)
+        add_reference_to_stage(self._robcfg1.robot_usd_file_path, self._robcfg1.robot_prim_path)
         apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg1.robot_prim_path)
 
-        # self.robot = Minicobo(self._robcfg.robot_prim_path, self._robot_name, self._robcfg.path_to_robot_usd)
+        # self.robot = Minicobo(self._robcfg.robot_prim_path, self._robot_name, self._robcfg._cfg_robot_usd_file_path)
 
 
         self._articulation = Articulation(self._robcfg.artpath,"mico-0")
@@ -183,8 +183,6 @@ class ObjectInspectionScenario(ScenarioBase):
         self._articulation1.set_joint_positions(self._zeros + epsilon)
 
         self._obstacle = FixedCuboid("/World/obstacle",size=.05,position=np.array([0.4, 0.0, 1.65]),color=np.array([0.,0.,1.]))
-
-
 
         print("rdf_path:",self._robcfg.rdf_path)
         print("urdf_path:",self._robcfg.urdf_path)
@@ -253,6 +251,13 @@ class ObjectInspectionScenario(ScenarioBase):
 
     def post_load_scenario(self):
         self._world.add_physics_callback("sim_step", callback_fn=self.physics_step)
+
+        # if self.robcfg.stiffness>0:
+        #     self.set_stiffness_for_all_joints(self._cfg_stiffness) # 1e8 or 10 million seems too high
+
+        # if self.robcfg.damping>0:
+        #     self.set_damping_for_all_joints(self.robcfg1.amping) # 1e5 or 100 thousand seems too high
+
         pass
 
     def reset_scenario(self):

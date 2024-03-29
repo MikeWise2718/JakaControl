@@ -132,13 +132,39 @@ def get_robot_params_robcfg(robot_name):
             mopo_robot_name = "Franka"
 
             rmp_param_dir = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka"
-            rdf_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_robot_description.yaml"
+            rdf_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_robot_description_0.yaml"
             urdf_path = rmp_param_dir + "/minicobo/minicobo_v14.urdf"
             rmp_config_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
             eeframe_name = "dummy_tcp"
             max_step_size = 0.00334
             stiffness = 400
             damping = 40
+
+
+        case "jaka-minicobo-1":
+            robot_prim_path = "/World/roborg/minicobo_v1_4"
+            artpath = f"{robot_prim_path}/world"
+            robot_usd_file_path = f"{jakacontrol_extension_dir}/usd/jaka_v14_1.usda"
+            mopo_robot_name = "RS007N"
+
+            rmp_param_dir = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka"
+            rdf_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_robot_description_0.yaml"
+            urdf_path = rmp_param_dir + "/minicobo/minicobo_v14_1.urdf"
+            rmp_config_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
+            eeframe_name = "dummy_tcp"
+            max_step_size = 0.00334
+        case "jaka-minicobo-1a":
+            robot_prim_path = "/World/roborg/minicobo_v1_4"
+            artpath = f"{robot_prim_path}/world"
+            robot_usd_file_path = f"{jakacontrol_extension_dir}/usd/jaka_v14_1.usda"
+            mopo_robot_name = "RS007N"
+
+            rmp_param_dir = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka"
+            rdf_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_robot_description_0.yaml"
+            urdf_path = rmp_param_dir + "/minicobo/minicobo_v14_1.urdf"
+            rmp_config_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
+            eeframe_name = "dummy_tcp"
+            max_step_size = 0.00334
 
         case "jaka-minicobo-2":
             robot_prim_path = "/World/roborg/minicobo_parallel_onrobot_rg2"
@@ -148,7 +174,8 @@ def get_robot_params_robcfg(robot_name):
 
             rmp_param_dir = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka"
             rdf_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_robot_description.yaml"
-            urdf_path = rmp_param_dir + "/minicobo/minicobo_v14_onrobot_rg2.urdf"
+            # urdf_path = rmp_param_dir + "/minicobo/minicobo_v14_onrobot_rg2.urdf"
+            urdf_path = rmp_param_dir + "/minicobo/minicobo_v14.urdf"
             rmp_config_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
             eeframe_name = "gripper_center"
             max_step_size = 0.00334
@@ -166,18 +193,6 @@ def get_robot_params_robcfg(robot_name):
             eeframe_name = "gripper_center"
             max_step_size = 0.00334
 
-        case "jaka-minicobo-1":
-            robot_prim_path = "/World/roborg/minicobo_v1_4"
-            artpath = f"{robot_prim_path}/world"
-            robot_usd_file_path = f"{jakacontrol_extension_dir}/usd/jaka_v14_1.usda"
-            mopo_robot_name = "RS007N"
-
-            rmp_param_dir = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka"
-            rdf_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_robot_description.yaml"
-            urdf_path = rmp_param_dir + "/minicobo/minicobo_v14_1.urdf"
-            rmp_config_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
-            eeframe_name = "dummy_tcp"
-            max_step_size = 0.00334
 
         case "minicobo-suction-dual" | "minicobo-dual-high":
             robot_prim_path = "/World/roborg/minicobo_suction_dual"
@@ -310,9 +325,7 @@ def get_robot_params(robot_name):
         case "ur10-suction-short":
             robot_prim_path = "/World/roborg/ur10_suction_short"
             artpath = robot_prim_path
-            # path_to_robot_usd = get_assets_root_path() + "/Isaac/Robots/UR10/ur10_short_suction.usd"
             robot_usd_file_path = assets_root_dir + "/Isaac/Robots/UR10/ur10_short_suction.usd"
-            print("path_to_robot_usd", robot_usd_file_path)
             mopo_robot_name = "UR10-suction-short"
         case "jaka-minicobo-0":
             robot_prim_path = "/World/roborg/minicobo_v1_4"
@@ -321,33 +334,40 @@ def get_robot_params(robot_name):
             mopo_robot_name = "Franka"
             stiffness = 400
             damping = 40
-        case "jaka-minicobo-2":
-            robot_prim_path = "/World/roborg/minicobo_parallel_onrobot_rg2"
-            artpath = f"{robot_prim_path}/minicobo_onrobot_rg2/world"
-            robot_usd_file_path = f"{asimovjaka_extension_dir}/usd/minicobo-parallel-onrobot-rg2-6.usda"
-            mopo_robot_name = "RS007N"
-        case "minicobo-rg2-high":
-            robot_prim_path = "/World/roborg/minicobo_parallel_onrobot_rg2"
-            artpath = f"{robot_prim_path}/minicobo_onrobot_rg2/world"
-            robot_usd_file_path = f"{asimovjaka_extension_dir}/usd/minicobo-parallel-onrobot-rg2-6.usda"
-            mopo_robot_name = "RS007N"
         case "jaka-minicobo-1":
             robot_prim_path = "/World/roborg/minicobo_v1_4"
             artpath = f"{robot_prim_path}/world"
             robot_usd_file_path = f"{jakacontrol_extension_dir}/usd/jaka_v14_1.usda"
             mopo_robot_name = "RS007N"
+            stiffness = 400
+            damping = 40
+        case "jaka-minicobo-1a":
+            robot_prim_path = "/World/roborg/minicobo_v1_4"
+            artpath = f"{robot_prim_path}/world"
+            # robot_usd_file_path = f"{jakacontrol_extension_dir}/usd/jaka_v14_1.usda"
+            robot_usd_file_path = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka/minicobo/minicobo_v14_1a/minicobo_v14_1a.usd"
+            mopo_robot_name = "RS007N"
+            stiffness = 400
+            damping = 40
+        case "jaka-minicobo-2":
+            robot_prim_path = "/World/roborg/minicobo_parallel_onrobot_rg2"
+            artpath = f"{robot_prim_path}/minicobo_onrobot_rg2/world"
+            # robot_usd_file_path = f"{asimovjaka_extension_dir}/usd/minicobo-parallel-onrobot-rg2-6.usda"
+            robot_usd_file_path = f"{asimovjaka_extension_dir}/usd/minicobo-parallel-onrobot-rg2-7.usda"
+            mopo_robot_name = "RS007N"
+            stiffness = 400
+            damping = 40
+        case "minicobo-rg2-high":
+            robot_prim_path = "/World/roborg/minicobo_parallel_onrobot_rg2"
+            artpath = f"{robot_prim_path}/minicobo_onrobot_rg2/world"
+            robot_usd_file_path = f"{asimovjaka_extension_dir}/usd/minicobo-parallel-onrobot-rg2-6.usda"
+            mopo_robot_name = "RS007N"
         case "minicobo-suction-dual" | "minicobo-dual-high":
-            # robot_prim_path = "/World/roborg/minicobo_suction"
-            # artpath = f"{robot_prim_path}/world"
-            # path_to_robot_usd = f"{robsjaka_extension_path}/usd/minicobo-suction.usda"
             robot_prim_path = "/World/roborg/minicobo_suction_dual"
             artpath = f"{robot_prim_path}/minicobo_suction/world"
             robot_usd_file_path = f"{asimovjaka_extension_dir}/usd/minicobo-suction-dual-4.usda"
             mopo_robot_name = "RS007N"
         case "minicobo-suction":
-            # robot_prim_path = "/World/roborg/minicobo_suction"
-            # artpath = f"{robot_prim_path}/world"
-            # path_to_robot_usd = f"{robsjaka_extension_path}/usd/minicobo-suction.usda"
             robot_prim_path = "/World/roborg/minicobo_suction_short"
             artpath = f"{robot_prim_path}/minicobo_suction/world"
             robot_usd_file_path = f"{asimovjaka_extension_dir}/usd/minicobo-suction-2.usda"
@@ -372,7 +392,7 @@ def get_robot_params(robot_name):
             robot_prim_path = "/World/roborg/Fancy_Franka"
             artpath = robot_prim_path
             robot_usd_file_path = assets_root_dir + "/Isaac/Robots/Franka/franka.usd"
-            # path_to_robot_usd = None
+            # _cfg_robot_usd_file_path = None
             mopo_robot_name = "Franka"
         case "jetbot":
             robot_prim_path = "/jetbot"
@@ -448,13 +468,31 @@ def get_robot_rmp_params(robot_name):
             rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
             eeframe_name = "dummy_tcp"
             max_step_size = 0.00334
+        case "jaka-minicobo-1":
+            # urpath = rmp_config_dir + "/Jaka/"
+            rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
+            rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description_0.yaml"
+            urdf_path = rmp_mppath + "/minicobo/minicobo_v14_2.urdf"
+            rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
+            eeframe_name = "dummy_tcp"
+            max_step_size = 0.00334
+        case "jaka-minicobo-1a":
+            # urpath = rmp_config_dir + "/Jaka/"
+            rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
+            rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description_0.yaml"
+            urdf_path = rmp_mppath + "/minicobo/minicobo_v14_1a.urdf"
+            rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
+            eeframe_name = "tool0"
+            max_step_size = 0.00334
         case "jaka-minicobo-2":
             # urpath = rmp_config_dir + "/Jaka/"
             rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
             rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description.yaml"
             urdf_path = rmp_mppath + "/minicobo/minicobo_v14_onrobot_rg2.urdf"
             rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
-            eeframe_name = "gripper_center"
+            # eeframe_name = "gripper_center"
+            # eeframe_name = "onrobot_rg2_base_link"
+            eeframe_name = "Link6"
             max_step_size = 0.00334
         case "minicobo-rg2-high":
             # urpath = rmp_config_dir + "/Jaka/"
@@ -466,14 +504,6 @@ def get_robot_rmp_params(robot_name):
             rmp_config_path = f"{asimovjaka_extension_path}/rdf/minicobo_rmpflow_config.yaml"
             urdf_path = f"{asimovjaka_extension_path}/urdf/minicobo_v14_onrobot_rg2.urdf"
             eeframe_name = "gripper_center"
-            max_step_size = 0.00334
-        case "jaka-minicobo-1":
-            # urpath = rmp_config_dir + "/Jaka/"
-            rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
-            rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description.yaml"
-            urdf_path = rmp_mppath + "/minicobo/minicobo_v14_1.urdf"
-            rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
-            eeframe_name = "dummy_tcp"
             max_step_size = 0.00334
         case "minicobo-suction-dual" |"minicobo-dual-high":
             # rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
@@ -529,18 +559,18 @@ def get_scenario_robots(scenario_name):
         case "sinusoid-joint":
             rv = ["franka", "ur10e", "ur5e", "ur3e", "jaka-minicobo-0"]
         case "object-inspection":
-            rv = ["minicobo-dual-high","minicobo-rg2-high","rs007n"]
+            rv = ["minicobo-dual-high","minicobo-rg2-high","jaka-minicobo-1a","rs007n"]
         case "franka-pick-and-place":
             rv = ["franka", "fancy_franka"]
         case "pick-and-place" | "rmpflow" | "object-inspection" | "inverse-kinematics":
             rv = ["franka", "fancy_franka","rs007n", "ur10-suction-short",
-                  "jaka-minicobo-0","jaka-minicobo-1", "jaka-minicobo-2",
+                  "jaka-minicobo-0","jaka-minicobo-1","jaka-minicobo-1a",   "jaka-minicobo-2",
                   "minicobo-rg2-high", "minicobo-suction-dual", "minicobo-suction", "minicobo-suction-high", "minicobo-dual-high"]
         case "gripper":
             rv = ["cone","inverted-cone","sphere","cube","cube-yrot","cylinder","suction-short","suction-dual","suction-dual-0"]
         case _:
             rv = ["ur3e", "ur5e", "ur10e", "ur10e-gripper", "ur10-suction-short",
-                  "jaka-minicobo-0","jaka-minicobo-1", "jaka-minicobo-2",
+                  "jaka-minicobo-0","jaka-minicobo-1", "jaka-minicobo-1a", "jaka-minicobo-2",
                   "minicobo-rg2-high","minicobo-suction-dual","minicobo-suction","minicobo-suction-high","minicobo-dual-high",
                   "rs007n", "franka", "fancy_franka", "m0609",
                   "cone","inverted-cone","sphere","cube","cube-yrot","cylinder","suction-short","suction-dual","suction-dual-0"]
@@ -627,7 +657,7 @@ class ScenarioBase:
         print(f"senut.get_robot_config robot_name:{robot_name} ground_opt:{ground_opt} ")
         self._cfg_robot_name = robot_name
         self._cfg_ground_opt = ground_opt
-        (ok, robot_prim_path, artpath, path_to_robot_usd, mopo_robot_name,stiffness,damping) = get_robot_params(robot_name)
+        (ok, robot_prim_path, artpath, robot_usd_file_path, mopo_robot_name,stiffness,damping) = get_robot_params(robot_name)
         config = get_robot_params_robcfg(robot_name)
         if (not ok):
             msg = f"Robot {robot_name} not found for get_robot_params in senut.py"
@@ -637,15 +667,15 @@ class ScenarioBase:
         self._cfg_robot_params_ok = ok
         self._cfg_robot_prim_path = robot_prim_path
         self._cfg_artpath = artpath
-        self._cfg_robot_usd_file_path = path_to_robot_usd
+        self._cfg_robot_usd_file_path = robot_usd_file_path
         self._cfg_mopo_robot_name = mopo_robot_name
         self._cfg_stiffness = stiffness
         self._cfg_damping = damping
 
 
-        self._cfg_mg_extension_dir = get_extension_path_from_name("omni.isaac.motion_generation")
-        self._cfg_rmp_config_dir = os.path.join(self._cfg_mg_extension_dir, "motion_policy_configs")
-        self._cfg_jc_extension_dir = get_extension_path_from_name("JakaControl")
+        self._cfg_mg_extension_dir = cleanup_path(get_extension_path_from_name("omni.isaac.motion_generation"))
+        self._cfg_rmp_config_dir = cleanup_path(os.path.join(self._cfg_mg_extension_dir, "motion_policy_configs"))
+        self._cfg_jc_extension_dir = cleanup_path(get_extension_path_from_name("JakaControl"))
 
         (ok, rdf_path, urdf_path, rmp_config_path, eeframe_name, max_step_size) = get_robot_rmp_params(robot_name)
         if (not ok):
