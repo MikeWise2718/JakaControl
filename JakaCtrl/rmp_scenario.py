@@ -26,7 +26,7 @@ from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelp
 
 from .senut import adjust_joint_values, set_stiffness_for_joints, set_damping_for_joints
 from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
-
+from .senut import apply_diable_gravity_to_rigid_bodies
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
@@ -91,6 +91,9 @@ class RMPflowScenario(ScenarioBase):
         # elif self._robot_name == "jaka-minicobo-1a":
         #     self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
         #     self._start_robot_rot = [180, 0, 0]
+        elif self._robot_name == "jaka-minicobo-1a":
+             self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
+             self._start_robot_rot = [180, 0, 0]
         elif self._robot_name == "rs007n":
             self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
             self._start_robot_rot = [180, 0, 0]
@@ -105,6 +108,7 @@ class RMPflowScenario(ScenarioBase):
         # Setup Robot ARm
         add_reference_to_stage(self._cfg_robot_usd_file_path, self._cfg_robot_prim_path)
         apply_convex_decomposition_to_mesh_and_children(stage, self._cfg_robot_prim_path)
+        apply_diable_gravity_to_rigid_bodies(stage, self._cfg_robot_prim_path)
 
         self._articulation = Articulation(self._cfg_artpath)
         world.scene.add(self._articulation)

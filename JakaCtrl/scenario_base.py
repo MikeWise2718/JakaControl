@@ -156,15 +156,24 @@ def get_robot_params_robcfg(robot_name):
         case "jaka-minicobo-1a":
             robot_prim_path = "/World/roborg/minicobo_v1_4"
             artpath = f"{robot_prim_path}/world"
-            robot_usd_file_path = f"{jakacontrol_extension_dir}/usd/jaka_v14_1.usda"
+            # robot_usd_file_path = f"{jakacontrol_extension_dir}/usd/jaka_v14_1.usda"
+            robot_usd_file_path = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka/minicobo/minicobo_v14_1a/minicobo_v14_1a_fixed_base.usda"
+
             mopo_robot_name = "RS007N"
 
             rmp_param_dir = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka"
             rdf_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_robot_description_0.yaml"
-            urdf_path = rmp_param_dir + "/minicobo/minicobo_v14_1.urdf"
+            urdf_path = rmp_param_dir + "/minicobo/minicobo_v14_1a.urdf"
             rmp_config_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
-            eeframe_name = "dummy_tcp"
+            eeframe_name = "tool0"
             max_step_size = 0.00334
+
+            # rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
+            # rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description_0.yaml"
+            # urdf_path = rmp_mppath + "/minicobo/minicobo_v14_1a.urdf"
+            # rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
+            # eeframe_name = "tool0"
+
 
         case "jaka-minicobo-2":
             robot_prim_path = "/World/roborg/minicobo_parallel_onrobot_rg2"
@@ -345,7 +354,8 @@ def get_robot_params(robot_name):
             robot_prim_path = "/World/roborg/minicobo_v1_4"
             artpath = f"{robot_prim_path}/world"
             # robot_usd_file_path = f"{jakacontrol_extension_dir}/usd/jaka_v14_1.usda"
-            robot_usd_file_path = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka/minicobo/minicobo_v14_1a/minicobo_v14_1a.usd"
+            # robot_usd_file_path = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka/minicobo/minicobo_v14_1a/minicobo_v14_1a.usd"
+            robot_usd_file_path = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka/minicobo/minicobo_v14_1a/minicobo_v14_1a_fixed_base.usda"
             mopo_robot_name = "RS007N"
             stiffness = 400
             damping = 40

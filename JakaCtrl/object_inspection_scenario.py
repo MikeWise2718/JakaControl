@@ -85,7 +85,7 @@ class ObjectInspectionScenario(ScenarioBase):
         if self._robot_name == "ur10-suction-short":
             self._start_robot_pos = Gf.Vec3d([0, 0, 0.4])
             self._start_robot_rot = [0, 0, 0]
-        elif self._robot_name in ["minicobo-rg2-high","minicobo-suction-high","jaka-minicobo-1a","minicobo-dual-high"]:
+        elif self._robot_name in ["minicobo-rg2-high","minicobo-suction-high","jaka-minicobo-1a","minicobo-dual-high","rs007n"]:
             # self._start_robot_pos = Gf.Vec3d([-0.35, 0, 0.80])
             # self._start_robot_rot = [0, 130, 0]
             # cen = [0.11, 0, 0.77]

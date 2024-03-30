@@ -4,7 +4,7 @@ import numpy as np
 import lula
 from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelper
 from .matman import MatMan
-from pxr import Usd, UsdGeom, UsdShade, Gf, UsdPhysics, UsdPhysics
+from pxr import Usd, UsdGeom, UsdShade, Gf, UsdPhysics, UsdPhysics, PhysxSchema
 from typing import Tuple, List
 
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
@@ -222,7 +222,6 @@ def apply_material_to_prim_and_children(stage, matman, matname, primname):
     prim = stage.GetPrimAtPath(primname)
     nhit = apply_material_to_prim_and_children_recur(stage, material, prim, 0)
     return nhit
-    print("apply_material_to_prim_and_children:",primname," matname:",matname," nhit:",nhit)
 
 
 def apply_convex_decomposition_to_mesh_and_children_recur(stage, prim, level):
@@ -256,5 +255,31 @@ def apply_convex_decomposition_to_mesh_and_children_recur(stage, prim, level):
 def apply_convex_decomposition_to_mesh_and_children(stage, primname):
     prim = stage.GetPrimAtPath(primname)
     nhit = apply_convex_decomposition_to_mesh_and_children_recur(stage, prim, 0)
-    print("apply_convex_decomposition_to_mesh_and_children",primname," nit:",nhit)
+    print("apply_convex_decomposition_to_mesh_and_children:",primname," nit:",nhit)
+    return nhit
+
+def apply_diable_gravity_to_rigid_bodies_recur(stage, prim, level, disableGravity=True):
+    if level > 12:
+        return 0
+    nhit = 0
+    schemas = prim.GetAppliedSchemas()
+    # print("prim:",prim.GetPath()," schemas:",schemas)
+    if "PhysicsRigidBodyAPI" in schemas:
+        rigi = UsdPhysics.RigidBodyAPI(prim)
+        if rigi is not None:
+            # prapi = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
+            physxRigidBody = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
+            physxRigidBody.GetDisableGravityAttr().Set(disableGravity)
+
+            # gda = prapi.GetDisableGravityAttr()
+            # gda.Set(True)
+    children = prim.GetChildren()
+    for child in children:
+        nhit += apply_diable_gravity_to_rigid_bodies_recur(stage, child, level+1)
+    return nhit
+
+def apply_diable_gravity_to_rigid_bodies(stage, primname,  disableGravity=True):
+    prim = stage.GetPrimAtPath(primname)
+    nhit = apply_diable_gravity_to_rigid_bodies_recur(stage, prim, 0, disableGravity=disableGravity)
+    print("apply_diable_gravity_to_rigid_bodies:",primname," nit:",nhit)
     return nhit
