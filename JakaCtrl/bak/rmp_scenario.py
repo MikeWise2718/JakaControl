@@ -25,7 +25,8 @@ from omni.isaac.core.utils.stage import add_reference_to_stage,  get_current_sta
 from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelper
 
 from .senut import adjust_joint_values, set_stiffness_for_joints, set_damping_for_joints
-
+from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
+from .senut import apply_diable_gravity_to_rigid_bodies
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
@@ -40,14 +41,18 @@ from .senut import adjust_joint_values, set_stiffness_for_joints, set_damping_fo
 class RMPflowScenario(ScenarioBase):
     _running_scenario = False
     _show_collision_bounds = True
+    _colorScheme = ""
+    _enable_obstacle = False
 
     def __init__(self):
         pass
 
     def load_scenario(self, robot_name, ground_opt):
         # Here we do object loading and simple initialization
+        super().load_scenario(robot_name, ground_opt)
 
         self.get_robot_config(robot_name, ground_opt)
+        self._robcfg = self.get_robcfg(robot_name, ground_opt)
 
         self.tot_damping_factor = 1.0
         self.tot_stiffness_factor = 1.0
@@ -55,7 +60,8 @@ class RMPflowScenario(ScenarioBase):
         self._robot_name = robot_name
         self._ground_opt = ground_opt
 
-        self._target_start_pos = np.array([0.5, 0.0, 0.7])
+        # self._target_start_pos = np.array([0.5, 0.0, 0.7])
+        self._target_start_pos = np.array([0.4, 0.0, 0.6])
         self._target_start_rot = euler_angles_to_quats([0, np.pi, 0])
         self._obstacle_start_pos = np.array([0.4, 0.0, 0.65])
         self._obstacle_start_rot = euler_angles_to_quats([0, np.pi, 0])
@@ -83,6 +89,15 @@ class RMPflowScenario(ScenarioBase):
         elif self._robot_name == "fancy_franka":
             self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
             self._start_robot_rot = [180, 0, 0]
+        # elif self._robot_name == "jaka-minicobo-1a":
+        #     self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
+        #     self._start_robot_rot = [180, 0, 0]
+        elif self._robot_name == "jaka-minicobo-1a":
+             self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
+             self._start_robot_rot = [180, 0, 0]
+        elif self._robot_name == "rs007n":
+            self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
+            self._start_robot_rot = [180, 0, 0]
 
         stage = get_current_stage()
         roborg = UsdGeom.Xform.Define(stage, "/World/roborg")
@@ -93,6 +108,9 @@ class RMPflowScenario(ScenarioBase):
 
         # Setup Robot ARm
         add_reference_to_stage(self._cfg_robot_usd_file_path, self._cfg_robot_prim_path)
+        apply_convex_decomposition_to_mesh_and_children(stage, self._cfg_robot_prim_path)
+        apply_diable_gravity_to_rigid_bodies(stage, self._cfg_robot_prim_path)
+
         self._articulation = Articulation(self._cfg_artpath)
         world.scene.add(self._articulation)
 
@@ -103,15 +121,18 @@ class RMPflowScenario(ScenarioBase):
 
         self._world = world
 
-        self._obstacle = FixedCuboid("/World/obstacle",size=.05,color=np.array([0.,0.,1.]))
+        if self._enable_obstacle:
+            self._obstacle = FixedCuboid("/World/obstacle",size=.05,color=np.array([0.,0.,1.]))
+            self._rmpflow.add_obstacle(self._obstacle)
 
 
     def post_load_scenario(self):
+        print("post_load_scenario")
         # Here we do multi-object initialization - things that needs to be done after all objects are loaded
 
         self.register_articulation(self._articulation) # this has to happen in post_load_scenario
 
-        # teleport robot to its zero position
+        # # teleport robot to its zero position
         self._articulation.set_joint_positions(self._cfg_joint_zero_pos)
 
         # Initialize an RmpFlow object
@@ -122,13 +143,15 @@ class RMPflowScenario(ScenarioBase):
             end_effector_frame_name = self._cfg_eeframe_name,
             maximum_substep_size = self._cfg_max_step_size
         )
-        self._rmpflow.add_obstacle(self._obstacle)
 
         self.lulaHelper = LulaInterfaceHelper(self._rmpflow._robot_description)
 
-        if self._robot_name in ["jaka-minicobo","jaka-minicobo-1"]:
-            self.set_stiffness_for_all_joints(10000000.0 / 200) # 1e8 or 10 million seems too high
-            self.set_damping_for_all_joints(100000.0 / 20) # 1e5 or 100 thousand seems too high
+        if self._cfg_stiffness>0:
+            self.set_stiffness_for_all_joints(self._cfg_stiffness) # 1e8 or 10 million seems too high
+
+        if self._cfg_damping>0:
+            self.set_damping_for_all_joints(self._cfg_damping) # 1e5 or 100 thousand seems too high
+
 
         self._articulation_rmpflow = ArticulationMotionPolicy(self._articulation,self._rmpflow)
         self._kinematics_solver = self._rmpflow.get_kinematics_solver()
@@ -139,7 +162,7 @@ class RMPflowScenario(ScenarioBase):
         self._ee_pos = ee_pos
         self._ee_rot = ee_rot_mat
 
-        self._rmpflow.add_obstacle(self._obstacle)
+        print("post_load_scenario done")
 
     def reset_scenario(self):
         # teleport robot to its zero position
@@ -147,7 +170,9 @@ class RMPflowScenario(ScenarioBase):
 
         # self._target.set_world_pose(np.array([.5,0,.7]),euler_angles_to_quats([0,np.pi,0]))
         self._target.set_world_pose(self._target_start_pos,self._target_start_rot)
-        self._obstacle.set_world_pose(self._obstacle_start_pos,self._obstacle_start_rot)
+
+        if self._enable_obstacle:
+            self._obstacle.set_world_pose(self._obstacle_start_pos,self._obstacle_start_rot)
 
 
         self._rmpflow.reset()
@@ -200,13 +225,13 @@ class RMPflowScenario(ScenarioBase):
 
     def adjust_stiffness_for_all_joints(self,fak):
         joint_names = self.lulaHelper.get_active_joints()
-        print(f"joint_names:{joint_names} fak:{fak:.2f} tot_stiffness:{self.tot_stiffness_factor:.4e}")
+        # print(f"joint_names:{joint_names} fak:{fak:.2f} tot_stiffness:{self.tot_stiffness_factor:.4e}")
         adjust_joint_values(joint_names,"stiffness",fak)
         self.tot_stiffness_factor = self.tot_stiffness_factor * fak
 
     def adjust_damping_for_all_joints(self,fak):
         joint_names = self.lulaHelper.get_active_joints()
-        print(f"joint_names:{joint_names} fak:{fak:.2f} tot_damping:{self.tot_damping_factor:.4e}")
+        # print(f"joint_names:{joint_names} fak:{fak:.2f} tot_damping:{self.tot_damping_factor:.4e}")
         adjust_joint_values(joint_names,"damping",fak)
         self.tot_damping_factor = self.tot_damping_factor * fak
 

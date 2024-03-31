@@ -47,7 +47,10 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
         pass
 
     def load_scenario(self, robot_name, ground_opt):
-        self.get_robot_config(robot_name, ground_opt)
+        super().load_scenario(robot_name, ground_opt)
+        self._robcfg = self.get_robcfg(robot_name, ground_opt)
+
+        # self.get_robot_config(robot_name, ground_opt)
 
         self._robot_name = robot_name
         self._ground_opt = ground_opt
@@ -74,18 +77,18 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
             # lula.AddRotateXOp().Set(ang)
 
 
-        if self._cfg_robot_usd_file_path is not None:
-            add_reference_to_stage(self._cfg_robot_usd_file_path, self._cfg_robot_prim_path)
+        if self._robcfg.robot_usd_file_path is not None:
+            add_reference_to_stage(self._robcfg.robot_usd_file_path, self._robcfg.robot_prim_path)
 
         if need_to_add_articulation:
-            prim = get_current_stage().GetPrimAtPath(self._cfg_artpath)
+            prim = get_current_stage().GetPrimAtPath(self._robcfg.artpath)
             UsdPhysics.ArticulationRootAPI.Apply(prim)
 
         if self._robot_name in ["fancy_franka"]:
             from omni.isaac.franka import Franka
             self._articulation= Franka(prim_path="/World/roborg/Fancy_Franka", name="fancy_franka")
         else:
-            self._articulation = Articulation(self._cfg_artpath)
+            self._articulation = Articulation(self._robcfg.artpath)
 
 
         # mode specific initialization
@@ -118,10 +121,10 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
 
     def get_gripper(self):
         art = self._articulation
-        art._policy_robot_name = self._cfg_mopo_robot_name
+        art._policy_robot_name = self._robcfg.mopo_robot_name
         if hasattr(art,"gripper"):
             gripper = art.gripper
-            gripper._policy_robot_name = self._cfg_mopo_robot_name
+            gripper._policy_robot_name = self._robcfg.mopo_robot_name
             return gripper
         else:
             self.physics_sim_view = self._world.physics_sim_view

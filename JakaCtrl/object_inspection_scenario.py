@@ -22,6 +22,8 @@ from omni.asimov.jaka.minicobo import Minicobo
 from .senut import add_light_to_stage
 from .senut import calc_robot_circle_pose
 from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
+from .senut import adjust_joint_values, set_stiffness_for_joints, set_damping_for_joints
+from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelper
 
 from .scenario_base import ScenarioBase
 
@@ -44,6 +46,7 @@ class ObjectInspectionScenario(ScenarioBase):
         pass
 
     def load_scenario(self, robot_name, ground_opt):
+        super().load_scenario(robot_name, ground_opt)
         # self.get_robot_config(robot_name, ground_opt)
         self._robcfg = self.get_robcfg(robot_name, ground_opt)
         self._robcfg1 = self.get_robcfg(robot_name, ground_opt)
@@ -143,8 +146,9 @@ class ObjectInspectionScenario(ScenarioBase):
         #     )
         # )
 
-        self._target = XFormPrim("/World/target", scale=[.04,.04,.04], position=[-0.15, 0.00, 0.02])
-        self._target1 = XFormPrim("/World/target1", scale=[.04,.04,.04], position=[0.15, 0.00, 0.02])
+        quat = euler_angles_to_quat([-np.pi/2,0,0])
+        self._target = XFormPrim("/World/target", scale=[.04,.04,.04], position=[-0.15, 0.00, 0.02], orientation=quat)
+        self._target1 = XFormPrim("/World/target1", scale=[.04,.04,.04], position=[0.15, 0.00, 0.02], orientation=quat)
         add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", "/World/target")
         add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", "/World/target1")
 
@@ -214,6 +218,21 @@ class ObjectInspectionScenario(ScenarioBase):
         self._rmpflow1.add_obstacle(self._obstacle)
 
 
+        self.lulaHelper = LulaInterfaceHelper(self._rmpflow._robot_description)
+        if self._robcfg.stiffness>0:
+            self.set_stiffness_for_all_joints(self._robcfg.stiffness)
+
+        if self._robcfg.damping>0:
+            self.set_damping_for_all_joints(self._robcfg.damping)
+
+        if self._robcfg1.stiffness>0:
+            self.set_stiffness_for_all_joints(self._robcfg1.stiffness)
+
+        if self._robcfg1.damping>0:
+            self.set_damping_for_all_joints(self._robcfg1.damping)
+
+
+
         if self._show_collision_bounds:
             self._rmpflow.set_ignore_state_updates(True)
             self._rmpflow.visualize_collision_spheres()
@@ -270,6 +289,14 @@ class ObjectInspectionScenario(ScenarioBase):
             self._rmpflow.visualize_end_effector_position()
             self._rmpflow1.visualize_collision_spheres()
             self._rmpflow1.visualize_end_effector_position()
+
+    def set_stiffness_for_all_joints(self, stiffness):
+        joint_names = self.lulaHelper.get_active_joints()
+        set_stiffness_for_joints(joint_names, stiffness)
+
+    def set_damping_for_all_joints(self, damping):
+        joint_names = self.lulaHelper.get_active_joints()
+        set_damping_for_joints(joint_names, damping)
 
     def physics_step(self, step_size):
         target_position, target_orientation = self._target.get_world_pose()

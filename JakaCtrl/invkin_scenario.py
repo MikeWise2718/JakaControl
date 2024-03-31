@@ -56,7 +56,12 @@ class InvkinScenario(ScenarioBase):
 
 
     def load_scenario(self, robot_name, ground_opt):
-        self.get_robot_config(robot_name, ground_opt)
+        super().load_scenario(robot_name, ground_opt)
+
+        self._robcfg = self.get_robcfg(robot_name, ground_opt)
+
+
+        #  self.get_robot_config(robot_name, ground_opt)
         self.phystep = 0
         self.ikerrs = 0
         self.tot_damping_factor = 1.0
@@ -93,10 +98,10 @@ class InvkinScenario(ScenarioBase):
 
 
         # Setup Robot Arm
-        add_reference_to_stage(self._cfg_robot_usd_file_path, self._cfg_robot_prim_path)
-        apply_convex_decomposition_to_mesh_and_children(self._stage, self._cfg_robot_prim_path)
+        add_reference_to_stage(self._robcfg.robot_usd_file_path, self._robcfg.robot_prim_path)
+        apply_convex_decomposition_to_mesh_and_children(self._stage, self._robcfg.robot_prim_path)
 
-        self._articulation = Articulation(self._cfg_artpath)
+        self._articulation = Articulation(self._robcfg.artpath)
         world.scene.add(self._articulation)
 
         add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", "/World/target")
@@ -110,13 +115,13 @@ class InvkinScenario(ScenarioBase):
         self.register_articulation(self._articulation) # this has to happen in post_load_scenario
 
         # teleport robot to zeros
-        self._articulation.set_joint_positions(self._cfg_joint_zero_pos)
+        self._articulation.set_joint_positions(self._robcfg.joint_zero_pos)
 
         # RMPflow config files for supported robots are stored in the motion_generation extension under "/motion_policy_configs"
 
         self._kinematics_solver = LulaKinematicsSolver(
-            robot_description_path = self._cfg_rdf_path,
-            urdf_path = self._cfg_urdf_path
+            robot_description_path = self._robcfg.rdf_path,
+            urdf_path = self._robcfg.urdf_path
         )
         self.lulaHelper = LulaInterfaceHelper(self._kinematics_solver._robot_description)
 
@@ -126,13 +131,13 @@ class InvkinScenario(ScenarioBase):
         #     self.set_stiffness_for_all_joints(400.0) # 1e8 or 10 million seems too high
         #     self.set_damping_for_all_joints(40) # 1e5 or 100 thousand seems too high
 
-        if self._cfg_stiffness>0:
-            self.set_stiffness_for_all_joints(self._cfg_stiffness) # 1e8 or 10 million seems too high
+        if self._robcfg.stiffness>0:
+            self.set_stiffness_for_all_joints(self._robcfg.stiffness) # 1e8 or 10 million seems too high
 
-        if self._cfg_damping>0:
-            self.set_damping_for_all_joints(self._cfg_damping) # 1e5 or 100 thousand seems too high
+        if self._robcfg.damping>0:
+            self.set_damping_for_all_joints(self._robcfg.damping) # 1e5 or 100 thousand seems too high
 
-        end_effector_name = self._cfg_eeframe_name
+        end_effector_name = self._robcfg.eeframe_name
         self._articulation_kinematics_solver = ArticulationKinematicsSolver(self._articulation,self._kinematics_solver, end_effector_name)
         ee_position,ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
         self._ee_pos = ee_position
@@ -145,7 +150,7 @@ class InvkinScenario(ScenarioBase):
 
     def reset_scenario(self):
         # self._target.set_world_pose(np.array([0.2,0.2,0.6]),euler_angles_to_quats([0,np.pi,0]))
-        self._articulation.set_joint_positions(self._cfg_joint_zero_pos)
+        self._articulation.set_joint_positions(self._robcfg.joint_zero_pos)
         ee_position,ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
         self._ee_pos = ee_position
         self._ee_rot = ee_rot_mat

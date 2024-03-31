@@ -62,15 +62,10 @@ class PickAndPlaceScenario(ScenarioBase):
 
     def load_scenario(self, robot_name, ground_opt):
         super().load_scenario(robot_name, ground_opt)
-
-        self._robcfg = self.get_robcfg(robot_name, ground_opt)
-
-        # self.get_robot_config(robot_name, ground_opt)
-
-
         self.nphysstep_calls = 0
         self.global_time = 0
         self.global_ang = 0
+        self.get_robot_config(robot_name, ground_opt)
 
         self._robot_name = robot_name
         self._ground_opt = ground_opt
@@ -110,15 +105,15 @@ class PickAndPlaceScenario(ScenarioBase):
 
         self.set_robot_circle_pose(self._start_robot_pos, self._start_robot_rot)
 
-        add_reference_to_stage(self._robcfg.robot_usd_file_path, self._robcfg.robot_prim_path)
-        apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg.robot_prim_path)
+        add_reference_to_stage(self._cfg_robot_usd_file_path, self._cfg_robot_prim_path)
+        apply_convex_decomposition_to_mesh_and_children(stage, self._cfg_robot_prim_path)
 
         if self._robot_name == "fancy_franka":
             self._articulation= Franka(prim_path="/World/roborg/Fancy_Franka", name="fancy_franka")
         else:
             # quat = euler_angles_to_quat(np.array([0,0,0]))
             quat = euler_angles_to_quat(self._start_robot_rot)
-            self._articulation = Articulation(self._robcfg.artpath, position=self._start_robot_pos, orientation=quat)
+            self._articulation = Articulation(self._cfg_artpath, position=self._start_robot_pos, orientation=quat)
 
 
         # mode specific initialization
@@ -182,7 +177,7 @@ class PickAndPlaceScenario(ScenarioBase):
         # self._object = self._cuboid
         # self._fancy_cube = self._cuboid
         self._world = world
-        self._mopo_robot_name = self._robcfg.mopo_robot_name
+        self._mopo_robot_name = self._cfg_mopo_robot_name
 
         print("load_scenario done")
 
@@ -210,12 +205,12 @@ class PickAndPlaceScenario(ScenarioBase):
         self.register_articulation(self._articulation) # this has to happen in post_load_scenario
 
         if self._robot_name in ["minicobo-rg2-high","minicobo-suction-high"]:
-            self._robcfg.joint_zero_pos[2] = 0.9
-            self._robcfg.joint_zero_pos[4] = 0.9
-            self._articulation.set_joints_default_state(self._robcfg.joint_zero_pos)
+            self._cfg_joint_zero_pos[2] = 0.9
+            self._cfg_joint_zero_pos[4] = 0.9
+            self._articulation.set_joints_default_state(self._cfg_joint_zero_pos)
             self._articulation.initialize()
 
-        # self._articulation.set_joint_positions(self._robcfg.joint_zero_pos)
+        # self._articulation.set_joint_positions(self._cfg_joint_zero_pos)
 
 
         events_dt = [0.008, 0.005, 0.1,  0.1, 0.005, 0.005, 0.005, 0.1, 0.008, 0.08]
@@ -240,12 +235,12 @@ class PickAndPlaceScenario(ScenarioBase):
             elif self._robot_name in ["minicobo-suction","minicobo-suction-high","jaka-minicobo-1","jaka-minicobo-1a","minicobo-suction-dual","minicobo-dual-high"]:
                 self._gripper_type = "suction"
                 rmpconfig = {
-                    "end_effector_frame_name": self._robcfg.eeframe_name,
-                    "maximum_substep_size": self._robcfg.max_step_size,
+                    "end_effector_frame_name": self._cfg_eeframe_name,
+                    "maximum_substep_size": self._cfg_max_step_size,
                     "ignore_robot_state_updates": False,
-                    "urdf_path": self._robcfg.urdf_path,
-                    "rmpflow_config_path": self._robcfg.rmp_config_path,
-                    "robot_description_path": self._robcfg.rdf_path
+                    "urdf_path": self._cfg_urdf_path,
+                    "rmpflow_config_path": self._cfg_rmp_config_path,
+                    "robot_description_path": self._cfg_rdf_path
                 }
                 events_dt = [0.008, 0.005, 0.1,  0.1, 0.005, 0.005, 0.005, 0.1, 0.008, 0.08]
                 self._controller = jaka_PickPlaceController(
@@ -258,12 +253,12 @@ class PickAndPlaceScenario(ScenarioBase):
             elif self._robot_name in ["jaka-minicobo-0","jaka-minicobo-2","minicobo-rg2-high"]:
                 self._gripper_type = "parallel"
                 rmpconfig = {
-                    "end_effector_frame_name": self._robcfg.eeframe_name,
-                    "maximum_substep_size": self._robcfg.max_step_size,
+                    "end_effector_frame_name": self._cfg_eeframe_name,
+                    "maximum_substep_size": self._cfg_max_step_size,
                     "ignore_robot_state_updates": False,
-                    "urdf_path": self._robcfg.urdf_path,
-                    "rmpflow_config_path": self._robcfg.rmp_config_path,
-                    "robot_description_path": self._robcfg.rdf_path
+                    "urdf_path": self._cfg_urdf_path,
+                    "rmpflow_config_path": self._cfg_rmp_config_path,
+                    "robot_description_path": self._cfg_rdf_path
                 }
                 self._controller = jaka_PickPlaceController(
                     name="pick_place_controller",
@@ -292,7 +287,7 @@ class PickAndPlaceScenario(ScenarioBase):
         self._articulation_rmpflow = ArticulationMotionPolicy(self._articulation,self._rmpflow)
         self._kinematics_solver = self._rmpflow.get_kinematics_solver()
 
-        self._articulation_kinematics_solver = ArticulationKinematicsSolver(self._articulation,self._kinematics_solver, self._robcfg.eeframe_name)
+        self._articulation_kinematics_solver = ArticulationKinematicsSolver(self._articulation,self._kinematics_solver, self._cfg_eeframe_name)
         ee_pos, ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
 
         self._ee_pos = ee_pos
@@ -323,9 +318,9 @@ class PickAndPlaceScenario(ScenarioBase):
                     gripper.open()
 
         if self._robot_name in ["minicobo-rg2-high","minicobo-suction-high"]:
-            self._robcfg.joint_zero_pos[2] = 0.9
-            self._robcfg.joint_zero_pos[4] = 0.9
-            self._articulation.set_joint_positions(self._robcfg.joint_zero_pos)
+            self._cfg_joint_zero_pos[2] = 0.9
+            self._cfg_joint_zero_pos[4] = 0.9
+            self._articulation.set_joint_positions(self._cfg_joint_zero_pos)
 
     def get_gripper(self):
         art = self._articulation
