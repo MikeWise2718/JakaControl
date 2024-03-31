@@ -223,7 +223,7 @@ class PickAndPlaceScenario(ScenarioBase):
                     gripper=gripper,
                     robot_articulation=self._articulation
                 )
-            elif self._robot_name in ["minicobo-suction","minicobo-suction-high","jaka-minicobo-1","minicobo-suction-dual","minicobo-dual-high"]:
+            elif self._robot_name in ["minicobo-suction","minicobo-suction-high","jaka-minicobo-1","jaka-minicobo-1a","minicobo-suction-dual","minicobo-dual-high"]:
                 self._gripper_type = "suction"
                 rmpconfig = {
                     "end_effector_frame_name": self._cfg_eeframe_name,
@@ -378,7 +378,7 @@ class PickAndPlaceScenario(ScenarioBase):
                     dof_names=art.dof_names,
                 )
                 return pg
-            elif self._robot_name in ["ur10-suction-short","jaka-minicobo-1",
+            elif self._robot_name in ["ur10-suction-short","jaka-minicobo-1","jaka-minicobo-1a",
                                       "minicobo-suction-dual","minicobo-suction",
                                       "minicobo-dual-high","minicobo-suction-high"]:
                 art = self._articulation
@@ -399,6 +399,15 @@ class PickAndPlaceScenario(ScenarioBase):
                     eepp = "/World/roborg/minicobo_suction_short/minicobo_suction/short_gripper"
                 elif self._robot_name in ["minicobo-suction-dual","minicobo-dual-high"]:
                     eepp = "/World/roborg/minicobo_suction_dual/minicobo_suction/dual_gripper"
+                    # eepp = "/World/roborg/minicobo_suction_dual/minicobo_suction/dual_gripper/JAKA___MOTO_200mp_v4"
+
+                    # self._end_effector = RigidPrim(prim_path=eepp, name= "minicobo_dual_gripper" + "_end_effector")
+                    # self._end_effector.initialize(self.physics_sim_view)
+                    grip_direction = "y"
+                    grip_threshold = 0.1
+                    grip_translate = 0.17
+                elif self._robot_name in ["jaka-minicobo-1a"]:
+                    eepp = "/World/roborg/minicobo_v1_4/tool0"
                     # eepp = "/World/roborg/minicobo_suction_dual/minicobo_suction/dual_gripper/JAKA___MOTO_200mp_v4"
 
                     # self._end_effector = RigidPrim(prim_path=eepp, name= "minicobo_dual_gripper" + "_end_effector")

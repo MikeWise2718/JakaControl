@@ -307,11 +307,24 @@ class UIBuilder:
 
     cfg_lab_dict = {}
     line_list = []
+    usenewstyle = False
     def _load_one_param(self, param_name, clr):
-        val = f"Parmeter not found"
-        pname = f"_cfg_{param_name}"
-        if hasattr(self._cur_scenario, pname):
-            val = getattr(self._cur_scenario, pname)
+        if self.usenewstyle:
+            pname = param_name
+            if hasattr(self._cur_scenario, "_robcfg"):
+                if hasattr(self._cur_scenario._robcfg, pname):
+                    val = getattr(self._cur_scenario._robcfg, pname)
+                else:
+                    val = f"_robcfg.{param_name} not found in self._cur_scenario._robcfg"
+            else:
+                val = f"_robcfg not found in self._cur_scenario"
+        else:
+            pname = f"_cfg_{param_name}"
+            if hasattr(self._cur_scenario, pname):
+                val = getattr(self._cur_scenario, pname)
+            else:
+                val = f"Parmeter not found in self._cur_scenario"
+
         l1txt = f"{param_name}"
         l2txt = f"{val}"
         self.line_list.append(f"{l1txt}: {l2txt}")
@@ -338,7 +351,11 @@ class UIBuilder:
         str = "\n".join(self.line_list)
         omni.kit.clipboard.copy(str)
 
-    def _load_robot_config(self):
+    def _load_robot_config_new(self):
+        self._load_robot_config(new=True)
+
+    def _load_robot_config(self, new=False):
+        self.usenewstyle = new
         self.rob_config_stack.clear()
         self.cfg_lab_dict = {}
         self.line_list = []
@@ -349,6 +366,11 @@ class UIBuilder:
                         style={'background_color': self.dkblue}
                 )
                 self._load_robot_config_btn.enabled = True
+                self._load_robot_config_btn_new = Button(
+                        "Load Robot Config New", clicked_fn=self._load_robot_config_new,
+                        style={'background_color': self.dkblue}
+                )
+                self._load_robot_config_btn_new.enabled = True
                 self._copy_clipboard_btn = Button(
                         "Copy to Clipboard", clicked_fn=self._copy_to_clipboard,
                         style={'background_color': self.dkblue}
