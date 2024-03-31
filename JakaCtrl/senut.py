@@ -4,7 +4,7 @@ import numpy as np
 import lula
 from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelper
 from .matman import MatMan
-from pxr import Usd, UsdGeom, UsdShade, Gf
+from pxr import Usd, UsdGeom, UsdShade, Gf, UsdPhysics, UsdPhysics, PhysxSchema
 from typing import Tuple, List
 
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
@@ -183,3 +183,103 @@ def deg_euler_to_quatd(deg_euler):
     quat = euler_angles_to_quat(deg)
     quatd = Gf.Quatd(quat[0], quat[1], quat[2], quat[3])
     return quatd
+
+def calc_robot_circle_pose(angle, cen=[0, 0, 0.85], rad=0.35, xang=0, yang=130):
+    rads = np.pi*angle/180
+    pos = cen + rad*np.array([np.cos(rads), np.sin(rads), 0])
+    pos = Gf.Vec3d(list(pos))
+    zang = angle-180
+    rot = [xang, yang, zang]
+    # print("pos:",pos," rot:",rot)
+    return pos, rot
+
+# def apply_material_to_prim_and_children_recur(stage, material, prim, level):
+#     if level > 4:
+#         return
+#     gprim = UsdGeom.Gprim(prim)
+#     UsdShade.MaterialBindingAPI(gprim).Bind(material)
+#     children = prim.GetChildren()
+#     for child in children:
+#         apply_material_to_prim_and_children_recur(stage, material, child, level+1)
+
+
+def apply_material_to_prim_and_children_recur(stage, material, prim, level):
+    if level > 16:
+        return 0
+    nhit = 0
+    gprim = UsdGeom.Gprim(prim)
+    matapi = UsdShade.MaterialBindingAPI(gprim)
+    if matapi is not None:
+        matapi.Bind(material)
+        nhit += 1
+    children = prim.GetChildren()
+    for child in children:
+        nhit += apply_material_to_prim_and_children_recur(stage, material, child, level+1)
+    return nhit
+
+def apply_material_to_prim_and_children(stage, matman, matname, primname):
+    material = matman.GetMaterial(matname)
+    prim = stage.GetPrimAtPath(primname)
+    nhit = apply_material_to_prim_and_children_recur(stage, material, prim, 0)
+    return nhit
+
+
+def apply_convex_decomposition_to_mesh_and_children_recur(stage, prim, level):
+    if level > 12:
+        return 0
+    # https://forums.developer.nvidia.com/t/script-for-convex-decomposition-collisions/259649/2
+    # collApi = UsdPhysics.CollisionAPI(prim)
+    # if collApi is not None:
+    #     collApi.GetPhysicsApproximationAttr().Set(UsdPhysics.Tokens.convexDecomposition)
+    nhit = 0
+    schemas = prim.GetAppliedSchemas()
+    # print("prim:",prim.GetPath()," schemas:",schemas)
+    if "PhysicsMeshCollisionAPI" in schemas:
+        collApi = UsdPhysics.MeshCollisionAPI(prim)
+        if collApi is not None:
+            sans = collApi.GetSchemaAttributeNames()
+            aproxatr = collApi.GetApproximationAttr()
+            if aproxatr is not None:
+                aproxatr.Set(UsdPhysics.Tokens.convexDecomposition)
+                nhit += 1
+            # aaa = collApi.GetAttribute("physics:approximation")
+            # if aaa is not None:
+            #     aaa.Set("convexDecomposition")
+        # # aproxatr.Set(UsdPhysics.Tokens.convexDecomposition)
+        # collApi.GetAttribute("physics:approximation").Set("convexDecomposition")
+    children = prim.GetChildren()
+    for child in children:
+        nhit += apply_convex_decomposition_to_mesh_and_children_recur(stage, child, level+1)
+    return nhit
+
+def apply_convex_decomposition_to_mesh_and_children(stage, primname):
+    prim = stage.GetPrimAtPath(primname)
+    nhit = apply_convex_decomposition_to_mesh_and_children_recur(stage, prim, 0)
+    print("apply_convex_decomposition_to_mesh_and_children:",primname," nit:",nhit)
+    return nhit
+
+def apply_diable_gravity_to_rigid_bodies_recur(stage, prim, level, disableGravity=True):
+    if level > 12:
+        return 0
+    nhit = 0
+    schemas = prim.GetAppliedSchemas()
+    # print("prim:",prim.GetPath()," schemas:",schemas)
+    if "PhysicsRigidBodyAPI" in schemas:
+        rigi = UsdPhysics.RigidBodyAPI(prim)
+        if rigi is not None:
+            # prapi = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
+            physxRigidBody = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
+            physxRigidBody.GetDisableGravityAttr().Set(disableGravity)
+
+            # gda = prapi.GetDisableGravityAttr()
+            # gda.Set(True)
+    children = prim.GetChildren()
+    for child in children:
+        nhit += apply_diable_gravity_to_rigid_bodies_recur(stage, child, level+1)
+    return nhit
+
+def apply_diable_gravity_to_rigid_bodies(stage, primname,  disableGravity=True):
+    prim = stage.GetPrimAtPath(primname)
+    nhit = apply_diable_gravity_to_rigid_bodies_recur(stage, prim, 0, disableGravity=disableGravity)
+    print("apply_diable_gravity_to_rigid_bodies:",primname," nit:",nhit)
+    return nhit

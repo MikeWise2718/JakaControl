@@ -169,7 +169,6 @@
     </collision>
   </link>
 
-<link name="dummy_tcp"/>
 
 
   <!-- JOINT -->
@@ -230,7 +229,7 @@
 <joint name="dummy_tcp_joint" type="fixed">
         <origin xyz="0 0 0" rpy="0 0 0" />
         <parent link="Link6" />
-        <child link="dummy_tcp" />
+        <child link="onrobot_rg2_base_link" />
     </joint>
 <!-- Start of onrobot_rg2 gripper section -->
 
@@ -446,11 +445,6 @@
     </actuator>
   </transmission>
   <!-- Fix rg2 to rs007l -->
-  <joint name="rs007n2rg2" type="fixed">
-    <parent link="dummy_tcp"/>
-    <child link="onrobot_rg2_base_link"/>
-    <origin rpy="0 0 0" xyz="0 0 0"/>
-  </joint>
 
   <link name="gripper_center"/>
   <joint name="gripper_center_joint" type="fixed">

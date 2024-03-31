@@ -1,0 +1,57 @@
+# The robot description defines the generalized coordinates and how to map those
+# to the underlying URDF dofs.
+
+api_version: 1.0
+
+# Defines the generalized coordinates. Each generalized coordinate is assumed
+# to have an entry in the URDF.
+# Lula will only use these joints to control the robot position.
+cspace:
+    - Joint1
+    - Joint2
+    - Joint3
+    - Joint4
+    - Joint5
+    - Joint6
+default_q: [
+    0.0,0.0,0.0,0.0,0.0,0.0
+]
+
+# Most dimensions of the cspace have a direct corresponding element
+# in the URDF. This list of rules defines how unspecified coordinates
+# should be extracted or how values in the URDF should be overwritten.
+
+cspace_to_urdf_rules:
+
+
+# Lula uses collision spheres to define the robot geometry in order to avoid
+# collisions with external obstacles.  If no spheres are specified, Lula will
+# not be able to avoid obstacles.
+
+collision_spheres:
+  - Link1:
+    - "center": [0.0, 0.02, 0.0]
+      "radius": 0.06
+    - "center": [0.0, 0.012, -0.05]
+      "radius": 0.06
+    - "center": [0.0, 0.00, -0.10]
+      "radius": 0.06
+  - Link2:
+    - "center": [0.0, -0.03, 0.0]
+      "radius": 0.06
+    - "center": [0.0, 0.012, -0.05]
+      "radius": 0.06
+    - "center": [0.0, 0.00, -0.10]
+      "radius": 0.06
+  - Link3:
+    - "center": [0.0, 0.0, 0.0]
+      "radius": 0.06
+  - Link4:
+    - "center": [0.0, 0.0, 0.0]
+      "radius": 0.06
+  - Link5:
+    - "center": [0.0, 0.0, 0.0]
+      "radius": 0.06
+  - Link6:
+    - "center": [0.0, 0.0, 0.0]
+      "radius": 0.06

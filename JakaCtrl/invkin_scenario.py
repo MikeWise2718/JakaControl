@@ -18,6 +18,7 @@ from omni.isaac.core.world import World
 
 
 from omni.isaac.core.utils.numpy.rotations import euler_angles_to_quats, rot_matrices_to_quats
+from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
 
 
 from .senut import add_light_to_stage
@@ -63,6 +64,7 @@ class InvkinScenario(ScenarioBase):
 
         self._robot_name = robot_name
         self._ground_opt = ground_opt
+        self._stage = get_current_stage()
 
         add_light_to_stage()
 
@@ -90,8 +92,10 @@ class InvkinScenario(ScenarioBase):
         roborg.AddRotateXOp().Set(self._start_robot_rot[0])
 
 
-        # Setup Robot ARm
-        add_reference_to_stage(self._cfg_path_to_robot_usd, self._cfg_robot_prim_path)
+        # Setup Robot Arm
+        add_reference_to_stage(self._cfg_robot_usd_file_path, self._cfg_robot_prim_path)
+        apply_convex_decomposition_to_mesh_and_children(self._stage, self._cfg_robot_prim_path)
+
         self._articulation = Articulation(self._cfg_artpath)
         world.scene.add(self._articulation)
 
@@ -116,11 +120,17 @@ class InvkinScenario(ScenarioBase):
         )
         self.lulaHelper = LulaInterfaceHelper(self._kinematics_solver._robot_description)
 
-        if self._robot_name in ["jaka-minicobo","jaka-minicobo-1"]:
-            # self.set_stiffness_for_all_joints(10000000.0 / 200) # 1e8 or 10 million seems too high
-            # self.set_damping_for_all_joints(100000.0 / 20) # 1e5 or 100 thousand seems too high
-            self.set_stiffness_for_all_joints(400.0) # 1e8 or 10 million seems too high
-            self.set_damping_for_all_joints(40) # 1e5 or 100 thousand seems too high
+        # if self._robot_name in ["jaka-minicobo-0","jaka-minicobo-1","minicobo-rg2-high"]:
+        #     # self.set_stiffness_for_all_joints(10000000.0 / 200) # 1e8 or 10 million seems too high
+        #     # self.set_damping_for_all_joints(100000.0 / 20) # 1e5 or 100 thousand seems too high
+        #     self.set_stiffness_for_all_joints(400.0) # 1e8 or 10 million seems too high
+        #     self.set_damping_for_all_joints(40) # 1e5 or 100 thousand seems too high
+
+        if self._cfg_stiffness>0:
+            self.set_stiffness_for_all_joints(self._cfg_stiffness) # 1e8 or 10 million seems too high
+
+        if self._cfg_damping>0:
+            self.set_damping_for_all_joints(self._cfg_damping) # 1e5 or 100 thousand seems too high
 
         end_effector_name = self._cfg_eeframe_name
         self._articulation_kinematics_solver = ArticulationKinematicsSolver(self._articulation,self._kinematics_solver, end_effector_name)

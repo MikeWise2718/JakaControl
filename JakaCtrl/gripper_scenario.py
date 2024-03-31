@@ -22,6 +22,7 @@ from omni.isaac.core.world import World
 
 from .senut import add_light_to_stage, deg_euler_to_quat, deg_euler_to_quatd, deg_euler_to_quatf
 from .senut import find_prim_by_name, find_prims_by_name, GetXformOps
+from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
 
 from .scenario_base import ScenarioBase
 from omni.isaac.core.objects import cuboid, sphere, capsule
@@ -40,8 +41,6 @@ from omni.isaac.core.utils.nucleus import get_assets_root_path
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 #
 
-
-
 """
 This scenario takes in a robot Articulation and makes it move through its joint DOFs.
 Additionally, it adds a cuboid prim to the stage that moves in a circle around the robot.
@@ -51,8 +50,6 @@ recomendation to the user about how to structure their code.  In the simple exam
 in this template, this particular structure served to improve code readability and separate
 the logic that runs the example from the UI design.
 """
-
-
 
 class GripperScenario(ScenarioBase):
     def __init__(self):
@@ -85,7 +82,6 @@ class GripperScenario(ScenarioBase):
         # self.sgp.offset.p.z = -0.099 #  does not close - gripper is inside the parent rigid body please move it forwward 0.200000
         # self.sgp.offset.p.z = -0.100 #  does not close - gripper is inside the parent rigid body please move it forwward 0.201000
         # self.sgp.offset.p.z = -0.1001 # closes - no error
-
 
     def load_scenario(self, robot_name, ground_opt):
 
@@ -126,6 +122,7 @@ class GripperScenario(ScenarioBase):
         assets_root_path = get_assets_root_path()
         disable_gravity = True
         gripper_pt_size = 0.01
+        needConvexDecomposition = False
         scale = 1
         if self._robot_name == "cone":
             start_pt = [0, 0, 0.301]
@@ -189,8 +186,6 @@ class GripperScenario(ScenarioBase):
             mass = 0.1
             gripper_pt_size = 0.01
             disable_gravity = False
-            # asset_path = "http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/2023.1.1/Isaac/Robots/UR10/Props/short_gripper.usd"
-            # asset_path = assets_root_path + "/Isaac/Samples/Gripper/short_gripper.usd"
             asset_path = assets_root_path + "/Isaac/Robots/UR10/Props/short_gripper.usd"
         elif self._robot_name == "suction-dual":
             start_pt = [0, 0, 0.4]
@@ -198,7 +193,23 @@ class GripperScenario(ScenarioBase):
             gripper_pt = [0, 0.15, 0]
             # gripper_pt = [0, 0, -0.165]
             load_asset = True
-            mass = 0.001
+            mass = 0.1
+            gripper_pt_size = 0.01
+            disable_gravity = True
+            scale = 0.01
+            # asset_path = "http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/2023.1.1/Isaac/Robots/UR10/Props/short_gripper.usd"
+            # asset_path = assets_root_path + "/Isaac/Samples/Gripper/short_gripper.usd"
+            # asset_path = "D:/nv/ov/exts/omni.asimov.jaka/usd/dual_gripper_4small.usda"
+            asset_path = "D:/nv/ov/exts/omni.asimov.jaka/usd/dual_gripper_3.usda"
+            needConvexDecomposition = True
+            # self.gripperRigidBodyPath = f"{self.gripperActorPath}/dual_gripper"
+        elif self._robot_name == "suction-dual-0":
+            start_pt = [0, 0, 0.4]
+            start_rot = [0, 0, 0]
+            gripper_pt = [0, 0.15, 0]
+            # gripper_pt = [0, 0, -0.165]
+            load_asset = True
+            mass = 0.1
             gripper_pt_size = 0.01
             disable_gravity = True
             scale = 0.01
@@ -210,7 +221,6 @@ class GripperScenario(ScenarioBase):
         self.grip_point = Gf.Vec3f(gripper_pt)
         self.start_rot = start_rot
         self.scale = scale
-
 
         if make_rigid_shape:
             quat = deg_euler_to_quat(start_rot)
@@ -227,7 +237,10 @@ class GripperScenario(ScenarioBase):
         if load_asset:
             quat = deg_euler_to_quat(start_rot)
             self.gripper_start_pose = dc.Transform(start_pt, quat)
+            print("load_asset", asset_path)
             self.gripperGeom = add_reference_to_stage(asset_path, self.gripperActorPath)
+            if needConvexDecomposition:
+                apply_convex_decomposition_to_mesh_and_children(self._stage, self.gripperActorPath)
             if self.gripperGeom is None:
                 print("Failed to load gripper asset")
                 return
@@ -253,7 +266,10 @@ class GripperScenario(ScenarioBase):
             physxRigidBody = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
             physxRigidBody.GetDisableGravityAttr().Set(disable_gravity)
             zero = Gf.Vec3f(0, 0, 0)
-            rigi.GetVelocityAttr().Set(zero)
+            if rigi is not None:
+                gva = rigi.GetVelocityAttr()
+                if gva is not None:
+                    gva.Set(zero)
             self.gripperRigidBodyPrim = UsdGeom.Gprim(prim)
 
 
@@ -346,7 +362,6 @@ class GripperScenario(ScenarioBase):
         self._object = self._cuboid
         print("load_scenario done - self._object", self._object)
 
-
     def createRigidBody(self, bodyType, boxActorPath, mass, scale, position, rotation, color):
         p = Gf.Vec3f(position[0], position[1], position[2])
         orientation = Gf.Quatf(rotation[0], rotation[1], rotation[2], rotation[3])
@@ -389,8 +404,6 @@ class GripperScenario(ScenarioBase):
         print(bodyPrim.GetPath().pathString)
         return bodyGeom
 
-
-
     lastmk_pt = None
 
     def move_gripperpt_marker(self):
@@ -421,62 +434,31 @@ class GripperScenario(ScenarioBase):
             print(f"Gripper is now {newstat}")
             self.laststat = newstat
             if newstat == "Closed":
-                # self.coneGeom.GetDisplayColorAttr().Set([self.color_closed])
-                self.apply_material_to_prim_and_children(self.mat_closed, self.gripperActorPath)
+                nhit = apply_material_to_prim_and_children(self._stage, self._matman, self.mat_closed, self.gripperActorPath)
 
             else:
-                # self.coneGeom.GetDisplayColorAttr().Set([self.color_open])
-                self.apply_material_to_prim_and_children(self.mat_open, self.gripperActorPath)
+                nhit = apply_material_to_prim_and_children(self._stage, self._matman, self.mat_open, self.gripperActorPath)
 
     nphysstep_calls = 0
     global_time = 0
-    global_ang = 0
     def physics_step(self, step_size):
         if self.nphysstep_calls==0:
             pass
 
         self.move_gripperpt_marker()
-
         self.check_gripper_status()
 
         self.nphysstep_calls += 1
         self.global_time += step_size
-
         return
-
 
     def teardown_scenario(self):
         pass
-
 
     def update_scenario(self, step: float):
         if not self._running_scenario:
             return
         self.physics_step(step)
-
-    def apply_material_to_prim(self, matname, primname):
-        prim = self._stage.GetPrimAtPath(primname)
-        if prim is None:
-            msg = f'apply_material:prim {primname} not found'
-            carb.log_warn(msg)
-            return
-        gprim = UsdGeom.Gprim(prim)
-        material = self._matman.GetMaterial(matname)
-        UsdShade.MaterialBindingAPI(gprim).Bind(material)
-
-    def apply_material_to_prim_and_children_recur(self, matname, primname, level):
-        if level > 4:
-            return
-        self.apply_material_to_prim(matname, primname)
-        prim = self._stage.GetPrimAtPath(primname)
-        children = prim.GetChildren()
-        for child in children:
-            self.apply_material_to_prim_and_children_recur(matname, child.GetPath(), level+1)
-
-    def apply_material_to_prim_and_children(self, matname, primname):
-        self.apply_material_to_prim_and_children_recur(matname, primname, 0)
-
-
 
     def scenario_action(self, actionname, mouse_button=0 ):
         print("Gripper scenario action:",actionname, "   mouse_button:",mouse_button)
