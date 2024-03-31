@@ -84,6 +84,7 @@ class GripperScenario(ScenarioBase):
         # self.sgp.offset.p.z = -0.1001 # closes - no error
 
     def load_scenario(self, robot_name, ground_opt):
+        super().load_scenario(robot_name, ground_opt)
 
         self._dc = dc.acquire_dynamic_control_interface()
         self._usd_context = omni.usd.get_context()

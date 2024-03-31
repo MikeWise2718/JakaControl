@@ -204,7 +204,7 @@ def calc_robot_circle_pose(angle, cen=[0, 0, 0.85], rad=0.35, xang=0, yang=130):
 
 
 def apply_material_to_prim_and_children_recur(stage, material, prim, level):
-    if level > 16:
+    if level > 32:
         return 0
     nhit = 0
     gprim = UsdGeom.Gprim(prim)
@@ -283,3 +283,9 @@ def apply_diable_gravity_to_rigid_bodies(stage, primname,  disableGravity=True):
     nhit = apply_diable_gravity_to_rigid_bodies_recur(stage, prim, 0, disableGravity=disableGravity)
     print("apply_diable_gravity_to_rigid_bodies:",primname," nit:",nhit)
     return nhit
+
+
+def interp(x, x1, x2, y1, y2):
+    if (y1==y2):
+        return y1
+    return y1 + (x-x1)*(y2-y1)/(x2-x1)

@@ -49,8 +49,10 @@ class RMPflowScenario(ScenarioBase):
 
     def load_scenario(self, robot_name, ground_opt):
         # Here we do object loading and simple initialization
+        super().load_scenario(robot_name, ground_opt)
 
-        self.get_robot_config(robot_name, ground_opt)
+        # self.get_robot_config(robot_name, ground_opt)
+
         self._robcfg = self.get_robcfg(robot_name, ground_opt)
 
         self.tot_damping_factor = 1.0
@@ -106,11 +108,11 @@ class RMPflowScenario(ScenarioBase):
 
 
         # Setup Robot ARm
-        add_reference_to_stage(self._cfg_robot_usd_file_path, self._cfg_robot_prim_path)
-        apply_convex_decomposition_to_mesh_and_children(stage, self._cfg_robot_prim_path)
-        apply_diable_gravity_to_rigid_bodies(stage, self._cfg_robot_prim_path)
+        add_reference_to_stage(self._robcfg.robot_usd_file_path, self._robcfg.robot_prim_path)
+        apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg.robot_prim_path)
+        apply_diable_gravity_to_rigid_bodies(stage, self._robcfg.robot_prim_path)
 
-        self._articulation = Articulation(self._cfg_artpath)
+        self._articulation = Articulation(self._robcfg.artpath)
         world.scene.add(self._articulation)
 
 
@@ -132,30 +134,30 @@ class RMPflowScenario(ScenarioBase):
         self.register_articulation(self._articulation) # this has to happen in post_load_scenario
 
         # # teleport robot to its zero position
-        self._articulation.set_joint_positions(self._cfg_joint_zero_pos)
+        self._articulation.set_joint_positions(self._robcfg.joint_zero_pos)
 
         # Initialize an RmpFlow object
         self._rmpflow = RmpFlow(
-            robot_description_path = self._cfg_rdf_path,
-            urdf_path = self._cfg_urdf_path,
-            rmpflow_config_path = self._cfg_rmp_config_path,
-            end_effector_frame_name = self._cfg_eeframe_name,
-            maximum_substep_size = self._cfg_max_step_size
+            robot_description_path = self._robcfg.rdf_path,
+            urdf_path = self._robcfg.urdf_path,
+            rmpflow_config_path = self._robcfg.rmp_config_path,
+            end_effector_frame_name = self._robcfg.eeframe_name,
+            maximum_substep_size = self._robcfg.max_step_size
         )
 
         self.lulaHelper = LulaInterfaceHelper(self._rmpflow._robot_description)
 
-        if self._cfg_stiffness>0:
-            self.set_stiffness_for_all_joints(self._cfg_stiffness) # 1e8 or 10 million seems too high
+        if self._robcfg.stiffness>0:
+            self.set_stiffness_for_all_joints(self._robcfg.stiffness) # 1e8 or 10 million seems too high
 
-        if self._cfg_damping>0:
-            self.set_damping_for_all_joints(self._cfg_damping) # 1e5 or 100 thousand seems too high
+        if self._robcfg.damping>0:
+            self.set_damping_for_all_joints(self._robcfg.damping) # 1e5 or 100 thousand seems too high
 
 
         self._articulation_rmpflow = ArticulationMotionPolicy(self._articulation,self._rmpflow)
         self._kinematics_solver = self._rmpflow.get_kinematics_solver()
 
-        self._articulation_kinematics_solver = ArticulationKinematicsSolver(self._articulation,self._kinematics_solver, self._cfg_eeframe_name)
+        self._articulation_kinematics_solver = ArticulationKinematicsSolver(self._articulation,self._kinematics_solver, self._robcfg.eeframe_name)
         ee_pos, ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
 
         self._ee_pos = ee_pos
@@ -165,7 +167,7 @@ class RMPflowScenario(ScenarioBase):
 
     def reset_scenario(self):
         # teleport robot to its zero position
-        self._articulation.set_joint_positions(self._cfg_joint_zero_pos)
+        self._articulation.set_joint_positions(self._robcfg.joint_zero_pos)
 
         # self._target.set_world_pose(np.array([.5,0,.7]),euler_angles_to_quats([0,np.pi,0]))
         self._target.set_world_pose(self._target_start_pos,self._target_start_rot)

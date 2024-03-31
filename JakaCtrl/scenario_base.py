@@ -153,6 +153,9 @@ def get_robot_params_robcfg(robot_name):
             rmp_config_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
             eeframe_name = "dummy_tcp"
             max_step_size = 0.00334
+            stiffness = 400
+            damping = 40
+
         case "jaka-minicobo-1a":
             robot_prim_path = "/World/roborg/minicobo_v1_4"
             artpath = f"{robot_prim_path}/world"
@@ -167,6 +170,9 @@ def get_robot_params_robcfg(robot_name):
             rmp_config_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
             eeframe_name = "tool0"
             max_step_size = 0.00334
+            stiffness = 400
+            damping = 40
+
 
             # rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
             # rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description_0.yaml"
@@ -188,6 +194,8 @@ def get_robot_params_robcfg(robot_name):
             rmp_config_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
             eeframe_name = "gripper_center"
             max_step_size = 0.00334
+            stiffness = 400
+            damping = 40
 
         case "minicobo-rg2-high":
             robot_prim_path = "/World/roborg/minicobo_parallel_onrobot_rg2"
@@ -201,6 +209,8 @@ def get_robot_params_robcfg(robot_name):
             urdf_path = f"{asimovjaka_extension_dir}/urdf/minicobo_v14_onrobot_rg2.urdf"
             eeframe_name = "gripper_center"
             max_step_size = 0.00334
+            stiffness = 400
+            damping = 40
 
 
         case "minicobo-suction-dual" | "minicobo-dual-high":
@@ -215,6 +225,8 @@ def get_robot_params_robcfg(robot_name):
             rmp_config_path = f"{asimovjaka_extension_dir}/rdf/minicobo_rmpflow_config.yaml"
             eeframe_name = "gripper_center"
             max_step_size = 0.00334
+            stiffness = 400
+            damping = 40
 
         case "minicobo-suction":
             robot_prim_path = "/World/roborg/minicobo_suction_short"
@@ -227,6 +239,8 @@ def get_robot_params_robcfg(robot_name):
             rmp_config_path = f"{asimovjaka_extension_dir}/rdf/minicobo_rmpflow_config.yaml"
             eeframe_name = "gripper_center"
             max_step_size = 0.00334
+            stiffness = 400
+            damping = 40
 
 
         case "minicobo-suction-high":
@@ -240,6 +254,8 @@ def get_robot_params_robcfg(robot_name):
             rmp_config_path = f"{asimovjaka_extension_dir}/rdf/minicobo_rmpflow_config.yaml"
             eeframe_name = "gripper_center"
             max_step_size = 0.00334
+            stiffness = 400
+            damping = 40
 
         case "rs007n":
             robot_prim_path = "/World/roborg/khi_rs007n"
@@ -282,16 +298,23 @@ def get_robot_params_robcfg(robot_name):
     rc = robcfg()
     rc.robot_name = robot_name
     rc.robot_prim_path = robot_prim_path
-    rc.artpath = artpath
-    rc.robot_usd_file_path = robot_usd_file_path
-    rc.mopo_robot_name = mopo_robot_name
-    rc.rdf_path = rdf_path
-    rc.urdf_path = urdf_path
-    rc.rmp_config_path = rmp_config_path
     rc.eeframe_name = eeframe_name
     rc.max_step_size = max_step_size
     rc.stiffness = stiffness
     rc.damping = damping
+    rc.mopo_robot_name = mopo_robot_name
+
+    rc.mg_extension_dir = mg_extension_dir
+    rc.rmp_config_dir = rmp_config_dir
+    rc.jc_extension_dir = jakacontrol_extension_dir
+    rc.asv_extension_dir = asimovjaka_extension_dir
+
+    rc.artpath = artpath
+
+    rc.urdf_path = urdf_path
+    rc.rdf_path = rdf_path
+    rc.rmp_config_path = rmp_config_path
+    rc.robot_usd_file_path = robot_usd_file_path
 
     return rc
 
@@ -741,12 +764,21 @@ class ScenarioBase:
         self._cfg_joint_names = self._articulation.dof_names
         self._cfg_njoints = self._articulation.num_dof
         self._cfg_joint_zero_pos = np.zeros(self._cfg_njoints)
+        if hasattr(self,"_robcfg"):
+            self._robcfg.lower_joint_limits = self._articulation.dof_properties["lower"]
+            self._robcfg.upper_joint_limits = self._articulation.dof_properties["upper"]
+            self._robcfg.joint_names = self._articulation.dof_names
+            self._robcfg.njoints = self._articulation.num_dof
+            self._robcfg.joint_zero_pos = np.zeros(self._robcfg.njoints)
         print("senut.register_articulation")
-        print(f"{self._cfg_robot_name} - njoints:{self._cfg_njoints} lower:{self._cfg_lower_joint_limits} upper:{self._cfg_upper_joint_limits}")
-        print(f"{self._cfg_robot_name} - {self._cfg_joint_names}")
+        # print(f"{self._cfg_robot_name} - njoints:{self._cfg_njoints} lower:{self._cfg_lower_joint_limits} upper:{self._cfg_upper_joint_limits}")
+        # print(f"{self._cfg_robot_name} - {self._cfg_joint_names}")
 
     def can_handle_robot(self, robot_name):
         return True
+
+    def load_scenario(self, robot_name="default", ground_opt="default"):
+        self._matman = MatMan(get_current_stage())
 
     def setup_scenario(self):
         pass
