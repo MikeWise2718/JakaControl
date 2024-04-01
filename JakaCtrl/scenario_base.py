@@ -209,6 +209,28 @@ def get_robot_params_robcfg(robot_name, skiplula=False):
             grippername = "dual sucker"
             desc = "Jaka Minicobo with a dual sucker gripper"
 
+        case "minicobo-dual-sucker":
+            robot_prim_path = "/World/roborg/minicobo_v1_4"
+            artpath = f"{robot_prim_path}/world"
+            # robot_usd_file_path = f"{jakacontrol_extension_dir}/usd/jaka_v14_1.usda"
+            robot_usd_file_path = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka/minicobo/minicobo_dual_sucker/minicobo_dual_sucker.usda"
+
+            mopo_robot_name = "RS007N"
+
+            rmp_param_dir = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka"
+            rdf_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_robot_description_dual_sucker.yaml"
+            urdf_path = rmp_param_dir + "/minicobo/minicobo_dual_sucker.urdf"
+            rmp_config_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_rmpflow_config_dual_sucker.yaml"
+            eeframe_name = "tool0"
+            max_step_size = 0.00334
+            stiffness = 400
+            damping = 40
+            mfg = "Jaka"
+            model = "Minicobo"
+            grippername = "dual sucker"
+            desc = "Jaka Minicobo with a dual sucker gripper"
+
+
 
             # rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
             # rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description_0.yaml"
@@ -476,18 +498,18 @@ class ScenarioBase:
             case "sinusoid-joint":
                 rv = ["franka", "ur10e", "ur5e", "ur3e", "jaka-minicobo-0"]
             case "object-inspection":
-                rv = ["minicobo-dual-high","minicobo-rg2-high","jaka-minicobo-1a","rs007n"]
+                rv = ["minicobo-dual-high","minicobo-rg2-high","jaka-minicobo-1a","minicobo-dual-sucker","rs007n"]
             case "franka-pick-and-place":
                 rv = ["franka", "fancy_franka"]
-            case "pick-and-place" | "rmpflow" | "object-inspection" | "inverse-kinematics":
+            case "pick-and-place" | "rmpflow"  | "inverse-kinematics":
                 rv = ["franka", "fancy_franka","rs007n", "ur10-suction-short",
-                    "jaka-minicobo-0","jaka-minicobo-1","jaka-minicobo-1a",   "jaka-minicobo-2",
+                    "jaka-minicobo-0","jaka-minicobo-1","jaka-minicobo-1a", "minicobo-dual-sucker",  "jaka-minicobo-2",
                     "minicobo-rg2-high", "minicobo-suction-dual", "minicobo-suction", "minicobo-suction-high", "minicobo-dual-high"]
             case "gripper":
                 rv = ["cone","inverted-cone","sphere","cube","cube-yrot","cylinder","suction-short","suction-dual","suction-dual-0"]
             case _:
                 rv = ["ur3e", "ur5e", "ur10e", "ur10e-gripper", "ur10-suction-short",
-                    "jaka-minicobo-0","jaka-minicobo-1", "jaka-minicobo-1a", "jaka-minicobo-2",
+                    "jaka-minicobo-0","jaka-minicobo-1", "jaka-minicobo-1a","minicobo-dual-sucker", "jaka-minicobo-2",
                     "minicobo-rg2-high","minicobo-suction-dual","minicobo-suction","minicobo-suction-high","minicobo-dual-high",
                     "rs007n", "franka", "fancy_franka", "m0609",
                     "cone","inverted-cone","sphere","cube","cube-yrot","cylinder","suction-short","suction-dual","suction-dual-0"]

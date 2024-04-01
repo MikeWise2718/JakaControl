@@ -93,10 +93,10 @@ class RMPflowScenario(ScenarioBase):
         elif self._robot_name == "fancy_franka":
             self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
             self._start_robot_rot = [180, 0, 0]
-        # elif self._robot_name == "jaka-minicobo-1a":
-        #     self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
-        #     self._start_robot_rot = [180, 0, 0]
         elif self._robot_name == "jaka-minicobo-1a":
+             self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
+             self._start_robot_rot = [180, 0, 0]
+        elif self._robot_name == "minicobo-dual-sucker":
              self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
              self._start_robot_rot = [180, 0, 0]
         elif self._robot_name == "rs007n":

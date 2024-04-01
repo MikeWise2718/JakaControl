@@ -239,7 +239,8 @@ class PickAndPlaceScenario(ScenarioBase):
                     gripper=gripper,
                     robot_articulation=self._articulation
                 )
-            elif self._robot_name in ["minicobo-suction","minicobo-suction-high","jaka-minicobo-1","jaka-minicobo-1a","minicobo-suction-dual","minicobo-dual-high"]:
+            elif self._robot_name in ["minicobo-suction","minicobo-suction-high","jaka-minicobo-1",
+                                      "jaka-minicobo-1a","minicobo-dual-sucker","minicobo-suction-dual","minicobo-dual-high"]:
                 self._gripper_type = "suction"
                 rmpconfig = {
                     "end_effector_frame_name": self._robcfg.eeframe_name,
@@ -397,7 +398,7 @@ class PickAndPlaceScenario(ScenarioBase):
                 )
                 return pg
             elif self._robot_name in ["ur10-suction-short","jaka-minicobo-1","jaka-minicobo-1a",
-                                      "minicobo-suction-dual","minicobo-suction",
+                                      "minicobo-suction-dual","minicobo-suction","minicobo-dual-sucker",
                                       "minicobo-dual-high","minicobo-suction-high"]:
                 art = self._articulation
                 self._gripper_type = "suction"
@@ -426,7 +427,7 @@ class PickAndPlaceScenario(ScenarioBase):
                     grip_direction = "y"
                     grip_threshold = 0.1
                     grip_translate = 0.17
-                elif self._robot_name in ["jaka-minicobo-1a"]:
+                elif self._robot_name in ["jaka-minicobo-1a","minicobo-dual-sucker"]:
                     eepp = "/World/roborg/minicobo_v1_4/tool0"
                     # eepp = "/World/roborg/minicobo_suction_dual/minicobo_suction/dual_gripper/JAKA___MOTO_200mp_v4"
 
@@ -434,7 +435,7 @@ class PickAndPlaceScenario(ScenarioBase):
                     # self._end_effector.initialize(self.physics_sim_view)
                     grip_direction = "y"
                     grip_threshold = 0.01
-                    # grip_translate = -0.018 # 0.002 and -0.019 does not work, but 0.001 to -0.018 do work for jaka-minicobo-1a
+                    # grip_translate = -0.018 # 0.002 and -0.019 does not work, but 0.001 to -0.018 do work for jaka-minicobo-1a and minicobo-dual-sucker
                     grip_translate = 0.0
                     self.grip_eeori = euler_angles_to_quat(np.array([-np.pi/2,0,0]))
 
