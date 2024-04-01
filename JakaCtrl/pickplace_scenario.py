@@ -58,7 +58,9 @@ class PickAndPlaceScenario(ScenarioBase):
     _show_rmp_target = False
 
     def __init__(self):
-        pass
+        super().__init__()
+        self._scenario_name = "pick-and-place"
+        self._scenario_desc = ScenarioBase.get_scenario_desc(self._scenario_name)
 
     def load_scenario(self, robot_name, ground_opt):
         super().load_scenario(robot_name, ground_opt)

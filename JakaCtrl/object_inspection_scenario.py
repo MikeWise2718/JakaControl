@@ -43,6 +43,9 @@ class ObjectInspectionScenario(ScenarioBase):
     _colorScheme = "transparent"
 
     def __init__(self):
+        super().__init__()
+        self._scenario_name = "object-inspection"
+        self._scenario_description = ScenarioBase.get_scenario_desc(self._scenario_name)
         pass
 
     def load_scenario(self, robot_name, ground_opt):

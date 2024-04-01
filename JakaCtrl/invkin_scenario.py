@@ -48,6 +48,9 @@ class InvkinScenario(ScenarioBase):
 
 
     def __init__(self):
+        super().__init__()
+        self._scenario_name = "inverse-kinematics"
+        self._scenario_description = ScenarioBase.get_scenario_desc(self._scenario_name)
         self._kinematics_solver = None
         self._articulation_kinematics_solver = None
 

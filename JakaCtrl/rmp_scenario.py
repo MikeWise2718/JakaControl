@@ -45,6 +45,9 @@ class RMPflowScenario(ScenarioBase):
     _enable_obstacle = False
 
     def __init__(self):
+        super().__init__()
+        self._scenario_name = "rmpflow"
+        self._scenario_desc = ScenarioBase.get_scenario_desc(self._scenario_name)
         pass
 
     def load_scenario(self, robot_name, ground_opt):

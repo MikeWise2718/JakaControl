@@ -41,6 +41,9 @@ the logic that runs the example from the UI design.
 
 class SinusoidJointScenario(ScenarioBase):
     def __init__(self):
+        super().__init__()
+        self._scenario_name = "sinusoid-joint"
+        self._scenario_description = ScenarioBase.get_scenario_desc(self._scenario_name)
         self._object = None
         self._articulation = None
 

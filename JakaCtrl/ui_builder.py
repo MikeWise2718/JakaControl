@@ -21,6 +21,7 @@ from omni.isaac.ui.element_wrappers.core_connectors import LoadButton, ResetButt
 from omni.isaac.ui.ui_utils import get_style
 from omni.usd import StageEventType
 
+from .scenario_base import ScenarioBase
 from .invkin_scenario import InvkinScenario
 from .rmp_scenario import RMPflowScenario
 from .pickplace_scenario import PickAndPlaceScenario
@@ -30,7 +31,6 @@ from .object_inspection_scenario import ObjectInspectionScenario
 from .gripper_scenario import GripperScenario
 
 from .senut import get_setting, save_setting
-from .scenario_base import can_handle_robot, get_scenario_robots
 
 class UIBuilder:
     btwhite = uiclr("#fffff")
@@ -48,8 +48,8 @@ class UIBuilder:
     dkyellow = uiclr("#404000")
     dkpurple = uiclr("#400040")
     dkcyan = uiclr("#004040")
-    _scenario_names = [ "inverse-kinematics","gripper","rmpflow","object-inspection","sinusoid-joint","franka-pick-and-place","pick-and-place"]
-    _scenario_name = "pick-and-placet"
+    _scenario_names = ScenarioBase.get_scenario_names()
+    _scenario_name = ScenarioBase.get_default_scenario()
     _robot_names = ["ur3e"]
     _robot_name = "ur3e"
     _ground_opts = ["none", "default", "groundplane", "groundplane-blue"]
@@ -80,7 +80,7 @@ class UIBuilder:
         # Get access to the timeline to control stop/pause/play programmatically
         self._timeline = omni.timeline.get_timeline_interface()
 
-        self._robot_names = get_scenario_robots("all")
+        self._robot_names =ScenarioBase.get_scenario_robots("all")
         self._robot_name = self.find_valid_robot_name(self._scenario_name, self._robot_name, 1)
 
 
@@ -183,7 +183,14 @@ class UIBuilder:
                         style={'background_color': self.dkblue}
                     )
                 with ui.HStack(style=get_style(), spacing=5, height=0):
-                    ui.Label("Robot:",
+                    ui.Label("Scenario Desc:",
+                            style={'color': self.btyellow},
+                            width=50)
+                    self._scenario_desc_lab = ui.Label(ScenarioBase.get_scenario_desc(self._scenario_name),
+                        style={'color': self.btwhite}
+                    )
+                with ui.HStack(style=get_style(), spacing=5, height=0):
+                    ui.Label("Robot Name:",
                             style={'color': self.btyellow},
                             width=50)
                     self._robot_btn = Button(
@@ -196,6 +203,13 @@ class UIBuilder:
                     self._ground_btn = Button(
                         self._ground_opt, clicked_fn=self._change_ground_opt,
                         style={'background_color': self.dkred}
+                    )
+                with ui.HStack(style=get_style(), spacing=5, height=0):
+                    ui.Label("Robot Desc:",
+                            style={'color': self.btyellow},
+                            width=50)
+                    self._robot_desc_lab = ui.Label(ScenarioBase.get_robot_desc(self._robot_name),
+                        style={'color': self.btwhite}
                     )
                 with ui.HStack(style=get_style(), spacing=5, height=0):
                     ui.Label("Mode:",
@@ -356,7 +370,9 @@ class UIBuilder:
 
     def _load_robot_config(self, new=False):
         self.usenewstyle = new
+        print("clear")
         self.rob_config_stack.clear()
+        print("after clear")
         self.cfg_lab_dict = {}
         self.line_list = []
         with self.rob_config_stack:
@@ -384,6 +400,10 @@ class UIBuilder:
         cy = self.btcyan
         self._add_title("Parameters", bl)
         self._load_one_param("robot_name", cy)
+        self._load_one_param("manufacturer", cy)
+        self._load_one_param("model", cy)
+        self._load_one_param("grippername", cy)
+        self._load_one_param("desc", cy)
         self._load_one_param("robot_prim_path", cy)
         self._load_one_param("ground_opt", cy)
         self._load_one_param("eeframe_name", cy)
@@ -401,6 +421,7 @@ class UIBuilder:
         self._load_one_param("rdf_path", yt)
         self._load_one_param("rmp_config_path", yt)
         self._load_one_param("robot_usd_file_path", yt)
+        print("done _load_robot_config")
 
     def pick_scenario(self, scenario_name):
         if scenario_name == "sinusoid-joint":
@@ -427,8 +448,6 @@ class UIBuilder:
         self.pick_scenario(self._scenario_name)
         print("Done _on_init")
 
-
-
     def _setup_scene(self):
         print("ui_builder._setup_scene")
         self.pick_scenario(self._scenario_name)
@@ -443,8 +462,6 @@ class UIBuilder:
         else:
             self._action = ""
         self._actionsel_btn.text = self._action
-
-
 
     def get_next_val_safe(self, lst, val, inc=1):
         try:
@@ -478,7 +495,8 @@ class UIBuilder:
         # iterate until we find a robot that the current scenario can handle
         while True:
             robot_name = self.get_next_val_safe(self._robot_names, robot_name, binc)
-            if can_handle_robot(scenario_name, robot_name):
+            if ScenarioBase.can_handle_robot(scenario_name, robot_name):
+                # print(f"Found valid robot name {robot_name} for scenario {scenario_name}")
                 break
             iter += 1
             if iter > maxiters:
@@ -490,13 +508,16 @@ class UIBuilder:
         if nx_robot_name != "":
             self._robot_name = nx_robot_name
             self._robot_btn.text = self._robot_name
+            self._robot_desc_lab.text = ScenarioBase.get_robot_desc(self._robot_name)
 
     def _change_scenario_name(self, x, y, b, m):
         self._scenario_name = self.get_next_val_safe(self._scenario_names, self._scenario_name, self.binc[b])
         self._scenario_name_btn.text = self._scenario_name
-        if not can_handle_robot(self._scenario_name, self._robot_name):
+        self._scenario_desc_lab.text = ScenarioBase.get_scenario_desc(self._scenario_name)
+        if not ScenarioBase.can_handle_robot(self._scenario_name, self._robot_name):
             self._robot_name = self.find_valid_robot_name(self._scenario_name, self._robot_name, 1)
             self._robot_btn.text = self._robot_name
+            self._robot_desc_lab.text = ScenarioBase.get_robot_desc(self._robot_name)
 
     def _change_collider_vis(self, x, y, b, m):
         self._collider_vis = self.get_next_val_safe(self._colvis_opts, self._collider_vis, self.binc[b])
