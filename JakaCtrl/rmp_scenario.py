@@ -26,7 +26,7 @@ from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelp
 
 from .senut import adjust_joint_values, set_stiffness_for_joints, set_damping_for_joints
 from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
-from .senut import apply_diable_gravity_to_rigid_bodies
+from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulation
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
@@ -45,6 +45,11 @@ class RMPflowScenario(ScenarioBase):
     _enable_obstacle = False
 
     def __init__(self):
+        super().__init__()
+        self._scenario_name = "rmpflow"
+        self._scenario_desc = ScenarioBase.get_scenario_desc(self._scenario_name)
+        self._nrobots = 1
+
         pass
 
     def load_scenario(self, robot_name, ground_opt):
@@ -90,10 +95,10 @@ class RMPflowScenario(ScenarioBase):
         elif self._robot_name == "fancy_franka":
             self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
             self._start_robot_rot = [180, 0, 0]
-        # elif self._robot_name == "jaka-minicobo-1a":
-        #     self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
-        #     self._start_robot_rot = [180, 0, 0]
         elif self._robot_name == "jaka-minicobo-1a":
+             self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
+             self._start_robot_rot = [180, 0, 0]
+        elif self._robot_name == "minicobo-dual-sucker":
              self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
              self._start_robot_rot = [180, 0, 0]
         elif self._robot_name == "rs007n":
@@ -111,6 +116,7 @@ class RMPflowScenario(ScenarioBase):
         add_reference_to_stage(self._robcfg.robot_usd_file_path, self._robcfg.robot_prim_path)
         apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg.robot_prim_path)
         apply_diable_gravity_to_rigid_bodies(stage, self._robcfg.robot_prim_path)
+        adjust_articulation(stage, self._robcfg.robot_prim_path)
 
         self._articulation = Articulation(self._robcfg.artpath)
         world.scene.add(self._articulation)

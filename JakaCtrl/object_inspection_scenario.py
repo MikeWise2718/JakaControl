@@ -22,6 +22,8 @@ from omni.asimov.jaka.minicobo import Minicobo
 from .senut import add_light_to_stage
 from .senut import calc_robot_circle_pose
 from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
+from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulation
+
 from .senut import adjust_joint_values, set_stiffness_for_joints, set_damping_for_joints
 from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelper
 
@@ -43,6 +45,10 @@ class ObjectInspectionScenario(ScenarioBase):
     _colorScheme = "transparent"
 
     def __init__(self):
+        super().__init__()
+        self._scenario_name = "object-inspection"
+        self._scenario_description = ScenarioBase.get_scenario_desc(self._scenario_name)
+        self._nrobots = 2
         pass
 
     def load_scenario(self, robot_name, ground_opt):
@@ -88,7 +94,8 @@ class ObjectInspectionScenario(ScenarioBase):
         if self._robot_name == "ur10-suction-short":
             self._start_robot_pos = Gf.Vec3d([0, 0, 0.4])
             self._start_robot_rot = [0, 0, 0]
-        elif self._robot_name in ["minicobo-rg2-high","minicobo-suction-high","jaka-minicobo-1a","minicobo-dual-high","rs007n"]:
+        elif self._robot_name in ["minicobo-rg2-high","minicobo-suction-high","jaka-minicobo-1a",
+                                  "minicobo-dual-sucker","minicobo-dual-high","rs007n"]:
             # self._start_robot_pos = Gf.Vec3d([-0.35, 0, 0.80])
             # self._start_robot_rot = [0, 130, 0]
             # cen = [0.11, 0, 0.77]
@@ -123,6 +130,12 @@ class ObjectInspectionScenario(ScenarioBase):
 
         add_reference_to_stage(self._robcfg1.robot_usd_file_path, self._robcfg1.robot_prim_path)
         apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg1.robot_prim_path)
+        apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg.robot_prim_path)
+        apply_diable_gravity_to_rigid_bodies(stage, self._robcfg.robot_prim_path)
+        apply_diable_gravity_to_rigid_bodies(stage, self._robcfg1.robot_prim_path)
+        adjust_articulation(stage, self._robcfg.robot_prim_path)
+        adjust_articulation(stage, self._robcfg1.robot_prim_path)
+
 
         # self.robot = Minicobo(self._robcfg.robot_prim_path, self._robot_name, self._robcfg._cfg_robot_usd_file_path)
 
@@ -166,18 +179,23 @@ class ObjectInspectionScenario(ScenarioBase):
             self.ensure_matman()
             apply_material_to_prim_and_children(stage, self._matman, "Steel_Blued", cagepath)
 
+        apply_material_to_prim_and_children(stage, self._matman, "Red_Glass", self._robcfg.robot_prim_path)
+        apply_material_to_prim_and_children(stage, self._matman, "Green_Glass", self._robcfg1.robot_prim_path)
         self._world = world
 
     def setup_scenario(self):
         print("ObjectInspection setup_scenario")
+
+        self.register_articulation(self._articulation, self._robcfg) # this has to happen in post_load_scenario
+        self.register_articulation(self._articulation1, self._robcfg1) # this has to happen in post_load_scenario
 
         self._running_scenario = True
 
         self._joint_index = 0
         self._lower_joint_limits = self._articulation.dof_properties["lower"]
         self._upper_joint_limits = self._articulation.dof_properties["upper"]
-        self._zeros = np.zeros(len(self._lower_joint_limits))
-        self._njoints = len(self._lower_joint_limits)
+        self._njoints = self._articulation.num_dof
+        self._zeros = np.zeros(self._njoints)
         print(f"jaka - njoints:{self._njoints} lower:{self._lower_joint_limits} upper:{self._upper_joint_limits}")
 
         # teleport robot to lower joint range

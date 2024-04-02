@@ -281,9 +281,34 @@ def apply_diable_gravity_to_rigid_bodies_recur(stage, prim, level, disableGravit
 def apply_diable_gravity_to_rigid_bodies(stage, primname,  disableGravity=True):
     prim = stage.GetPrimAtPath(primname)
     nhit = apply_diable_gravity_to_rigid_bodies_recur(stage, prim, 0, disableGravity=disableGravity)
-    print("apply_diable_gravity_to_rigid_bodies:",primname," nit:",nhit)
+    print("apply_diable_gravity_to_rigid_bodies:",primname," number disabled:",nhit)
     return nhit
 
+def delete_articulations_recur(stage, prim, level):
+    if level>12:
+        return 0
+    nhit = 0
+    if level>0:
+        schemas = prim.GetAppliedSchemas()
+        if "PhysicsArticulationRootAPI" in schemas:
+            prim.RemoveAPI(UsdPhysics.ArticulationRootAPI)
+            nhit += 1
+    children = prim.GetChildren()
+    for child in children:
+        nhit += delete_articulations_recur(stage, child, level+1)
+    return nhit
+
+def adjust_articulation(stage, primname):
+    prim = stage.GetPrimAtPath(primname)
+    schemas = prim.GetAppliedSchemas()
+    nadd = 0
+    if not "PhysicsArticulationRootAPI" in schemas:
+        UsdPhysics.ArticulationRootAPI.Apply(prim)
+        nadd += 1
+    schemas = prim.GetAppliedSchemas()
+    nhit = delete_articulations_recur(stage, prim, 0)
+    print(f"adjust_articulation - removed {nhit} and added {nadd} articulations from {primname}")
+    return nhit
 
 def interp(x, x1, x2, y1, y2):
     if (y1==y2):

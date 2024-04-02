@@ -8,6 +8,7 @@
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 #
 import carb
+import numpy as np
 
 import omni.timeline
 import omni.kit
@@ -21,6 +22,7 @@ from omni.isaac.ui.element_wrappers.core_connectors import LoadButton, ResetButt
 from omni.isaac.ui.ui_utils import get_style
 from omni.usd import StageEventType
 
+from .scenario_base import ScenarioBase
 from .invkin_scenario import InvkinScenario
 from .rmp_scenario import RMPflowScenario
 from .pickplace_scenario import PickAndPlaceScenario
@@ -30,7 +32,6 @@ from .object_inspection_scenario import ObjectInspectionScenario
 from .gripper_scenario import GripperScenario
 
 from .senut import get_setting, save_setting
-from .scenario_base import can_handle_robot, get_scenario_robots
 
 class UIBuilder:
     btwhite = uiclr("#fffff")
@@ -48,8 +49,8 @@ class UIBuilder:
     dkyellow = uiclr("#404000")
     dkpurple = uiclr("#400040")
     dkcyan = uiclr("#004040")
-    _scenario_names = [ "inverse-kinematics","gripper","rmpflow","object-inspection","sinusoid-joint","franka-pick-and-place","pick-and-place"]
-    _scenario_name = "pick-and-placet"
+    _scenario_names = ScenarioBase.get_scenario_names()
+    _scenario_name = ScenarioBase.get_default_scenario()
     _robot_names = ["ur3e"]
     _robot_name = "ur3e"
     _ground_opts = ["none", "default", "groundplane", "groundplane-blue"]
@@ -80,7 +81,7 @@ class UIBuilder:
         # Get access to the timeline to control stop/pause/play programmatically
         self._timeline = omni.timeline.get_timeline_interface()
 
-        self._robot_names = get_scenario_robots("all")
+        self._robot_names =ScenarioBase.get_scenario_robots("all")
         self._robot_name = self.find_valid_robot_name(self._scenario_name, self._robot_name, 1)
 
 
@@ -183,7 +184,14 @@ class UIBuilder:
                         style={'background_color': self.dkblue}
                     )
                 with ui.HStack(style=get_style(), spacing=5, height=0):
-                    ui.Label("Robot:",
+                    ui.Label("Scenario Desc:",
+                            style={'color': self.btyellow},
+                            width=50)
+                    self._scenario_desc_lab = ui.Label(ScenarioBase.get_scenario_desc(self._scenario_name),
+                        style={'color': self.btwhite}
+                    )
+                with ui.HStack(style=get_style(), spacing=5, height=0):
+                    ui.Label("Robot Name:",
                             style={'color': self.btyellow},
                             width=50)
                     self._robot_btn = Button(
@@ -196,6 +204,13 @@ class UIBuilder:
                     self._ground_btn = Button(
                         self._ground_opt, clicked_fn=self._change_ground_opt,
                         style={'background_color': self.dkred}
+                    )
+                with ui.HStack(style=get_style(), spacing=5, height=0):
+                    ui.Label("Robot Desc:",
+                            style={'color': self.btyellow},
+                            width=50)
+                    self._robot_desc_lab = ui.Label(ScenarioBase.get_robot_desc(self._robot_name),
+                        style={'color': self.btwhite}
                     )
                 with ui.HStack(style=get_style(), spacing=5, height=0):
                     ui.Label("Mode:",
@@ -300,34 +315,34 @@ class UIBuilder:
                 self._load_robot_config_btn.enabled = True
                 # self.wrapped_ui_elements.append(self._load_robot_config_btn)
 
+        robot_joints_frame = CollapsableFrame("Robot Joints")
+
+        with robot_joints_frame:
+            self.rob_joints_stack = ui.VStack(style=get_style(), spacing=5, height=0)
+            with self.rob_joints_stack:
+                self._load_robot_joint_btn = Button(
+                        "Load Robot Joints", clicked_fn=self._load_robot_joints,
+                        style={'background_color': self.dkblue}
+                )
+                self._load_robot_joint_btn.enabled = True
+
 
     ######################################################################################
     # Functions Below This Point Support The Provided Example And Can Be Deleted/Replaced
     ######################################################################################
 
     cfg_lab_dict = {}
-    line_list = []
-    usenewstyle = False
-    def _load_one_param(self, param_name, clr):
-        if self.usenewstyle:
-            pname = param_name
-            if hasattr(self._cur_scenario, "_robcfg"):
-                if hasattr(self._cur_scenario._robcfg, pname):
-                    val = getattr(self._cur_scenario._robcfg, pname)
-                else:
-                    val = f"_robcfg.{param_name} not found in self._cur_scenario._robcfg"
-            else:
-                val = f"_robcfg not found in self._cur_scenario"
+    config_line_list = []
+    def _load_one_param(self, robcfg,  param_name, clr):
+        pname = param_name
+        if hasattr(robcfg, pname):
+            val = getattr(robcfg, pname)
         else:
-            pname = f"_cfg_{param_name}"
-            if hasattr(self._cur_scenario, pname):
-                val = getattr(self._cur_scenario, pname)
-            else:
-                val = f"Parmeter not found in self._cur_scenario"
+            val = f"_robcfg.{param_name} not found in self._cur_scenario._robcfg"
 
         l1txt = f"{param_name}"
         l2txt = f"{val}"
-        self.line_list.append(f"{l1txt}: {l2txt}")
+        self.config_line_list.append(f"{l1txt}: {l2txt}")
         if param_name in self.cfg_lab_dict:
             (l1, l2) = self.cfg_lab_dict[param_name]
             l1.text = l1txt
@@ -341,36 +356,40 @@ class UIBuilder:
             self.rob_config_stack.add_child(hstack)
 
     def _add_title(self, title, clr):
-        self.line_list.append(f"{title}")
+        self.config_line_list.append(f"{title}")
         hstack = ui.HStack(style=get_style(), spacing=5, height=0)
         with hstack:
             ui.Label(title, style={'color': clr}, width=120)
         self.rob_config_stack.add_child(hstack)
 
     def _copy_to_clipboard(self):
-        str = "\n".join(self.line_list)
+        str = "\n".join(self.config_line_list)
         omni.kit.clipboard.copy(str)
 
-    def _load_robot_config_new(self):
-        self._load_robot_config(new=True)
+    def get_robot_config(self, i):
+        if i == 0:
+            return self._cur_scenario._robcfg
+        elif i == 1:
+            return self._cur_scenario._robcfg1
+        else:
+            return None
 
-    def _load_robot_config(self, new=False):
-        self.usenewstyle = new
+    def _load_robot_config(self, index=0):
+        print("_load_robot_config")
         self.rob_config_stack.clear()
         self.cfg_lab_dict = {}
-        self.line_list = []
+        self.config_line_list = []
+        nrobots = self._cur_scenario._nrobots
         with self.rob_config_stack:
             with ui.HStack(style=get_style(), spacing=5, height=0):
-                self._load_robot_config_btn = Button(
-                        "Load Robot Config", clicked_fn=self._load_robot_config,
-                        style={'background_color': self.dkblue}
-                )
-                self._load_robot_config_btn.enabled = True
-                self._load_robot_config_btn_new = Button(
-                        "Load Robot Config New", clicked_fn=self._load_robot_config_new,
-                        style={'background_color': self.dkblue}
-                )
-                self._load_robot_config_btn_new.enabled = True
+                for i in range(nrobots):
+                    def load_config(i):
+                        return lambda: self._load_robot_config(i)
+                    butt = Button(
+                            f"Load Robot Config {i}", clicked_fn=load_config(i),
+                            style={'background_color': self.dkblue}
+                    )
+                    butt.enabled = True
                 self._copy_clipboard_btn = Button(
                         "Copy to Clipboard", clicked_fn=self._copy_to_clipboard,
                         style={'background_color': self.dkblue}
@@ -378,29 +397,94 @@ class UIBuilder:
                 self._copy_clipboard_btn.enabled = True
 
 
+        rc = self.get_robot_config(index)
+
         bl = self.btblue
         gn = self.btgreen
         yt = self.btyellow
         cy = self.btcyan
         self._add_title("Parameters", bl)
-        self._load_one_param("robot_name", cy)
-        self._load_one_param("robot_prim_path", cy)
-        self._load_one_param("ground_opt", cy)
-        self._load_one_param("eeframe_name", cy)
-        self._load_one_param("max_step_size", cy)
-        self._load_one_param("stiffness", cy)
-        self._load_one_param("damping", cy)
+        self._load_one_param(rc, "robot_name", cy)
+        self._load_one_param(rc, "manufacturer", cy)
+        self._load_one_param(rc, "model", cy)
+        self._load_one_param(rc, "grippername", cy)
+        self._load_one_param(rc, "desc", cy)
+        self._load_one_param(rc, "robot_prim_path", cy)
+        self._load_one_param(rc, "ground_opt", cy)
+        self._load_one_param(rc, "eeframe_name", cy)
+        self._load_one_param(rc, "max_step_size", cy)
+        self._load_one_param(rc, "stiffness", cy)
+        self._load_one_param(rc, "damping", cy)
 
         self._add_title("Directories", bl)
-        self._load_one_param("mg_extension_dir", gn)
-        self._load_one_param("rmp_config_dir", gn)
-        self._load_one_param("jc_extension_dir", gn)
+        self._load_one_param(rc, "mg_extension_dir", gn)
+        self._load_one_param(rc, "rmp_config_dir", gn)
+        self._load_one_param(rc, "jc_extension_dir", gn)
 
         self._add_title("Config Files", bl)
-        self._load_one_param("urdf_path", yt)
-        self._load_one_param("rdf_path", yt)
-        self._load_one_param("rmp_config_path", yt)
-        self._load_one_param("robot_usd_file_path", yt)
+        self._load_one_param(rc, "urdf_path", yt)
+        self._load_one_param(rc, "rdf_path", yt)
+        self._load_one_param(rc, "rmp_config_path", yt)
+        self._load_one_param(rc, "robot_usd_file_path", yt)
+        print("done _load_robot_config")
+
+    def _load_robot_joints(self, index=0):
+        print("_load_robot_joints")
+        self.rob_joints_stack.clear()
+        self.cfg_joint_dict = {}
+        self.config_line_list = []
+        nrobots = self._cur_scenario._nrobots
+        with self.rob_joints_stack:
+            with ui.HStack(style=get_style(), spacing=5, height=0):
+                for i in range(nrobots):
+                    def load_config(i):
+                        return lambda: self._load_robot_joints(i)
+                    butt = Button(
+                            f"Load Robot Joints {i}", clicked_fn=load_config(i),
+                            style={'background_color': self.dkblue}
+                    )
+                    butt.enabled = True
+                self._copy_clipboard_btn = Button(
+                        "Copy to Clipboard", clicked_fn=self._copy_to_clipboard,
+                        style={'background_color': self.dkblue}
+                )
+                self._copy_clipboard_btn.enabled = True
+
+        rc = self.get_robot_config(index)
+        degs = 180/np.pi
+        hstack = ui.HStack(style=get_style(), spacing=5, height=0)
+        with hstack:
+            lab =ui.Label(f"Robot {index}", style={'color': self.btwhite}, width=120)
+        self.rob_joints_stack.add_child(hstack)
+        art = rc._articulation
+        pos = art.get_joint_positions()
+        props = art.dof_properties
+        stiffs = props["stiffness"]
+        damps = props["damping"]
+        for j,jn in enumerate(rc.joint_names):
+            self.config_line_list.append(f"{jn}")
+            hstack = ui.HStack(style=get_style(), spacing=5, height=0)
+            with hstack:
+                stiff = stiffs[j]
+                damp = damps[j]
+                jpos = degs*pos[j]
+                llim = degs*rc.lower_joint_limits[j]
+                ulim = degs*rc.upper_joint_limits[j]
+                denom = ulim - llim
+                if denom == 0:
+                    denom = 1
+                pct = 100*(jpos - llim)/denom
+                txt1 = f"{j}: {jn}"
+                txt2 = f"s-d: {stiff:.1f} {damp:.1f}"
+                txt3 = f"jlim: {llim:.1f} to {ulim:.1f}"
+                txt4 = f"cur: {jpos:.1f}  ({pct:.1f}%)"
+                lab1 = ui.Label(txt1, style={'color': self.btcyan}, width=120)
+                lab2 = ui.Label(txt2, style={'color': self.btwhite}, width=120)
+                lab3 = ui.Label(txt3, style={'color': self.btwhite}, width=120)
+                clr = self.btwhite if 10<pct and pct<90 else self.btred
+                lab4 = ui.Label(txt4, style={'color': clr}, width=120)
+            self.rob_joints_stack.add_child(hstack)
+
 
     def pick_scenario(self, scenario_name):
         if scenario_name == "sinusoid-joint":
@@ -427,8 +511,6 @@ class UIBuilder:
         self.pick_scenario(self._scenario_name)
         print("Done _on_init")
 
-
-
     def _setup_scene(self):
         print("ui_builder._setup_scene")
         self.pick_scenario(self._scenario_name)
@@ -443,8 +525,6 @@ class UIBuilder:
         else:
             self._action = ""
         self._actionsel_btn.text = self._action
-
-
 
     def get_next_val_safe(self, lst, val, inc=1):
         try:
@@ -478,7 +558,8 @@ class UIBuilder:
         # iterate until we find a robot that the current scenario can handle
         while True:
             robot_name = self.get_next_val_safe(self._robot_names, robot_name, binc)
-            if can_handle_robot(scenario_name, robot_name):
+            if ScenarioBase.can_handle_robot(scenario_name, robot_name):
+                # print(f"Found valid robot name {robot_name} for scenario {scenario_name}")
                 break
             iter += 1
             if iter > maxiters:
@@ -490,13 +571,16 @@ class UIBuilder:
         if nx_robot_name != "":
             self._robot_name = nx_robot_name
             self._robot_btn.text = self._robot_name
+            self._robot_desc_lab.text = ScenarioBase.get_robot_desc(self._robot_name)
 
     def _change_scenario_name(self, x, y, b, m):
         self._scenario_name = self.get_next_val_safe(self._scenario_names, self._scenario_name, self.binc[b])
         self._scenario_name_btn.text = self._scenario_name
-        if not can_handle_robot(self._scenario_name, self._robot_name):
+        self._scenario_desc_lab.text = ScenarioBase.get_scenario_desc(self._scenario_name)
+        if not ScenarioBase.can_handle_robot(self._scenario_name, self._robot_name):
             self._robot_name = self.find_valid_robot_name(self._scenario_name, self._robot_name, 1)
             self._robot_btn.text = self._robot_name
+            self._robot_desc_lab.text = ScenarioBase.get_robot_desc(self._robot_name)
 
     def _change_collider_vis(self, x, y, b, m):
         self._collider_vis = self.get_next_val_safe(self._colvis_opts, self._collider_vis, self.binc[b])
