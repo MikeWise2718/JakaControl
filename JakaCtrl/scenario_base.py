@@ -441,6 +441,7 @@ class ScenarioBase:
     def __init__(self):
         self._scenario_name = "empty scenario"
         self._secnario_desc = "description from ScenarioBase class"
+        self._nrobots = 0
         pass
 
     @staticmethod
@@ -550,20 +551,18 @@ class ScenarioBase:
         return robcfg
 
 
-    def register_articulation(self, articulation):
+    def register_articulation(self, articulation, rc=None):
         # this has to happen in post_load_scenario - some initialization must be happening before this
         # probably as a result of articuation being added to the world.scene
-        self._articulation = articulation
-        # self._cfg_lower_joint_limits = self._articulation.dof_properties["lower"]
-        # self._cfg_upper_joint_limits = self._articulation.dof_properties["upper"]
-        # self._cfg_joint_names = self._articulation.dof_names
-        # self._cfg_njoints = self._articulation.num_dof
-        # self._cfg_joint_zero_pos = np.zeros(self._cfg_njoints)
-        self._robcfg.lower_joint_limits = self._articulation.dof_properties["lower"]
-        self._robcfg.upper_joint_limits = self._articulation.dof_properties["upper"]
-        self._robcfg.joint_names = self._articulation.dof_names
-        self._robcfg.njoints = self._articulation.num_dof
-        self._robcfg.joint_zero_pos = np.zeros(self._robcfg.njoints)
+        # self._articulation = articulation
+        if rc is None:
+            rc = self._robcfg
+        rc._articulation = articulation
+        rc.lower_joint_limits = self._articulation.dof_properties["lower"]
+        rc.upper_joint_limits = self._articulation.dof_properties["upper"]
+        rc.njoints = self._articulation.num_dof
+        rc.joint_names = self._articulation.dof_names
+        rc.joint_zero_pos = np.zeros(self._robcfg.njoints)
         print("senut.register_articulation")
         # print(f"{self._cfg_robot_name} - njoints:{self._cfg_njoints} lower:{self._cfg_lower_joint_limits} upper:{self._cfg_upper_joint_limits}")
         # print(f"{self._cfg_robot_name} - {self._cfg_joint_names}")

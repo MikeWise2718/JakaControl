@@ -58,6 +58,8 @@ class GripperScenario(ScenarioBase):
         self._scenario_desc = ScenarioBase.get_scenario_desc(self._scenario_name)
         self._object = None
         self._articulation = None
+        self._nrobots = 1
+
 
         self._running_scenario = False
 

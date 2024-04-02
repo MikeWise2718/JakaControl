@@ -59,6 +59,8 @@ class SinusoidJointScenario(ScenarioBase):
         self._max_joint_speed = 4  # rad/sec
         # self._lower_joint_limits = None
         # self._upper_joint_limits = None
+        self._nrobots = 1
+
 
         self._joint_time = 0
         self._path_duration = 0

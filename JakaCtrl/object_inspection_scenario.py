@@ -48,6 +48,7 @@ class ObjectInspectionScenario(ScenarioBase):
         super().__init__()
         self._scenario_name = "object-inspection"
         self._scenario_description = ScenarioBase.get_scenario_desc(self._scenario_name)
+        self._nrobots = 2
         pass
 
     def load_scenario(self, robot_name, ground_opt):
@@ -178,20 +179,23 @@ class ObjectInspectionScenario(ScenarioBase):
             self.ensure_matman()
             apply_material_to_prim_and_children(stage, self._matman, "Steel_Blued", cagepath)
 
+        apply_material_to_prim_and_children(stage, self._matman, "Red_Glass", self._robcfg.robot_prim_path)
+        apply_material_to_prim_and_children(stage, self._matman, "Green_Glass", self._robcfg1.robot_prim_path)
         self._world = world
 
     def setup_scenario(self):
         print("ObjectInspection setup_scenario")
 
-        self.register_articulation(self._articulation) # this has to happen in post_load_scenario
+        self.register_articulation(self._articulation, self._robcfg) # this has to happen in post_load_scenario
+        self.register_articulation(self._articulation1, self._robcfg1) # this has to happen in post_load_scenario
 
         self._running_scenario = True
 
         self._joint_index = 0
         self._lower_joint_limits = self._articulation.dof_properties["lower"]
         self._upper_joint_limits = self._articulation.dof_properties["upper"]
-        self._zeros = np.zeros(len(self._lower_joint_limits))
-        self._njoints = len(self._lower_joint_limits)
+        self._njoints = self._articulation.num_dof
+        self._zeros = np.zeros(self._njoints)
         print(f"jaka - njoints:{self._njoints} lower:{self._lower_joint_limits} upper:{self._upper_joint_limits}")
 
         # teleport robot to lower joint range

@@ -61,6 +61,8 @@ class PickAndPlaceScenario(ScenarioBase):
         super().__init__()
         self._scenario_name = "pick-and-place"
         self._scenario_desc = ScenarioBase.get_scenario_desc(self._scenario_name)
+        self._nrobots = 1
+
 
     def load_scenario(self, robot_name, ground_opt):
         super().load_scenario(robot_name, ground_opt)

@@ -57,6 +57,8 @@ class InvkinScenario(ScenarioBase):
 
         self._articulation = None
         self._target = None
+        self._nrobots = 1
+
 
 
     def load_scenario(self, robot_name, ground_opt):
