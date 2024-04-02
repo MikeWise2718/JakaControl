@@ -26,7 +26,7 @@ from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelp
 
 from .senut import adjust_joint_values, set_stiffness_for_joints, set_damping_for_joints
 from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
-from .senut import apply_diable_gravity_to_rigid_bodies
+from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulation
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
@@ -114,6 +114,7 @@ class RMPflowScenario(ScenarioBase):
         add_reference_to_stage(self._robcfg.robot_usd_file_path, self._robcfg.robot_prim_path)
         apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg.robot_prim_path)
         apply_diable_gravity_to_rigid_bodies(stage, self._robcfg.robot_prim_path)
+        adjust_articulation(stage, self._robcfg.robot_prim_path)
 
         self._articulation = Articulation(self._robcfg.artpath)
         world.scene.add(self._articulation)

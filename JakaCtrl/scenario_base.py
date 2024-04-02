@@ -192,7 +192,7 @@ def get_robot_params_robcfg(robot_name, skiplula=False):
             robot_prim_path = "/World/roborg/minicobo_v1_4"
             artpath = f"{robot_prim_path}/world"
             # robot_usd_file_path = f"{jakacontrol_extension_dir}/usd/jaka_v14_1.usda"
-            robot_usd_file_path = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka/minicobo/minicobo_v14_1a/minicobo_v14_1a_fixed_base.usda"
+            robot_usd_file_path = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka/minicobo/minicobo_v14_1a/minicobo_v14_1a.usd"
 
             mopo_robot_name = "RS007N"
 
@@ -229,15 +229,6 @@ def get_robot_params_robcfg(robot_name, skiplula=False):
             model = "Minicobo"
             grippername = "dual sucker"
             desc = "Jaka Minicobo with a dual sucker gripper"
-
-
-
-            # rmp_mppath = f"{jakacontrol_extension_path}/JakaCtrl/motion_policy_configs/Jaka"
-            # rdf_path = rmp_mppath + "/minicobo/rmpflow/minicobo_robot_description_0.yaml"
-            # urdf_path = rmp_mppath + "/minicobo/minicobo_v14_1a.urdf"
-            # rmp_config_path = rmp_mppath + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
-            # eeframe_name = "tool0"
-
 
         case "jaka-minicobo-2":
             robot_prim_path = "/World/roborg/minicobo_parallel_onrobot_rg2"
@@ -297,7 +288,6 @@ def get_robot_params_robcfg(robot_name, skiplula=False):
             model = "Minicobo"
             grippername = "dual sucker"
             desc = "Jaka Minicobo with a dual suction gripper"
-
         case "minicobo-suction":
             robot_prim_path = "/World/roborg/minicobo_suction_short"
             artpath = f"{robot_prim_path}/minicobo_suction/world"
@@ -564,17 +554,16 @@ class ScenarioBase:
         # this has to happen in post_load_scenario - some initialization must be happening before this
         # probably as a result of articuation being added to the world.scene
         self._articulation = articulation
-        self._cfg_lower_joint_limits = self._articulation.dof_properties["lower"]
-        self._cfg_upper_joint_limits = self._articulation.dof_properties["upper"]
-        self._cfg_joint_names = self._articulation.dof_names
-        self._cfg_njoints = self._articulation.num_dof
-        self._cfg_joint_zero_pos = np.zeros(self._cfg_njoints)
-        if hasattr(self,"_robcfg"):
-            self._robcfg.lower_joint_limits = self._articulation.dof_properties["lower"]
-            self._robcfg.upper_joint_limits = self._articulation.dof_properties["upper"]
-            self._robcfg.joint_names = self._articulation.dof_names
-            self._robcfg.njoints = self._articulation.num_dof
-            self._robcfg.joint_zero_pos = np.zeros(self._robcfg.njoints)
+        # self._cfg_lower_joint_limits = self._articulation.dof_properties["lower"]
+        # self._cfg_upper_joint_limits = self._articulation.dof_properties["upper"]
+        # self._cfg_joint_names = self._articulation.dof_names
+        # self._cfg_njoints = self._articulation.num_dof
+        # self._cfg_joint_zero_pos = np.zeros(self._cfg_njoints)
+        self._robcfg.lower_joint_limits = self._articulation.dof_properties["lower"]
+        self._robcfg.upper_joint_limits = self._articulation.dof_properties["upper"]
+        self._robcfg.joint_names = self._articulation.dof_names
+        self._robcfg.njoints = self._articulation.num_dof
+        self._robcfg.joint_zero_pos = np.zeros(self._robcfg.njoints)
         print("senut.register_articulation")
         # print(f"{self._cfg_robot_name} - njoints:{self._cfg_njoints} lower:{self._cfg_lower_joint_limits} upper:{self._cfg_upper_joint_limits}")
         # print(f"{self._cfg_robot_name} - {self._cfg_joint_names}")

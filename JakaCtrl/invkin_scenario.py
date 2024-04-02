@@ -19,6 +19,7 @@ from omni.isaac.core.world import World
 
 from omni.isaac.core.utils.numpy.rotations import euler_angles_to_quats, rot_matrices_to_quats
 from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
+from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulation
 
 
 from .senut import add_light_to_stage
@@ -103,6 +104,8 @@ class InvkinScenario(ScenarioBase):
         # Setup Robot Arm
         add_reference_to_stage(self._robcfg.robot_usd_file_path, self._robcfg.robot_prim_path)
         apply_convex_decomposition_to_mesh_and_children(self._stage, self._robcfg.robot_prim_path)
+        apply_diable_gravity_to_rigid_bodies(stage, self._robcfg.robot_prim_path)
+        adjust_articulation(stage, self._robcfg.robot_prim_path)
 
         self._articulation = Articulation(self._robcfg.artpath)
         world.scene.add(self._articulation)

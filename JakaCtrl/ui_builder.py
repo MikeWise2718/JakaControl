@@ -314,13 +314,24 @@ class UIBuilder:
                 self._load_robot_config_btn.enabled = True
                 # self.wrapped_ui_elements.append(self._load_robot_config_btn)
 
+        robot_joints_frame = CollapsableFrame("Robot Joints")
+
+        with robot_joints_frame:
+            self.rob_joints_stack = ui.VStack(style=get_style(), spacing=5, height=0)
+            with self.rob_joints_stack:
+                self._load_robot_joint_btn = Button(
+                        "Load Robot Joints", clicked_fn=self._load_robot_joints,
+                        style={'background_color': self.dkblue}
+                )
+                self._load_robot_joint_btn.enabled = True
+
 
     ######################################################################################
     # Functions Below This Point Support The Provided Example And Can Be Deleted/Replaced
     ######################################################################################
 
     cfg_lab_dict = {}
-    line_list = []
+    config_line_list = []
     def _load_one_param(self, param_name, clr):
         pname = param_name
         if hasattr(self._cur_scenario, "_robcfg"):
@@ -333,7 +344,7 @@ class UIBuilder:
 
         l1txt = f"{param_name}"
         l2txt = f"{val}"
-        self.line_list.append(f"{l1txt}: {l2txt}")
+        self.config_line_list.append(f"{l1txt}: {l2txt}")
         if param_name in self.cfg_lab_dict:
             (l1, l2) = self.cfg_lab_dict[param_name]
             l1.text = l1txt
@@ -347,14 +358,14 @@ class UIBuilder:
             self.rob_config_stack.add_child(hstack)
 
     def _add_title(self, title, clr):
-        self.line_list.append(f"{title}")
+        self.config_line_list.append(f"{title}")
         hstack = ui.HStack(style=get_style(), spacing=5, height=0)
         with hstack:
             ui.Label(title, style={'color': clr}, width=120)
         self.rob_config_stack.add_child(hstack)
 
     def _copy_to_clipboard(self):
-        str = "\n".join(self.line_list)
+        str = "\n".join(self.config_line_list)
         omni.kit.clipboard.copy(str)
 
 
@@ -362,7 +373,7 @@ class UIBuilder:
         print("_load_robot_config")
         self.rob_config_stack.clear()
         self.cfg_lab_dict = {}
-        self.line_list = []
+        self.config_line_list = []
         with self.rob_config_stack:
             with ui.HStack(style=get_style(), spacing=5, height=0):
                 self._load_robot_config_btn = Button(
@@ -405,6 +416,35 @@ class UIBuilder:
         self._load_one_param("rmp_config_path", yt)
         self._load_one_param("robot_usd_file_path", yt)
         print("done _load_robot_config")
+
+
+    def _load_robot_joints(self):
+        print("_load_robot_joints")
+        self.rob_joints_stack.clear()
+        self.cfg_joint_dict = {}
+        self.config_line_list = []
+        with self.rob_joints_stack:
+            with ui.HStack(style=get_style(), spacing=5, height=0):
+                self._load_robot_config_btn = Button(
+                        "Load Robot Joints", clicked_fn=self._load_robot_joints,
+                        style={'background_color': self.dkblue}
+                )
+                self._load_robot_config_btn.enabled = True
+                self._copy_clipboard_btn = Button(
+                        "Copy to Clipboard", clicked_fn=self._copy_to_clipboard,
+                        style={'background_color': self.dkblue}
+                )
+                self._copy_clipboard_btn.enabled = True
+
+        rc = self._cur_scenario._robcfg
+        for j,jn in enumerate(rc.joint_names):
+            self.config_line_list.append(f"{jn}")
+            hstack = ui.HStack(style=get_style(), spacing=5, height=0)
+            with hstack:
+                txt = f"{j}: {jn}"
+                l1 = ui.Label(txt, style={'color': self.btwhite}, width=120)
+            self.rob_joints_stack.add_child(hstack)
+
 
     def pick_scenario(self, scenario_name):
         if scenario_name == "sinusoid-joint":
