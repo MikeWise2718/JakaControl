@@ -140,6 +140,12 @@ def cleanup_path(path: str) -> str:
         path = path.replace("//", "/")
     return path
 
+def GetXformOpsFromPath(primpath:str):
+    prim = get_current_stage().GetPrimAtPath(primpath)
+    rv = GetXformOps(prim)
+    return rv
+
+
 def GetXformOps(prim: Usd.Prim):
     tformop = None
     rformop = None
@@ -193,14 +199,14 @@ def calc_robot_circle_pose(angle, cen=[0, 0, 0.85], rad=0.35, xang=0, yang=130):
     # print("pos:",pos," rot:",rot)
     return pos, rot
 
-# def apply_material_to_prim_and_children_recur(stage, material, prim, level):
-#     if level > 4:
-#         return
-#     gprim = UsdGeom.Gprim(prim)
-#     UsdShade.MaterialBindingAPI(gprim).Bind(material)
-#     children = prim.GetChildren()
-#     for child in children:
-#         apply_material_to_prim_and_children_recur(stage, material, child, level+1)
+def calc_robot_circle_pose(angle, cen=[0, 0, 0.85], rad=0.35, xang=0, yang=130):
+    rads = np.pi*angle/180
+    pos = cen + rad*np.array([np.cos(rads), np.sin(rads), 0])
+    pos = Gf.Vec3d(list(pos))
+    zang = angle-180
+    rot = [xang, yang, zang]
+    # print("pos:",pos," rot:",rot)
+    return pos, rot
 
 
 def apply_material_to_prim_and_children_recur(stage, material, prim, level):

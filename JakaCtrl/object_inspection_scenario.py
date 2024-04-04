@@ -75,98 +75,78 @@ class ObjectInspectionScenario(ScenarioBase):
             world.scene.add(self._ground)
 
         stage = get_current_stage()
+
+
+        self._start_robot_pos = Gf.Vec3d([0, 0, 0])
+        self._start_robot_rot = [0, 0, 0]
+
+        # Robot 0
+        cen, rad = [-0.08, 0, 0.77], 0
+        xang, yang, zang = 0, -150, 0
+        pos, rot = self.calc_oi_robot_pose(cen=cen, rad=rad, xang=xang, yang=yang, zang=zang)
+        self._start_robot_pos = pos
+        self._start_robot_rot = rot
+        self.robot_rotvek = np.array(rot)*np.pi/180
+
         roborg = UsdGeom.Xform.Define(stage,"/World/roborg")
         self._rob_tranop = roborg.AddTranslateOp()
         self._rob_zrotop = roborg.AddRotateZOp()
         self._rob_yrotop = roborg.AddRotateYOp()
         self._rob_xrotop = roborg.AddRotateXOp()
 
+        self.set_oi_circle_pose(self._start_robot_pos, self._start_robot_rot)
+
+        add_reference_to_stage(self._robcfg.robot_usd_file_path, self._robcfg.robot_prim_path)
+        apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg.robot_prim_path)
+        adjust_articulation(stage, self._robcfg.robot_prim_path)
+        apply_diable_gravity_to_rigid_bodies(stage, self._robcfg.robot_prim_path)
+
+        self._articulation = Articulation(self._robcfg.artpath,"mico-0")
+
+        # Robot 1
+        cen1, rad1 = [0.14, 0, 0.77], 0
+        xang1, yang1, zang1 = 0, 150, 0
+        pos1, rot1 = self.calc_oi_robot_pose(cen=cen1, rad=rad1, xang=xang1, yang=yang1, zang=zang1)
+        self._start_robot_pos1 = pos1
+        self._start_robot_rot1 = rot1
+        self.robot1_rotvek = np.array(rot1)*np.pi/180
+
         roborg1 = UsdGeom.Xform.Define(stage,"/World/roborg1")
         self._rob_tranop1 = roborg1.AddTranslateOp()
         self._rob_zrotop1 = roborg1.AddRotateZOp()
         self._rob_yrotop1 = roborg1.AddRotateYOp()
         self._rob_xrotop1 = roborg1.AddRotateXOp()
+        self.set_oi_robot_pose1(self._start_robot_pos1, self._start_robot_rot1)
 
-
-        self._rob_ang = 180
-        self._start_robot_pos = Gf.Vec3d([0, 0, 0])
-        self._start_robot_rot = [0, 0, 0]
-        if self._robot_name == "ur10-suction-short":
-            self._start_robot_pos = Gf.Vec3d([0, 0, 0.4])
-            self._start_robot_rot = [0, 0, 0]
-        elif self._robot_name in ["minicobo-rg2-high","minicobo-suction-high","jaka-minicobo-1a",
-                                  "minicobo-dual-sucker","minicobo-dual-high","rs007n"]:
-            # self._start_robot_pos = Gf.Vec3d([-0.35, 0, 0.80])
-            # self._start_robot_rot = [0, 130, 0]
-            # cen = [0.11, 0, 0.77]
-            # rad = 0.35
-            # xang = 0
-            # yang = 150
-            cen = [-0.08, 0, 0.77]
-            rad = 0
-            xang = 0
-            yang = -150
-            pos, rot = calc_robot_circle_pose(self._rob_ang, cen=cen, rad=rad, xang=xang, yang=yang)
-            self._start_robot_pos = pos
-            self._start_robot_rot = rot
-            self.robot_rotvek = np.array(rot)*np.pi/180
-            cen = [0.14, 0, 0.77]
-            rad = 0
-            xang = 0
-            yang = 150
-            pos1, rot1 = calc_robot_circle_pose(self._rob_ang, cen=cen, rad=rad, xang=xang, yang=yang)
-            self._start_robot_pos1 = pos1
-            self._start_robot_rot1 = rot1
-            self.robot1_rotvek = np.array(rot1)*np.pi/180
-
-        self.set_robot_circle_pose(self._start_robot_pos, self._start_robot_rot)
-
-        add_reference_to_stage(self._robcfg.robot_usd_file_path, self._robcfg.robot_prim_path)
-        apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg.robot_prim_path)
-
-        self.set_robot_circle_pose1(self._start_robot_pos1, self._start_robot_rot1)
-
+        self._robcfg1.artpath = self._robcfg1.artpath.replace("roborg", "roborg1")
         self._robcfg1.robot_prim_path = self._robcfg1.robot_prim_path.replace("roborg", "roborg1")
 
         add_reference_to_stage(self._robcfg1.robot_usd_file_path, self._robcfg1.robot_prim_path)
         apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg1.robot_prim_path)
-        apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg.robot_prim_path)
-        apply_diable_gravity_to_rigid_bodies(stage, self._robcfg.robot_prim_path)
         apply_diable_gravity_to_rigid_bodies(stage, self._robcfg1.robot_prim_path)
-        adjust_articulation(stage, self._robcfg.robot_prim_path)
         adjust_articulation(stage, self._robcfg1.robot_prim_path)
-
-
-        # self.robot = Minicobo(self._robcfg.robot_prim_path, self._robot_name, self._robcfg._cfg_robot_usd_file_path)
-
-
-        self._articulation = Articulation(self._robcfg.artpath,"mico-0")
-        self._robcfg1.artpath = self._robcfg1.artpath.replace("roborg", "roborg1")
         self._articulation1 = Articulation(self._robcfg1.artpath,"mico-1")
+
+
+        apply_material_to_prim_and_children(stage, self._matman, "Red_Glass", self._robcfg.robot_prim_path)
+        apply_material_to_prim_and_children(stage, self._matman, "Green_Glass", self._robcfg1.robot_prim_path)
 
         world.scene.add(self._articulation)
         world.scene.add(self._articulation1)
 
 
-        # add a cube for franka to pick up
-        # world.scene.add(
-        #     DynamicCuboid(
-        #         prim_path="/World/random_cube",
-        #         name="fancy_cube",
-        #         position=np.array([0.3, 0.3, 0.3]),
-        #         scale=np.array([0.0515, 0.0515, 0.0515]),
-        #         color=np.array([0, 0, 1.0]),
-        #     )
-        # )
-
+        # tagets
         quat = euler_angles_to_quat([-np.pi/2,0,0])
         self._target = XFormPrim("/World/target", scale=[.04,.04,.04], position=[-0.15, 0.00, 0.02], orientation=quat)
-        self._target1 = XFormPrim("/World/target1", scale=[.04,.04,.04], position=[0.15, 0.00, 0.02], orientation=quat)
         add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", "/World/target")
+
+        quat = euler_angles_to_quat([-np.pi/2,0,0])
+        self._target1 = XFormPrim("/World/target1", scale=[.04,.04,.04], position=[0.15, 0.00, 0.02], orientation=quat)
         add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", "/World/target1")
 
-        jakacontrol_extension_path = get_extension_path_from_name("JakaControl")
 
+        # cage
+        jakacontrol_extension_path = get_extension_path_from_name("JakaControl")
         path_to_cage_usd = f"{jakacontrol_extension_path}/usd/cage_v1.usd"
         # path_to_cage_usd = f"{jakacontrol_extension_path}/usd/FlexBenchV1.usda"
         add_reference_to_stage(path_to_cage_usd, "/World/cage_v1")
@@ -179,8 +159,6 @@ class ObjectInspectionScenario(ScenarioBase):
             self.ensure_matman()
             apply_material_to_prim_and_children(stage, self._matman, "Steel_Blued", cagepath)
 
-        apply_material_to_prim_and_children(stage, self._matman, "Red_Glass", self._robcfg.robot_prim_path)
-        apply_material_to_prim_and_children(stage, self._matman, "Green_Glass", self._robcfg1.robot_prim_path)
         self._world = world
 
     def setup_scenario(self):
@@ -250,7 +228,6 @@ class ObjectInspectionScenario(ScenarioBase):
             self.set_damping_for_all_joints(self._robcfg1.damping)
 
 
-
         if self._show_collision_bounds:
             self._rmpflow.set_ignore_state_updates(True)
             self._rmpflow.visualize_collision_spheres()
@@ -268,7 +245,15 @@ class ObjectInspectionScenario(ScenarioBase):
 
         # self._target.set_world_pose(np.array([.5,0,.7]),euler_angles_to_quats([0,np.pi,0]))
 
-    def set_robot_circle_pose(self, pos, rot):
+    def calc_oi_robot_pose(self, cen=[0, 0, 0.85], rad=0.35, xang=0, yang=130, zang=0):
+        rads = np.pi
+        pos = cen + rad*np.array([np.cos(rads), np.sin(rads), 0])
+        pos = Gf.Vec3d(list(pos))
+        rot = [xang, yang, zang]
+        # print("pos:",pos," rot:",rot)
+        return pos, rot
+
+    def set_oi_circle_pose(self, pos, rot):
         self._rob_tranop.Set(pos)
         self._rob_zrotop.Set(rot[2])
         self._rob_yrotop.Set(rot[1])
@@ -277,8 +262,7 @@ class ObjectInspectionScenario(ScenarioBase):
         self._start_robot_rot = rot
 
 
-
-    def set_robot_circle_pose1(self, pos, rot):
+    def set_oi_robot_pose1(self, pos, rot):
         self._rob_tranop1.Set(pos)
         self._rob_zrotop1.Set(rot[2])
         self._rob_yrotop1.Set(rot[1])
