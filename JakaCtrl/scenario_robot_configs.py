@@ -35,6 +35,7 @@ def get_robot_config(robot_name, skiplula=False):
     stiffness = -1
     damping = -1
     desc = "no description"
+    gripper = "none"
 
     ok = True
     match robot_name:
@@ -50,9 +51,11 @@ def get_robot_config(robot_name, skiplula=False):
             rmp_config_path = rmp_param_dir + "/ur3e/rmpflow/ur3e_rmpflow_config.yaml"
             eeframe_name = "tool0"
             max_step_size = 0.00334
+
+            grippername = "none"
+
             mfg = "Universal Robots"
             model = "UR3e"
-            grippername = "none"
             desc = "Universal Robots UR3e"
 
         case "ur5e":
@@ -67,6 +70,9 @@ def get_robot_config(robot_name, skiplula=False):
             rmp_config_path = rmp_param_dir + "/ur5e/rmpflow/ur5e_rmpflow_config.yaml"
             eeframe_name = "tool0"
             max_step_size = 0.00334
+
+            grippername = "none"
+
             mfg = "Universal Robots"
             model = "UR5e"
             grippername = "none"
@@ -84,9 +90,11 @@ def get_robot_config(robot_name, skiplula=False):
             rmp_config_path = rmp_param_dir + "/ur10e/rmpflow/ur10e_rmpflow_config.yaml"
             eeframe_name = "tool0"
             max_step_size = 0.00334
+
+            grippername = "none"
+
             mfg = "Universal Robots"
             model = "UR10e"
-            grippername = "none"
             desc = "Universal Robots UR10e"
 
         case "ur10e-gripper":
@@ -101,9 +109,11 @@ def get_robot_config(robot_name, skiplula=False):
             rmp_config_path = rmp_param_dir + "/ur10e/rmpflow/ur10e_rmpflow_config.yaml"
             eeframe_name = "tool0"
             max_step_size = 0.00334
+
+            grippername = "rg2"
+
             mfg = "Universal Robots"
             model = "UR10e"
-            grippername = "parallel_gripper"
             desc = "Universal Robots UR10e with Parallel Gripper"
 
         case "ur10-suction-short":
@@ -118,9 +128,11 @@ def get_robot_config(robot_name, skiplula=False):
             rmp_config_path = rmp_param_dir + "/ur10/rmpflow_suction/ur10_rmpflow_config.yaml"
             eeframe_name = "ee_link"
             max_step_size = 0.00334
+
+            grippername = "short suction"
+
             mfg = "Universal Robots"
             model = "UR10"
-            grippername = "short suction"
             desc = "Universal Robots UR10 with Suction Gripper"
 
         case "m0609":
@@ -135,11 +147,12 @@ def get_robot_config(robot_name, skiplula=False):
             rmp_config_path = rmp_param_dir + "/m0609/rmpflow/m0609_rmpflow_config.yaml"
             eeframe_name = "dummy_tcp"
             max_step_size = 0.00334
+
+            grippername = "none"
+
             mfg = "Doosan"
             model = "M0609"
-            grippername = "none"
             desc = "Doosan M0609"
-
 
         case "jaka-minicobo-0":
             robot_prim_path = "/World/roborg/minicobo_v1_4"
@@ -152,12 +165,14 @@ def get_robot_config(robot_name, skiplula=False):
             urdf_path = rmp_param_dir + "/minicobo/minicobo_v14.urdf"
             rmp_config_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
             eeframe_name = "dummy_tcp"
-            max_step_size = 0.00334
             stiffness = 400
             damping = 40
+            max_step_size = 0.00334
+
+            grippername = "none"
+
             mfg = "Jaka"
             model = "Minicobo"
-            grippername = "none"
             desc = "Jaka Minicobo without a gripper"
 
 
@@ -172,12 +187,14 @@ def get_robot_config(robot_name, skiplula=False):
             urdf_path = rmp_param_dir + "/minicobo/minicobo_v14_1.urdf"
             rmp_config_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
             eeframe_name = "dummy_tcp"
-            max_step_size = 0.00334
             stiffness = 400
             damping = 40
+            max_step_size = 0.00334
+
+            grippername = "dual sucker"
+
             mfg = "Jaka"
             model = "Minicobo"
-            grippername = "dual sucker"
             desc = "Jaka Minicobo with a dual sucker gripper (old)"
 
         case "jaka-minicobo-1a":
@@ -193,12 +210,15 @@ def get_robot_config(robot_name, skiplula=False):
             urdf_path = rmp_param_dir + "/minicobo/minicobo_v14_1a.urdf"
             rmp_config_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
             eeframe_name = "tool0"
-            max_step_size = 0.00334
             stiffness = 400
             damping = 40
+            max_step_size = 0.00334
+
+            grippername = "dual sucker"
+
+
             mfg = "Jaka"
             model = "Minicobo"
-            grippername = "dual sucker"
             desc = "Jaka Minicobo with a dual sucker gripper"
 
         case "minicobo-dual-sucker":
@@ -214,12 +234,14 @@ def get_robot_config(robot_name, skiplula=False):
             urdf_path = rmp_param_dir + "/minicobo/minicobo_dual_sucker.urdf"
             rmp_config_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_rmpflow_config_dual_sucker.yaml"
             eeframe_name = "tool0"
-            max_step_size = 0.00334
             stiffness = 400
             damping = 40
+            max_step_size = 0.00334
+
+            grippername = "dual sucker"
+
             mfg = "Jaka"
             model = "Minicobo"
-            grippername = "dual sucker"
             desc = "Jaka Minicobo with a dual sucker gripper"
 
         case "jaka-minicobo-2":
@@ -234,12 +256,14 @@ def get_robot_config(robot_name, skiplula=False):
             urdf_path = rmp_param_dir + "/minicobo/minicobo_v14.urdf"
             rmp_config_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
             eeframe_name = "gripper_center"
-            max_step_size = 0.00334
             stiffness = 400
             damping = 40
+            max_step_size = 0.00334
+
+            grippername = "rg2"
+
             mfg = "Jaka"
             model = "Minicobo"
-            grippername = "?"
             desc = "Jaka Minicobo with a ?"
 
         case "minicobo-rg2-high":
@@ -256,9 +280,11 @@ def get_robot_config(robot_name, skiplula=False):
             max_step_size = 0.00334
             stiffness = 400
             damping = 40
+
+            grippername = "rg2"
+
             mfg = "Jaka"
             model = "Minicobo"
-            grippername = "RG2"
             desc = "Jaka Minicobo with a RG2 parallel gripper"
 
 
@@ -273,12 +299,14 @@ def get_robot_config(robot_name, skiplula=False):
             urdf_path = f"{asimovjaka_extension_dir}/urdf/minicobo_v14_onrobot_rg2.urdf"
             rmp_config_path = f"{asimovjaka_extension_dir}/rdf/minicobo_rmpflow_config.yaml"
             eeframe_name = "gripper_center"
-            max_step_size = 0.00334
             stiffness = 400
             damping = 40
+            max_step_size = 0.00334
+
+            grippername = "dual sucker"
+
             mfg = "Jaka"
             model = "Minicobo"
-            grippername = "dual sucker"
             desc = "Jaka Minicobo with a dual suction gripper"
 
         case "minicobo-suction":
@@ -291,12 +319,14 @@ def get_robot_config(robot_name, skiplula=False):
             urdf_path = f"{asimovjaka_extension_dir}/urdf/minicobo_v14_onrobot_rg2.urdf"
             rmp_config_path = f"{asimovjaka_extension_dir}/rdf/minicobo_rmpflow_config.yaml"
             eeframe_name = "gripper_center"
-            max_step_size = 0.00334
             stiffness = 400
             damping = 40
+            max_step_size = 0.00334
+
+            grippername = "short suction"
+
             mfg = "Jaka"
             model = "Minicobo"
-            grippername = "short suction"
             desc = "Jaka Minicobo with a short suction gripper"
 
 
@@ -310,12 +340,14 @@ def get_robot_config(robot_name, skiplula=False):
             urdf_path = f"{asimovjaka_extension_dir}/urdf/minicobo_v14_onrobot_rg2.urdf"
             rmp_config_path = f"{asimovjaka_extension_dir}/rdf/minicobo_rmpflow_config.yaml"
             eeframe_name = "gripper_center"
-            max_step_size = 0.00334
             stiffness = 400
             damping = 40
+            max_step_size = 0.00334
+
+            grippername = "short suction"
+
             mfg = "Jaka"
             model = "Minicobo"
-            grippername = "short suction"
             desc = "Jaka Minicobo with a short suction gripper - mounted high"
 
         case "rs007n":
@@ -329,9 +361,11 @@ def get_robot_config(robot_name, skiplula=False):
             rmp_config_path = rmp_param_dir + "/rs007n/rmpflow/rs007n_rmpflow_config.yaml"
             eeframe_name = "gripper_center"
             max_step_size = 0.00334
+
+            grippername = "rg2"
+
             mfg = "Kawasaki"
             model = "RS007N"
-            grippername = "RG2"
             desc = "Kawasaki RS007N"
 
         case "franka":
@@ -345,9 +379,11 @@ def get_robot_config(robot_name, skiplula=False):
             rmp_config_path = rmp_config_dir + "/franka/rmpflow/franka_rmpflow_common.yaml"
             eeframe_name = "right_gripper"
             max_step_size = 0.00334
+
+            grippername = "Franka Gripper"
+
             mfg = "Franka"
             model = "Panda"
-            grippername = "Franka Gripper"
             desc = "Franka Panda"
 
         case "fancy_franka":
@@ -361,9 +397,11 @@ def get_robot_config(robot_name, skiplula=False):
             rmp_config_path = rmp_config_dir + "/franka/rmpflow/franka_rmpflow_common.yaml"
             eeframe_name = "right_gripper"
             max_step_size = 0.00334
+
+            grippername = "Franka Gripper"
+
             mfg = "Franka"
             model = "Panda"
-            grippername = "Franka Gripper"
             desc = "Franka Panda with some fancy initialization"
 
         case _:

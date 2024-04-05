@@ -72,7 +72,7 @@ class ScenarioBase:
             case "object-inspection":
                 rv = ["minicobo-dual-high","minicobo-rg2-high","jaka-minicobo-1a","minicobo-dual-sucker","rs007n"]
             case "franka-pick-and-place":
-                rv = ["franka", "fancy_franka"]
+                rv = ["franka", "fancy_franka","rs007n", "ur10-suction-short"]
             case "pick-and-place" | "rmpflow"  | "inverse-kinematics":
                 rv = ["franka", "fancy_franka","rs007n", "ur10-suction-short",
                     "jaka-minicobo-0","jaka-minicobo-1","jaka-minicobo-1a", "minicobo-dual-sucker",  "jaka-minicobo-2",

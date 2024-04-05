@@ -19,6 +19,7 @@ from omni.isaac.core.utils.extensions import get_extension_path_from_name
 
 import carb.settings
 import omni.kit.app
+from omni.isaac.sensor import Camera
 
 
 _settings = None
@@ -320,3 +321,80 @@ def interp(x, x1, x2, y1, y2):
     if (y1==y2):
         return y1
     return y1 + (x-x1)*(y2-y1)/(x2-x1)
+
+
+def add_cam(robot_name, cam_root):
+    #camera_ring_path = "/World/roborg/minicobo_v1_4/dummy_tcp/ring"
+    stage = get_current_stage()
+    camera_ring_path = f"{cam_root}/ring"
+    camera_mount_path = f"{camera_ring_path}/mount"
+    camera_point_path = f"{camera_mount_path}/point"
+    camera_prim_path = f"{camera_point_path}/camera"
+    if robot_name == "minicobo-dual-sucker":
+        ring_rot = Gf.Vec3f([0,0,-45])
+    else:
+        ring_rot = Gf.Vec3f([0,0,0])
+    ring_quat = deg_euler_to_quatf(ring_rot)
+    mount_trans = Gf.Vec3f([0.011,0.147,-0.011])
+
+
+    point_quat = Gf.Quatf(0.80383,Gf.Vec3f(-0.19581,-0.46288,-0.31822))
+
+    ovcam = Camera(
+        prim_path=camera_prim_path,
+        resolution=[512,512]
+    )
+    ring = UsdGeom.Xform.Define(stage, camera_ring_path)
+    [rtop,rrop,rqop,rsop] = GetXformOpsFromPath(camera_ring_path)
+    rqop.Set(ring_quat)
+    mount = UsdGeom.Xform.Define(stage, camera_mount_path)
+    [mtop,mrop,mqop,msop] = GetXformOpsFromPath(camera_mount_path)
+    mtop.Set(mount_trans)
+    point = UsdGeom.Xform.Define(stage, camera_point_path)
+    [ptop,prop,pqop,psop] = GetXformOpsFromPath(camera_point_path)
+    pqop.Set(point_quat)
+    # [ctop,crop,cqop,csop] = GetXformOpsFromPath(camera_camera_path)
+
+    markername = f"{camera_mount_path}/marker"
+    markerXform = UsdGeom.Xform.Define(stage, markername)
+    [mktop,mkrop,mkqop,mksop] = GetXformOpsFromPath(markername)
+    mksop.Set((0.005, 0.005, 0.005))
+    spherePrim = UsdGeom.Sphere.Define(stage, markername + '/sphere')
+    spherePrim.GetDisplayColorAttr().Set([(0, 0.6, 0.6)])
+
+
+    # OpenCV camera matrix and width and height of the camera sensor, from the calibration file
+    width, height = 1920, 1200
+    camera_matrix = [[958.8, 0.0, 957.8], [0.0, 956.7, 589.5], [0.0, 0.0, 1.0]]
+
+    # Pixel size in microns, aperture and focus distance from the camera sensor specification
+    # Note: to disable the depth of field effect, set the f_stop to 0.0. This is useful for debugging.
+    pixel_size = 3 * 1e-3   # in mm, 3 microns is a common pixel size for high resolution cameras
+    f_stop = 1.8            # f-number, the ratio of the lens focal length to the diameter of the entrance pupil
+    focus_distance = 0.6    # in meters, the distance from the camera to the object plane
+
+    # Calculate the focal length and aperture size from the camera matrix
+    ((fx,_,cx),(_,fy,cy),(_,_,_)) = camera_matrix
+    horizontal_aperture =  pixel_size * width                   # The aperture size in mm
+    vertical_aperture =  pixel_size * height
+    focal_length_x  = fx * pixel_size
+    focal_length_y  = fy * pixel_size
+    focal_length = (focal_length_x + focal_length_y) / 2         # The focal length in mm
+
+    # Set the camera parameters, note the unit conversion between Isaac Sim sensor and Kit
+    ovcam.set_focal_length(focal_length / 10.0)                # Convert from mm to cm (or 1/10th of a world unit)
+    ovcam.set_focus_distance(focus_distance)                   # The focus distance in meters
+    ovcam.set_lens_aperture(f_stop * 100.0)                    # Convert the f-stop to Isaac Sim units
+    #camera.set_horizontal_aperture(horizontal_aperture / 10.0)  # Convert from mm to cm (or 1/10th of a world unit)
+    # camera.set_vertical_aperture(vertical_aperture / 10.0)
+
+    ovcam.set_clipping_range(0.1, 1.0e5)
+
+    return ovcam
+
+def add_cameras(robot_name,robot_prim_path):
+    #camera_ring_path = "/World/roborg/minicobo_v1_4/dummy_tcp/ring"
+
+    if robot_name in ["jaka-minicobo-1a","minicobo-dual-sucker"]:
+        camera_root = f"{robot_prim_path}/dummy_tcp"
+        add_cam(robot_name, camera_root)

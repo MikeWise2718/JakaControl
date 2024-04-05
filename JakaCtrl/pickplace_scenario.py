@@ -12,6 +12,7 @@ from omni.isaac.core.objects.cuboid import DynamicCuboid, VisualCuboid
 from omni.isaac.core.objects import cuboid, sphere, capsule
 from omni.isaac.core.objects import GroundPlane
 # from .franka.controllers import PickPlaceController as franka_PickPlaceController
+from .franka.controllers import PickPlaceController as franka_PickPlaceController
 from omni.asimov.jaka.controllers.pick_place_controller import PickPlaceController as jaka_PickPlaceController
 from .universal_robots.omni.isaac.universal_robots.controllers import PickPlaceController as ur10_PickPlaceController
 # from robs.jaka.controllers.pick_place_controller import PickPlaceController as jaka_PickPlaceController
@@ -19,7 +20,6 @@ from omni.isaac.franka import Franka
 
 from omni.isaac.motion_generation import ArticulationMotionPolicy
 from omni.isaac.motion_generation import ArticulationKinematicsSolver
-from omni.isaac.sensor import Camera
 
 from omni.isaac.core.world import World
 
@@ -37,7 +37,7 @@ from omni.isaac.core.utils.rotations import euler_angles_to_quat
 
 from omni.isaac.core.prims.rigid_prim import RigidPrim
 from .senut import calc_robot_circle_pose, interp, GetXformOps, GetXformOpsFromPath, deg_euler_to_quatd, deg_euler_to_quatf
-
+from .senut import add_cameras
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
@@ -226,66 +226,18 @@ class PickAndPlaceScenario(ScenarioBase):
         # self._articulation.set_joint_positions(self._robcfg.joint_zero_pos)
 
 
-        events_dt = [0.008, 0.005, 0.1,  0.1, 0.005, 0.005, 0.005, 0.1, 0.008, 0.08]
 
-        gripper = self.get_gripper()
-        if gripper is not None:
-            if self._robot_name in ["fancy_franka", "franka", "rs007n"]:
-                self._gripper_type = "parallel"
-                self._controller = jaka_PickPlaceController(
-                    name="pick_place_controller",
-                    gripper=gripper,
-                    robot_articulation=self._articulation,
-                    events_dt=events_dt
-                )
-            elif self._robot_name in ["ur10-suction-short"]:
-                self._gripper_type = "suction"
-                self._controller = ur10_PickPlaceController(
-                    name="pick_place_controller",
-                    gripper=gripper,
-                    robot_articulation=self._articulation
-                )
-            elif self._robot_name in ["minicobo-suction","minicobo-suction-high","jaka-minicobo-1",
-                                      "jaka-minicobo-1a","minicobo-dual-sucker","minicobo-suction-dual","minicobo-dual-high"]:
-                self._gripper_type = "suction"
-                rmpconfig = {
-                    "end_effector_frame_name": self._robcfg.eeframe_name,
-                    "maximum_substep_size": self._robcfg.max_step_size,
-                    "ignore_robot_state_updates": False,
-                    "urdf_path": self._robcfg.urdf_path,
-                    "rmpflow_config_path": self._robcfg.rmp_config_path,
-                    "robot_description_path": self._robcfg.rdf_path
-                }
-                events_dt = [0.008, 0.005, 0.1,  0.1, 0.005, 0.005, 0.005, 0.1, 0.008, 0.08]
-                self._controller = jaka_PickPlaceController(
-                    name="pick_place_controller",
-                    gripper=gripper,
-                    robot_articulation=self._articulation,
-                    rmpconfig=rmpconfig,
-                    events_dt=events_dt
-                )
-            elif self._robot_name in ["jaka-minicobo-0","jaka-minicobo-2","minicobo-rg2-high"]:
-                self._gripper_type = "parallel"
-                rmpconfig = {
-                    "end_effector_frame_name": self._robcfg.eeframe_name,
-                    "maximum_substep_size": self._robcfg.max_step_size,
-                    "ignore_robot_state_updates": False,
-                    "urdf_path": self._robcfg.urdf_path,
-                    "rmpflow_config_path": self._robcfg.rmp_config_path,
-                    "robot_description_path": self._robcfg.rdf_path
-                }
-                self._controller = jaka_PickPlaceController(
-                    name="pick_place_controller",
-                    gripper=gripper,
-                    robot_articulation=self._articulation,
-                    rmpconfig=rmpconfig,
-                    events_dt=events_dt
-                )
-            if self._show_collision_bounds:
-                self._rmpflow = self._controller._cspace_controller.rmp_flow
-                    # self._rmpflow.reset()
-                self._rmpflow.visualize_collision_spheres()
-                self._rmpflow.visualize_end_effector_position()
+        self._articulation.gripper = self.get_gripper()
+
+        add_cameras(self._robot_name, self._robcfg.robot_prim_path)
+
+        self.add_controllers()
+
+        if self._show_collision_bounds:
+            self._rmpflow = self._controller._cspace_controller.rmp_flow
+                # self._rmpflow.reset()
+            self._rmpflow.visualize_collision_spheres()
+            self._rmpflow.visualize_end_effector_position()
 
 
         self._timeline = omni.timeline.get_timeline_interface()
@@ -336,6 +288,67 @@ class PickAndPlaceScenario(ScenarioBase):
             self._robcfg.joint_zero_pos[4] = 0.9
             self._articulation.set_joint_positions(self._robcfg.joint_zero_pos)
 
+
+
+    def add_controllers(self):
+
+        events_dt = [0.008, 0.005, 0.1,  0.1, 0.005, 0.005, 0.005, 0.1, 0.008, 0.08]
+
+        gripper = self.get_gripper()
+        if gripper is not None:
+            if self._robot_name in ["fancy_franka", "franka", "rs007n"]:
+                self._gripper_type = "parallel"
+                self._controller = franka_PickPlaceController(
+                    name="pick_place_controller",
+                    gripper=gripper,
+                    robot_articulation=self._articulation,
+                    events_dt=events_dt
+                )
+            elif self._robot_name in ["ur10-suction-short"]:
+                self._gripper_type = "suction"
+                self._controller = ur10_PickPlaceController(
+                    name="pick_place_controller",
+                    gripper=gripper,
+                    robot_articulation=self._articulation
+                )
+            elif self._robot_name in ["minicobo-suction","minicobo-suction-high","jaka-minicobo-1",
+                                      "jaka-minicobo-1a","minicobo-dual-sucker","minicobo-suction-dual","minicobo-dual-high"]:
+                self._gripper_type = "suction"
+                rmpconfig = {
+                    "end_effector_frame_name": self._robcfg.eeframe_name,
+                    "maximum_substep_size": self._robcfg.max_step_size,
+                    "ignore_robot_state_updates": False,
+                    "urdf_path": self._robcfg.urdf_path,
+                    "rmpflow_config_path": self._robcfg.rmp_config_path,
+                    "robot_description_path": self._robcfg.rdf_path
+                }
+                events_dt = [0.008, 0.005, 0.1,  0.1, 0.005, 0.005, 0.005, 0.1, 0.008, 0.08]
+                self._controller = jaka_PickPlaceController(
+                    name="pick_place_controller",
+                    gripper=gripper,
+                    robot_articulation=self._articulation,
+                    rmpconfig=rmpconfig,
+                    events_dt=events_dt
+                )
+            elif self._robot_name in ["jaka-minicobo-0","jaka-minicobo-2","minicobo-rg2-high"]:
+                self._gripper_type = "parallel"
+                rmpconfig = {
+                    "end_effector_frame_name": self._robcfg.eeframe_name,
+                    "maximum_substep_size": self._robcfg.max_step_size,
+                    "ignore_robot_state_updates": False,
+                    "urdf_path": self._robcfg.urdf_path,
+                    "rmpflow_config_path": self._robcfg.rmp_config_path,
+                    "robot_description_path": self._robcfg.rdf_path
+                }
+                self._controller = jaka_PickPlaceController(
+                    name="pick_place_controller",
+                    gripper=gripper,
+                    robot_articulation=self._articulation,
+                    rmpconfig=rmpconfig,
+                    events_dt=events_dt
+                )
+
+
     def get_gripper(self):
         art = self._articulation
         if not hasattr(art, "_policy_robot_name"):
@@ -351,7 +364,7 @@ class PickAndPlaceScenario(ScenarioBase):
             self.grip_eeori = euler_angles_to_quat(np.array([0,0,0]))
             self.grip_eeoff = np.array([0,0,0])
 
-            if self._robot_name in ["franka","fancy_franka"]:
+            if self._robot_name in ["franka","fancy_franka"]:   # franka gripper
                 eepp = "/World/roborg/franka/panda_rightfinger"
                 jpn = ["panda_finger_joint1", "panda_finger_joint2"]
                 jop = np.array([0.05, 0.05])
@@ -375,17 +388,17 @@ class PickAndPlaceScenario(ScenarioBase):
                     dof_names=art.dof_names,
                 )
                 return pg
-            elif self._robot_name in ["rs007n","jaka-minicobo-2","minicobo-rg2-high"]:
+
+            elif self._robot_name in ["rs007n","jaka-minicobo-2","minicobo-rg2-high"]: # rg2 gripper / eepp, jpn, jop,jcp, ad
                 art = self._articulation
-                self._gripper_type = "parallel"
                 if self._robot_name == "rs007n":
                     eepp = "/World/roborg/khi_rs007n/gripper_center"
                 else:
                     eepp = "/World/roborg/minicobo_parallel_onrobot_rg2/minicobo_onrobot_rg2/gripper_center"
                 jpn = ["left_inner_finger_joint", "right_inner_finger_joint"]
-                jop = np.array([0.15, 0.15])
+                jop = np.array([0.05, 0.05])
                 jcp = np.array([0, 0])
-                ad = np.array([0.15, 0.15])
+                ad = np.array([0.05, 0.05])
                 art._policy_robot_name = "RS007N"
                 pg = ParallelGripper(
                     end_effector_prim_path=eepp,
@@ -402,10 +415,11 @@ class PickAndPlaceScenario(ScenarioBase):
                     set_joint_positions_func=art.set_joint_positions,
                     dof_names=art.dof_names,
                 )
+                self._gripper_type = "parallel"
                 return pg
             elif self._robot_name in ["ur10-suction-short","jaka-minicobo-1","jaka-minicobo-1a",
                                       "minicobo-suction-dual","minicobo-suction","minicobo-dual-sucker",
-                                      "minicobo-dual-high","minicobo-suction-high"]:
+                                      "minicobo-dual-high","minicobo-suction-high"]:  # short suction gripper and dual sucker gripper
                 art = self._articulation
                 self._gripper_type = "suction"
                 # eepp = "/World/roborg/ur10_suction_short/ee_link/gripper_base/xf"
@@ -433,6 +447,7 @@ class PickAndPlaceScenario(ScenarioBase):
                     grip_direction = "y"
                     grip_threshold = 0.1
                     grip_translate = 0.17
+                    self.grip_eeori = euler_angles_to_quat(np.array([-np.pi/2,0,0]))
                 elif self._robot_name in ["jaka-minicobo-1a","minicobo-dual-sucker"]:
                     eepp = "/World/roborg/minicobo_v1_4/tool0"
                     # eepp = "/World/roborg/minicobo_suction_dual/minicobo_suction/dual_gripper/JAKA___MOTO_200mp_v4"
@@ -471,86 +486,6 @@ class PickAndPlaceScenario(ScenarioBase):
                     physics_sim_view=self.physics_sim_view,
                     articulation_num_dofs=len(art.dof_names)
                 )
-                if self._robot_name in ["jaka-minicobo-1a","minicobo-dual-sucker"]:
-                    # add camera
-                    camera_ring_path = "/World/roborg/minicobo_v1_4/dummy_tcp/ring"
-                    camera_mount_path = f"{camera_ring_path}/mount"
-                    camera_point_path = f"{camera_mount_path}/point"
-                    camera_prim_path = f"{camera_point_path}/camera"
-                    # camera_trans = Gf.Vec3f([0,-0.13,0])
-                    # camera_rot = [0,45,120]
-                    # if self._robot_name == "minicobo-dual-sucker":
-                    #     mount_trans = Gf.Vec3f([0.00777, -0.01742,0.02856])
-                    #     mount_quat = Gf.Quatf(0.5,Gf.Vec3f(0,0,0.86603))
-                    # else:
-                    #     mount_trans = Gf.Vec3f([0.14611,-0.15983,0.01124])
-                    #     mount_quat = Gf.Quatf(0.46194,Gf.Vec3f(0.33141,0.19134,0.8001))
-                    if self._robot_name == "minicobo-dual-sucker":
-                        ring_rot = Gf.Vec3f([0,0,-45])
-                    else:
-                        ring_rot = Gf.Vec3f([0,0,0])
-                    ring_quat = deg_euler_to_quatf(ring_rot)
-                    mount_trans = Gf.Vec3f([0.011,0.147,-0.011])
-
-                    point_rot = Gf.Vec3f([45,150,0])
-                    point_quat = deg_euler_to_quatf(point_rot)
-                    point_quat = Gf.Quatf(0.5,Gf.Vec3f(0,0,0.86603))
-                    point_quat = Gf.Quatf(0.46194,Gf.Vec3f(0.33141,0.19134,0.8001))
-                    point_quat = Gf.Quatf(0.34442,Gf.Vec3f(+0.44524,-0.19989,-0.80199))
-                    point_quat = Gf.Quatf(0.6874,Gf.Vec3f(0.46945,-0.53827,0.13179))
-                    point_quat = Gf.Quatf(0.80383,Gf.Vec3f(-0.19581,-0.46288,-0.31822))
-
-                    self.robot_camera = Camera(
-                        prim_path=camera_prim_path,
-                        resolution=[512,512]
-                    )
-                    ring = UsdGeom.Xform.Define(self._stage, camera_ring_path)
-                    [rtop,rrop,rqop,rsop] = GetXformOpsFromPath(camera_ring_path)
-                    rqop.Set(ring_quat)
-                    mount = UsdGeom.Xform.Define(self._stage, camera_mount_path)
-                    [mtop,mrop,mqop,msop] = GetXformOpsFromPath(camera_mount_path)
-                    mtop.Set(mount_trans)
-                    point = UsdGeom.Xform.Define(self._stage, camera_point_path)
-                    [ptop,prop,pqop,psop] = GetXformOpsFromPath(camera_point_path)
-                    pqop.Set(point_quat)
-                    # [ctop,crop,cqop,csop] = GetXformOpsFromPath(camera_camera_path)
-
-                    markername = f"{camera_mount_path}/marker"
-                    markerXform = UsdGeom.Xform.Define(self._stage, markername)
-                    [mktop,mkrop,mkqop,mksop] = GetXformOpsFromPath(markername)
-                    mksop.Set((0.005, 0.005, 0.005))
-                    spherePrim = UsdGeom.Sphere.Define(self._stage, markername + '/sphere')
-                    spherePrim.GetDisplayColorAttr().Set([(0, 0.6, 0.6)])
-
-
-                    # OpenCV camera matrix and width and height of the camera sensor, from the calibration file
-                    width, height = 1920, 1200
-                    camera_matrix = [[958.8, 0.0, 957.8], [0.0, 956.7, 589.5], [0.0, 0.0, 1.0]]
-
-                    # Pixel size in microns, aperture and focus distance from the camera sensor specification
-                    # Note: to disable the depth of field effect, set the f_stop to 0.0. This is useful for debugging.
-                    pixel_size = 3 * 1e-3   # in mm, 3 microns is a common pixel size for high resolution cameras
-                    f_stop = 1.8            # f-number, the ratio of the lens focal length to the diameter of the entrance pupil
-                    focus_distance = 0.6    # in meters, the distance from the camera to the object plane
-
-                    # Calculate the focal length and aperture size from the camera matrix
-                    ((fx,_,cx),(_,fy,cy),(_,_,_)) = camera_matrix
-                    horizontal_aperture =  pixel_size * width                   # The aperture size in mm
-                    vertical_aperture =  pixel_size * height
-                    focal_length_x  = fx * pixel_size
-                    focal_length_y  = fy * pixel_size
-                    focal_length = (focal_length_x + focal_length_y) / 2         # The focal length in mm
-
-                    # Set the camera parameters, note the unit conversion between Isaac Sim sensor and Kit
-                    camera = self.robot_camera
-                    camera.set_focal_length(focal_length / 10.0)                # Convert from mm to cm (or 1/10th of a world unit)
-                    camera.set_focus_distance(focus_distance)                   # The focus distance in meters
-                    camera.set_lens_aperture(f_stop * 100.0)                    # Convert the f-stop to Isaac Sim units
-                    #camera.set_horizontal_aperture(horizontal_aperture / 10.0)  # Convert from mm to cm (or 1/10th of a world unit)
-                    # camera.set_vertical_aperture(vertical_aperture / 10.0)
-
-                    self.robot_camera.set_clipping_range(0.1, 1.0e5)
-
 
                 return sg
 
