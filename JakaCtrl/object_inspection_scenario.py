@@ -2,6 +2,10 @@ import math
 import numpy as np
 import os
 from pxr import Usd, UsdGeom, Gf
+import omni
+import omni.ui as ui
+
+from omni.kit.widget.viewport import ViewportWidget
 
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.core.utils.stage import add_reference_to_stage
@@ -19,12 +23,14 @@ from omni.isaac.core.utils.rotations import euler_angles_to_quat
 
 from omni.asimov.jaka.minicobo import Minicobo
 
-from .senut import add_light_to_stage
+from .senut import add_light_to_stage, add_dome_light_to_stage
 from .senut import calc_robot_circle_pose
 from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
 from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulation
 
 from .senut import adjust_joint_values, set_stiffness_for_joints, set_damping_for_joints
+from .senut import add_camera_to_robot
+
 from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelper
 
 from .scenario_base import ScenarioBase
@@ -60,7 +66,7 @@ class ObjectInspectionScenario(ScenarioBase):
         self._robot_name = robot_name
         self._ground_opt = ground_opt
 
-        add_light_to_stage()
+        add_dome_light_to_stage()
 
         world = World.instance()
         if self._ground_opt == "default":
@@ -128,8 +134,8 @@ class ObjectInspectionScenario(ScenarioBase):
         self._articulation1 = Articulation(self._robcfg1.artpath,"mico-1")
 
 
-        apply_material_to_prim_and_children(stage, self._matman, "Red_Glass", self._robcfg.robot_prim_path)
-        apply_material_to_prim_and_children(stage, self._matman, "Green_Glass", self._robcfg1.robot_prim_path)
+        # apply_material_to_prim_and_children(stage, self._matman, "Red_Glass", self._robcfg.robot_prim_path)
+        # apply_material_to_prim_and_children(stage, self._matman, "Green_Glass", self._robcfg1.robot_prim_path)
 
         world.scene.add(self._articulation)
         world.scene.add(self._articulation1)
@@ -156,7 +162,6 @@ class ObjectInspectionScenario(ScenarioBase):
         if self._colorScheme == "default":
             self._cage.set_color([0.5, 0.5, 0.5, 1.0])
         elif self._colorScheme == "transparent":
-            self.ensure_matman()
             apply_material_to_prim_and_children(stage, self._matman, "Steel_Blued", cagepath)
 
         self._world = world
@@ -199,8 +204,8 @@ class ObjectInspectionScenario(ScenarioBase):
         )
         quat = euler_angles_to_quat(self.robot_rotvek)
         self._rmpflow.set_robot_base_pose(self._start_robot_pos, quat)
-
         self._rmpflow.add_obstacle(self._obstacle)
+        # self._rmpflow.add_obstacle(self._cage)
 
         self._rmpflow1 = RmpFlow(
             robot_description_path = self._robcfg1.rdf_path,
@@ -212,6 +217,7 @@ class ObjectInspectionScenario(ScenarioBase):
         quat1 = euler_angles_to_quat(self.robot1_rotvek)
         self._rmpflow1.set_robot_base_pose(self._start_robot_pos1, quat1)
         self._rmpflow1.add_obstacle(self._obstacle)
+        # self._rmpflow1.add_obstacle(self._cage)
 
 
         self.lulaHelper = LulaInterfaceHelper(self._rmpflow._robot_description)
@@ -227,6 +233,10 @@ class ObjectInspectionScenario(ScenarioBase):
         if self._robcfg1.damping>0:
             self.set_damping_for_all_joints(self._robcfg1.damping)
 
+        _, campath = add_camera_to_robot(self._robcfg.robot_name, self._robcfg.robot_id, self._robcfg.robot_prim_path)
+        self.add_camera_to_camlist(self._robcfg.robot_id, self._robcfg.robot_name, campath)
+        _, campath = add_camera_to_robot(self._robcfg1.robot_name, self._robcfg1.robot_id, self._robcfg1.robot_prim_path)
+        self.add_camera_to_camlist(self._robcfg1.robot_id, self._robcfg1.robot_name, campath)
 
         if self._show_collision_bounds:
             self._rmpflow.set_ignore_state_updates(True)
@@ -316,7 +326,6 @@ class ObjectInspectionScenario(ScenarioBase):
              target1_position, target1_orientation
         )
 
-
         action = self._articulation_rmpflow.get_next_articulation_action(step_size)
         self._articulation.apply_action(action)
         action1 = self._articulation_rmpflow1.get_next_articulation_action(step_size)
@@ -328,3 +337,68 @@ class ObjectInspectionScenario(ScenarioBase):
     def update_scenario(self, step: float):
         if not self._running_scenario:
             return
+
+    def make_camera_views(self):
+        # https://docs.omniverse.nvidia.com/kit/docs/omni.kit.viewport.docs/latest/overview.html
+        if hasattr(self, "camviews") and self.camviews is not None:
+            self.camviews.destroy()
+            self.camviews = None
+        wintitle = "Robot Cameras"
+        wid = 1280
+        heit = 720
+        ncam = len(self.camlist)
+        camviews = omni.ui.Window(wintitle, width=wid, height=heit+20) # Add 20 for the title-bar
+
+        with camviews.frame:
+            if ncam==0:
+                ui.Label("No Cameras Found (camlist is empty)")
+            else:
+                with ui.VStack():
+                    vh = heit / len(self.camlist)
+                    for camname in self.camlist:
+                        cam = self.camlist[camname]
+                        viewport_widget = ViewportWidget(resolution = (wid, vh))
+
+                        # Control of the ViewportTexture happens through the object held in the viewport_api property
+                        viewport_api = viewport_widget.viewport_api
+
+                        # We can reduce the resolution of the render easily
+                        viewport_api.resolution = (wid, vh)
+
+                        # We can also switch to a different camera if we know the path to one that exists
+                        viewport_api.camera_path = cam["usdpath"]
+
+
+        # from functools import partial
+        # ui.Workspace.set_show_window_fn(wintitle, partial(ui.Workspace.show_window, wintitle))
+
+        # # Add a Menu Item for the window
+        # editor_menu = omni.kit.ui.get_editor_menu()
+        # if editor_menu:
+        #     self._menu = editor_menu.add_item(
+        #         "CamViews", ui.Workspace.show_window, toggle=True, value=True
+        #     )
+        self.camviews = camviews
+        return wintitle
+
+    def scenario_action(self, action_name, action_args):
+        if action_name in self.base_actions:
+            rv = super().scenario_action(action_name, action_args)
+            return rv
+        # match action_name:
+        #     case "Camera Viewports":
+        #         if not hasattr(self, "camlist"):
+        #             return
+        #         if len(self.camlist)==0:
+        #             return
+        #         self.wtit = self.make_camera_views()
+        #         # ui.Workspace.show_window(wtit,True)
+        #         pass
+        #     case "Show CV Window":
+        #         ui.Workspace.show_window(self.wtit,True)
+        #         pass
+
+    def get_scenario_actions(self):
+        self.base_actions = super().get_scenario_actions()
+        combo  = self.base_actions + []
+        return combo

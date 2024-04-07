@@ -37,7 +37,7 @@ from omni.isaac.core.utils.rotations import euler_angles_to_quat
 
 from omni.isaac.core.prims.rigid_prim import RigidPrim
 from .senut import calc_robot_circle_pose, interp, GetXformOps, GetXformOpsFromPath, deg_euler_to_quatd, deg_euler_to_quatf
-from .senut import add_cameras
+from .senut import add_camera_to_robot
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
@@ -228,8 +228,9 @@ class PickAndPlaceScenario(ScenarioBase):
 
 
         self._articulation.gripper = self.get_gripper()
+        self._robot_id = self._robcfg.robot_id
 
-        add_cameras(self._robot_name, self._robcfg.robot_prim_path)
+        add_camera_to_robot(self._robot_name, self._robot_id, self._robcfg.robot_prim_path)
 
         self.add_controllers()
 
@@ -540,7 +541,7 @@ class PickAndPlaceScenario(ScenarioBase):
             quat = euler_angles_to_quat(rrot)
             self._rmpflow.set_robot_base_pose(pos ,quat)
             n = self.nphysstep_calls
-            print(f"physics_step {n} rotate - step_size: {step_size:.4f} ang: {self.global_ang} phase:{phase}")
+            # print(f"physics_step {n} rotate - step_size: {step_size:.4f} ang: {self.global_ang} phase:{phase}")
 
         if self._show_rmp_target:
             self.visualize_rmp_target()
@@ -552,21 +553,21 @@ class PickAndPlaceScenario(ScenarioBase):
         if self._controller is not None:
             # eeoff = np.array([0,0,-0.03]) # -0.03 works for minicobo-suction-dual
             eeoff = np.array([0,0,-0.01])
-            actions = self._controller.forward(
-                picking_position=cube_position,
-                placing_position=goal_position,
-                current_joint_positions=current_joint_positions,
-                end_effector_offset=eeoff,
-                end_effector_orientation=self.grip_eeori
-            )
-            if self._articulation is not None:
-                    self._articulation.apply_action(actions)
+            if self.rmpactive:
+                actions = self._controller.forward(
+                    picking_position=cube_position,
+                    placing_position=goal_position,
+                    current_joint_positions=current_joint_positions,
+                    end_effector_offset=eeoff,
+                    end_effector_orientation=self.grip_eeori
+                )
+                self._articulation.apply_action(actions)
 
         ee_pos, ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
 
         self._ee_pos = ee_pos
         self._ee_rot = ee_rot_mat
-        print(f"ee_pos:{ee_pos}")
+        # print(f"ee_pos:{ee_pos}")
 
 
         self.nphysstep_calls += 1
@@ -578,14 +579,19 @@ class PickAndPlaceScenario(ScenarioBase):
                 self._world.pause()
         return
 
-    def scenario_action(self, action: str, param):
+    def scenario_action(self, action_name: str, action_args):
         if self._controller is not None:
-            if action == "rotate":
+            if action_name == "rotate":
                 self._rotate = not self._rotate
                 print(f"scenario_action - rotate changed to: {self._rotate}  param: {param}")
-            if action == "show_rmp_target":
+                return
+            elif action_name == "show_rmp_target":
                 self._show_rmp_target = not self._show_rmp_target
                 print(f"scenario_action - _show_rmp_target changed to: {self._show_rmp_target}  param: {param}")
+                return
+        if action_name in self.base_actions:
+            rv = super().scenario_action(action_name, action_args)
+            return rv
         return
 
     def setup_scenario(self):
@@ -599,5 +605,8 @@ class PickAndPlaceScenario(ScenarioBase):
             return
         self.physics_step(step)
 
+
     def get_scenario_actions(self):
-        return ["rotate","show_rmp_target"]
+        self.base_actions = super().get_scenario_actions()
+        combo  = self.base_actions + ["rotate","show_rmp_target"]
+        return combo

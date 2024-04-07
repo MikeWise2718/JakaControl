@@ -62,7 +62,6 @@ class UIBuilder:
     _actions = ["--none--"]
     _action = "--none--"
     _colprims = None
-    _visopts = ["Invisible", "Glass", "Red"]
     _colvis_opts = ["Invisible", "Red", "RedGlass", "Glass"]
     _collider_vis = "Invisible"
     _eevis_opts = ["Invisible", "Blue", "BlueGlass", "Glass"]
@@ -71,6 +70,8 @@ class UIBuilder:
     _rmptarg_vis = "Invisible"
     _rotate_opts = ["None", "RotateForward", "none", "RotateBackward"]
     _rotate_opt = "None"
+    _robskin_opts = ["Default", "Clear Glass", "Red Glass","Green Glass","Blue Glass", "Red/Green Glass", "Red/Blue Glass", "Green/Blue Glass"]
+    _robskin_opt = "Default"
 
     def __init__(self):
         # Frames are sub-windows that can contain multiple UI elements
@@ -105,10 +106,14 @@ class UIBuilder:
         print("LoadSettings")
         self._robot_name = get_setting("p_robot_name", self._robot_name)
         self._ground_opt = get_setting("p_ground_opt", self._ground_opt)
+
         self._scenario_name = get_setting("p_scenario_name", self._scenario_name)
+        self._actions = ScenarioBase.get_scenario_actions(self._scenario_name)
+        action = get_setting("p_action", self._action)
+        self._action = action if action in self._actions else self._actions[0]
+
         self._mode = get_setting("p_mode", self._mode)
         self._choice = get_setting("p_choice", self._choice)
-        self._action = get_setting("p_action", self._action)
         print("Done LoadSettings")
 
     ###################################################################################
@@ -172,6 +177,7 @@ class UIBuilder:
         """
         print("build_ui")
         world_config_frame = CollapsableFrame("World Config", collapsed=False)
+        self.world_config_frame = world_config_frame
 
         with world_config_frame:
             with ui.VStack(style=get_style(), spacing=5, height=0):
@@ -228,26 +234,11 @@ class UIBuilder:
                         style={'background_color': self.dkred}
                     )
                 with ui.HStack(style=get_style(), spacing=5, height=0):
-                    ui.Label("Collider Vis:",
+                    ui.Label("RMP status:",
                             style={'color': self.btyellow},
                             width=50)
-                    self._collider_vis_btn = Button(
-                        self._collider_vis, mouse_pressed_fn=self._change_collider_vis,
-                        style={'background_color': self.dkred}
-                    )
-                    ui.Label("EEtarg Vis:",
-                            style={'color': self.btyellow},
-                            width=50)
-                    self._eetarg_vis_btn = Button(
-                        self._eetarg_vis, mouse_pressed_fn=self._change_eetarg_vis,
-                        style={'background_color': self.dkred}
-                    )
-                with ui.HStack(style=get_style(), spacing=5, height=0):
-                    ui.Label("Rmp Targ Vis:",
-                            style={'color': self.btyellow},
-                            width=50)
-                    self._rmptarg_vis_btn = Button(
-                        self._rmptarg_vis, mouse_pressed_fn=self._change_rmptarg_vis,
+                    self._rmpactive_btn = Button(
+                        "active", mouse_pressed_fn=self._change_rmp_active,
                         style={'background_color': self.dkred}
                     )
                     ui.Label("Rotate:",
@@ -270,6 +261,57 @@ class UIBuilder:
                         style={'background_color': self.dkred}
                     )
                 # self.wrapped_ui_elements.append(self._robot_btn)
+
+        scenario_actions_frame = CollapsableFrame("Scenario Actions", collapsed=False)
+
+        with scenario_actions_frame:
+            with ui.VStack(style=get_style(), spacing=5, height=0):
+                for action in self._actions:
+                    def do_action(action):
+                        return lambda: self._do_action(action, "")
+                    self._collider_vis_btn = Button(
+                        action, clicked_fn=do_action(action),
+                        style={'background_color': self.dkred}
+                    )
+
+
+        rob_appearance_frame = CollapsableFrame("Robot Appearance", collapsed=False)
+
+        with rob_appearance_frame:
+            with ui.VStack(style=get_style(), spacing=5, height=0):
+                with ui.HStack(style=get_style(), spacing=5, height=0):
+                    ui.Label("Collider Vis:",
+                            style={'color': self.btyellow},
+                            width=50)
+                    self._collider_vis_btn = Button(
+                        self._collider_vis, mouse_pressed_fn=self._change_collider_vis,
+                        style={'background_color': self.dkred}
+                    )
+                    ui.Label("EEtarg Vis:",
+                            style={'color': self.btyellow},
+                            width=50)
+                    self._eetarg_vis_btn = Button(
+                        self._eetarg_vis, mouse_pressed_fn=self._change_eetarg_vis,
+                        style={'background_color': self.dkred}
+                    )
+                with ui.HStack(style=get_style(), spacing=5, height=0):
+                    ui.Label("RMP Target Vis:",
+                            style={'color': self.btyellow},
+                            width=50)
+                    self._rmptarg_vis_btn = Button(
+                        self._rmptarg_vis, mouse_pressed_fn=self._change_rmptarg_vis,
+                        style={'background_color': self.dkred}
+                    )
+                    ui.Label("Robot Skin:",
+                            style={'color': self.btyellow},
+                            width=50)
+                    self._robskin_opt_btn = Button(
+                        self._robskin_opt, mouse_pressed_fn=self._change_robskin_opt,
+                        style={'background_color': self.dkred}
+                    )
+
+
+
 
         world_controls_frame = CollapsableFrame("World Controls", collapsed=False)
 
@@ -306,8 +348,8 @@ class UIBuilder:
         robot_config_frame = CollapsableFrame("Robot Config")
 
         with robot_config_frame:
-            self.rob_config_stack = ui.VStack(style=get_style(), spacing=5, height=0)
-            with self.rob_config_stack:
+            self.rob_config_vstack = ui.VStack(style=get_style(), spacing=5, height=0)
+            with self.rob_config_vstack:
                 self._load_robot_config_btn = Button(
                         "Load Robot Config", clicked_fn=self._load_robot_config,
                         style={'background_color': self.dkblue}
@@ -318,8 +360,8 @@ class UIBuilder:
         robot_joints_frame = CollapsableFrame("Robot Joints")
 
         with robot_joints_frame:
-            self.rob_joints_stack = ui.VStack(style=get_style(), spacing=5, height=0)
-            with self.rob_joints_stack:
+            self.rob_joints_vstack = ui.VStack(style=get_style(), spacing=5, height=0)
+            with self.rob_joints_vstack:
                 self._load_robot_joint_btn = Button(
                         "Load Robot Joints", clicked_fn=self._load_robot_joints,
                         style={'background_color': self.dkblue}
@@ -353,34 +395,29 @@ class UIBuilder:
                 l1 = ui.Label(l1txt, style={'color': self.btwhite}, width=120)
                 l2 = ui.Label(l2txt, style={'color': clr})
             self.cfg_lab_dict[param_name] = (l1, l2)
-            self.rob_config_stack.add_child(hstack)
+            self.rob_config_vstack.add_child(hstack)
 
     def _add_title(self, title, clr):
         self.config_line_list.append(f"{title}")
         hstack = ui.HStack(style=get_style(), spacing=5, height=0)
         with hstack:
             ui.Label(title, style={'color': clr}, width=120)
-        self.rob_config_stack.add_child(hstack)
+        self.rob_config_vstack.add_child(hstack)
 
     def _copy_to_clipboard(self):
         str = "\n".join(self.config_line_list)
         omni.kit.clipboard.copy(str)
 
-    def get_robot_config(self, i):
-        if i == 0:
-            return self._cur_scenario._robcfg
-        elif i == 1:
-            return self._cur_scenario._robcfg1
-        else:
-            return None
+    def get_robot_config(self, index=0):
+        return self._cur_scenario.get_robot_config(index)
 
     def _load_robot_config(self, index=0):
         print("_load_robot_config")
-        self.rob_config_stack.clear()
+        self.rob_config_vstack.clear()
         self.cfg_lab_dict = {}
         self.config_line_list = []
         nrobots = self._cur_scenario._nrobots
-        with self.rob_config_stack:
+        with self.rob_config_vstack:
             with ui.HStack(style=get_style(), spacing=5, height=0):
                 for i in range(nrobots):
                     def load_config(i):
@@ -396,7 +433,6 @@ class UIBuilder:
                 )
                 self._copy_clipboard_btn.enabled = True
 
-
         rc = self.get_robot_config(index)
 
         bl = self.btblue
@@ -405,6 +441,7 @@ class UIBuilder:
         cy = self.btcyan
         self._add_title("Parameters", bl)
         self._load_one_param(rc, "robot_name", cy)
+        self._load_one_param(rc, "robot_id", cy)
         self._load_one_param(rc, "manufacturer", cy)
         self._load_one_param(rc, "model", cy)
         self._load_one_param(rc, "grippername", cy)
@@ -428,13 +465,25 @@ class UIBuilder:
         self._load_one_param(rc, "robot_usd_file_path", yt)
         print("done _load_robot_config")
 
-    def _load_robot_joints(self, index=0):
+    def _rot_robot_joint(self, robot_idx, joint_idx, jname, inc):
+        rc = self.get_robot_config(robot_idx)
+        art = rc._articulation
+        jidx = int(joint_idx)
+        jidxlist = [jidx]
+        pos = art.get_joint_positions()
+        newjpos = pos[jidx] + inc*np.pi/180
+        art.set_joint_positions(joint_indices=jidxlist, positions=[newjpos])
+
+        print(f"_rot_robot_joint robot_idx:{robot_idx} joint_idx {joint_idx} ({jname}) by {inc} degrees")
+
+    def _load_robot_joints(self, robot_idx=0):
         print("_load_robot_joints")
-        self.rob_joints_stack.clear()
+        self.rob_joints_vstack.clear()
+        self.rob_config_stack = ui.VStack(style=get_style(), spacing=5, height=0)
         self.cfg_joint_dict = {}
         self.config_line_list = []
         nrobots = self._cur_scenario._nrobots
-        with self.rob_joints_stack:
+        with self.rob_joints_vstack:
             with ui.HStack(style=get_style(), spacing=5, height=0):
                 for i in range(nrobots):
                     def load_config(i):
@@ -450,12 +499,12 @@ class UIBuilder:
                 )
                 self._copy_clipboard_btn.enabled = True
 
-        rc = self.get_robot_config(index)
+        rc = self.get_robot_config(robot_idx)
         degs = 180/np.pi
         hstack = ui.HStack(style=get_style(), spacing=5, height=0)
         with hstack:
-            lab =ui.Label(f"Robot {index}", style={'color': self.btwhite}, width=120)
-        self.rob_joints_stack.add_child(hstack)
+            lab =ui.Label(f"Robot {robot_idx}", style={'color': self.btwhite}, width=120)
+        self.rob_joints_vstack.add_child(hstack)
         art = rc._articulation
         pos = art.get_joint_positions()
         props = art.dof_properties
@@ -464,6 +513,8 @@ class UIBuilder:
         for j,jn in enumerate(rc.joint_names):
             self.config_line_list.append(f"{jn}")
             hstack = ui.HStack(style=get_style(), spacing=5, height=0)
+            def rot_joint(j,jn,inc):
+                return lambda: self._rot_robot_joint(robot_idx,j,jn,inc)
             with hstack:
                 stiff = stiffs[j]
                 damp = damps[j]
@@ -481,9 +532,12 @@ class UIBuilder:
                 lab1 = ui.Label(txt1, style={'color': self.btcyan}, width=120)
                 lab2 = ui.Label(txt2, style={'color': self.btwhite}, width=120)
                 lab3 = ui.Label(txt3, style={'color': self.btwhite}, width=120)
+                but1 = ui.Button("+", clicked_fn=rot_joint(j,jn,5), style={'background_color': self.dkgreen})
+                but2 = ui.Button("-", clicked_fn=rot_joint(j,jn,-5), style={'background_color': self.dkgreen})
                 clr = self.btwhite if 10<pct and pct<90 else self.btred
                 lab4 = ui.Label(txt4, style={'color': clr}, width=120)
-            self.rob_joints_stack.add_child(hstack)
+            self.rob_joints_vstack.add_child(hstack)
+        print("done _load_robot_joints")
 
 
     def pick_scenario(self, scenario_name):
@@ -537,6 +591,9 @@ class UIBuilder:
         return rv
 
     binc = [-1, 1]
+
+    def _do_action(self, action, actionparm):
+        self._cur_scenario.scenario_action(action, actionparm)
 
     def _change_action(self, x, y, b, m):
         self._action = self.get_next_val_safe(self._actions, self._action, self.binc[b])
@@ -596,6 +653,18 @@ class UIBuilder:
         self._rmptarg_vis = self.get_next_val_safe(self._rmptarg_vis_opts, self._rmptarg_vis, self.binc[b])
         self._rmptarg_vis_btn.text = self._rmptarg_vis
         self._cur_scenario.realize_rmptarg_vis(self._rmptarg_vis)
+
+    def _change_robskin_opt(self, x, y, b, m):
+        print(f"_change_robskin_opt x:{x} y:{y} b:{b} m:{m}")
+        if m==0:
+            self._robskin_opt = self.get_next_val_safe(self._robskin_opts, self._robskin_opt, self.binc[b])
+            self._robskin_opt_btn.text = self._robskin_opt
+        else: # shft, or ctrl or alt are pressed
+            self._cur_scenario.realize_robot_skin(self._robskin_opt)
+
+    def _change_rmp_active(self, x, y, b, m):
+        self._cur_scenario.rmpactive = not self._cur_scenario.rmpactive
+        self._rmpactive_btn.text = "active" if self._cur_scenario.rmpactive  else "stopped"
 
     def _change_rotate(self, x, y, b, m):
         self._rotate_opt = self.get_next_val_safe(self._rotate_opts, self._rotate_opt, self.binc[b])

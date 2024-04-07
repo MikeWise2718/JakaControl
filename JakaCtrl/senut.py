@@ -75,6 +75,16 @@ def add_light_to_stage():
     sphereLight.CreateIntensityAttr(100000)
     XFormPrim(str(sphereLight.GetPath())).set_world_pose([6.5, 0, 12])
 
+def add_dome_light_to_stage():
+    """
+    A new stage does not have a light by default.  This function creates a dome light
+    """
+    domeLight = UsdLux.DomeLight.Define(get_current_stage(), Sdf.Path("/World/DomeLight"))
+    # domeLight.CreateRadiusAttr(2)
+    domeLight.CreateIntensityAttr(1000)
+    # XFormPrim(str(domeLight.GetPath())).set_world_pose([6.5, 0, 12])
+
+
 def find_prims_by_name(prim_name: str):
     stage = get_current_stage()
     found_prims = []
@@ -385,16 +395,20 @@ def add_cam(robot_name, cam_root):
     ovcam.set_focal_length(focal_length / 10.0)                # Convert from mm to cm (or 1/10th of a world unit)
     ovcam.set_focus_distance(focus_distance)                   # The focus distance in meters
     ovcam.set_lens_aperture(f_stop * 100.0)                    # Convert the f-stop to Isaac Sim units
-    #camera.set_horizontal_aperture(horizontal_aperture / 10.0)  # Convert from mm to cm (or 1/10th of a world unit)
+    # camera.set_horizontal_aperture(horizontal_aperture / 10.0)  # Convert from mm to cm (or 1/10th of a world unit)
     # camera.set_vertical_aperture(vertical_aperture / 10.0)
 
     ovcam.set_clipping_range(0.1, 1.0e5)
 
-    return ovcam
+    return ovcam, camera_prim_path
 
-def add_cameras(robot_name,robot_prim_path):
+def add_camera_to_robot(robot_name,robot_id,robot_prim_path):
     #camera_ring_path = "/World/roborg/minicobo_v1_4/dummy_tcp/ring"
 
+    campath = None
     if robot_name in ["jaka-minicobo-1a","minicobo-dual-sucker"]:
         camera_root = f"{robot_prim_path}/dummy_tcp"
-        add_cam(robot_name, camera_root)
+        campath = add_cam(robot_name, camera_root)
+
+    return campath
+

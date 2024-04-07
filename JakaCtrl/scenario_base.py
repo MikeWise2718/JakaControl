@@ -10,19 +10,25 @@ from omni.isaac.core.utils.stage import get_current_stage
 
 from omni.isaac.core.prims import XFormPrim
 
-from .scenario_robot_configs import get_robot_config
+from .scenario_robot_configs import get_robot_config, init_configs
 
 from .senut import find_prim_by_name, find_prims_by_name
+from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
 
 import carb.settings
 
 
 class ScenarioBase:
+    rmpactive = True
+
     def __init__(self):
         self._scenario_name = "empty scenario"
         self._secnario_desc = "description from ScenarioBase class"
         self._nrobots = 0
         self._stage = get_current_stage()
+        self.camlist = {}
+        self.rmpactive = True
+        init_configs()
         pass
 
     @staticmethod
@@ -131,6 +137,14 @@ class ScenarioBase:
             print(msg)
         return robcfg
 
+    camlist = {}
+
+    def add_camera_to_camlist(self, cam_name, cam_display_name, campath):
+        self.camlist[cam_name] = {}
+        self.camlist[cam_name]["name"] = cam_name
+        self.camlist[cam_name]["display_name"] = cam_display_name
+        self.camlist[cam_name]["usdpath"] = campath
+
 
     def register_articulation(self, articulation, rc=None):
         # this has to happen in post_load_scenario - some initialization must be happening before this
@@ -166,11 +180,6 @@ class ScenarioBase:
     def update_scenario(self):
         pass
 
-    def scenario_action(self):
-        pass
-
-    def get_scenario_actions(self):
-        return ["--None--"]
 
     targXformTop = None
     def visualize_rmp_target(self):
@@ -194,13 +203,44 @@ class ScenarioBase:
            if self._show_rmp_target:
                self.visualize_rmp_target()
 
+    def realize_robot_skin(self, skinopt):
+        match skinopt:
+            case "Default":
+                carb.log_warn("realize_robot_skin - skinopt is default - no action taken")
+                return
+            case "Clear Glass":
+                mat1 = mat2 =  "Clear_Glass"
+            case "Red Glass":
+                mat1 = mat2 =  "Red_Glass"
+            case "Green Glass":
+                mat1 = mat2 =  "Green_Glass"
+            case "Blue Glass":
+                mat1 = mat2 =  "Blue_Glass"
+            case "Red/Green Glass":
+                mat1 = "Red_Glass"
+                mat2 = "Green_Glass"
+            case "Red/Blue Glass":
+                mat1 = "Red_Glass"
+                mat2 = "Blue_Glass"
+            case "Green/Blue Glass":
+                mat1 = "Green_Glass"
+                mat2 = "Blue_Glass"
+            case "Blue Glass":
+                mat1 = mat2 =  "Blue_Glass"
+        print(f"realize_robot_skin robskin opt {skinopt} mat1:{mat1} mat2:{mat2}")
+
+        didone = False
+        if hasattr(self, "_robcfg"):
+            apply_material_to_prim_and_children(self._stage, self._matman, mat1, self._robcfg.robot_prim_path)
+            didone = True
+        if hasattr(self, "_robcfg1"):
+            apply_material_to_prim_and_children(self._stage, self._matman, mat2, self._robcfg1.robot_prim_path)
+            didone = True
+        if not didone:
+            carb.log_warn("realize_robot_skin - no robot config found")
+
     _colprims = None
     _matman = None
-
-    def ensure_matman(self):
-        stage = get_current_stage()
-        if self._matman is None:
-            self._matman = MatMan(stage)
 
     def change_colliders_viz(self, action):
         stage = get_current_stage()
@@ -295,3 +335,72 @@ class ScenarioBase:
                     # UsdGeom.Imageable(prim).MakeInvisible()
             except:
                 pass
+
+    def make_camera_views(self):
+        # https://docs.omniverse.nvidia.com/kit/docs/omni.kit.viewport.docs/latest/overview.html
+        if hasattr(self, "camviews") and self.camviews is not None:
+            self.camviews.destroy()
+            self.camviews = None
+        wintitle = "Robot Cameras"
+        wid = 1280
+        heit = 720
+        ncam = len(self.camlist)
+        camviews = omni.ui.Window(wintitle, width=wid, height=heit+20) # Add 20 for the title-bar
+
+        with camviews.frame:
+            if ncam==0:
+                ui.Label("No Cameras Found (camlist is empty)")
+            else:
+                with ui.VStack():
+                    vh = heit / len(self.camlist)
+                    for camname in self.camlist:
+                        cam = self.camlist[camname]
+                        viewport_widget = ViewportWidget(resolution = (wid, vh))
+
+                        # Control of the ViewportTexture happens through the object held in the viewport_api property
+                        viewport_api = viewport_widget.viewport_api
+
+                        # We can reduce the resolution of the render easily
+                        viewport_api.resolution = (wid, vh)
+
+                        # We can also switch to a different camera if we know the path to one that exists
+                        viewport_api.camera_path = cam["usdpath"]
+
+
+        # from functools import partial
+        # ui.Workspace.set_show_window_fn(wintitle, partial(ui.Workspace.show_window, wintitle))
+
+        # # Add a Menu Item for the window
+        # editor_menu = omni.kit.ui.get_editor_menu()
+        # if editor_menu:
+        #     self._menu = editor_menu.add_item(
+        #         "CamViews", ui.Workspace.show_window, toggle=True, value=True
+        #     )
+        self.camviews = camviews
+        return wintitle
+
+    def get_robot_config(self, i):
+        if i == 0:
+            if hasattr(self, "_robcfg"):
+                return self._robcfg
+        elif i == 1:
+            if hasattr(self, "_robcfg1"):
+                return self._robcfg1
+        else:
+            return None
+
+
+    def scenario_action(self, action_name, action_args):
+        match action_name:
+            case "Camera Viewports":
+                if not hasattr(self, "camlist"):
+                    return
+                if len(self.camlist)==0:
+                    carb.log_warn("No cameras found in camlist")
+                    return
+                self.wtit = self.make_camera_views()
+                # ui.Workspace.show_window(self.wtit,True)
+                pass
+
+    def get_scenario_actions(self):
+        return ["Camera Viewports"]

@@ -39,6 +39,25 @@ def get_robot_config(robot_name, skiplula=False):
 
     ok = True
     match robot_name:
+        case "cone"|"inverted-cone"|"sphere"|"cube"|"cube-yrot"|"cylinder"|"suction-short"|"suction-dual"|"suction-dual-0":
+            robot_prim_path = f"/{robot_name}"
+            artpath = robot_prim_path
+            robot_usd_file_path = "None"
+            mopo_robot_name = robot_name
+
+            rmp_param_dir = "None"
+            rdf_path = "None"
+            urdf_path = "None"
+            rmp_config_path = "None"
+            eeframe_name = robot_prim_path
+            max_step_size = 0.00334
+
+            grippername = "none"
+
+            mfg = "None"
+            model = "None"
+            desc = "Gripper testing proxy robot"
+
         case "ur3e":
             robot_prim_path = "/ur3e"
             artpath = robot_prim_path
@@ -407,32 +426,34 @@ def get_robot_config(robot_name, skiplula=False):
         case _:
             print("Bad robot type name", robot_name)
 
-    if rdf_path=="" or urdf_path=="":
-        msg = f"Robot {robot_name} rdf_path or urdf_path not specified"
-        carb.log_warn(msg)
-        print(msg)
-        return
+    if rdf_path != "None":
+        if rdf_path=="" or urdf_path=="":
+            msg = f"Robot {robot_name} rdf_path or urdf_path not specified"
+            carb.log_warn(msg)
+            print(msg)
+            return
 
-    if not os.path.isfile(rdf_path):
-        msg = f"Robot {robot_name} rdf_path bad - file not found:{rdf_path}"
-        carb.log_error(msg)
-        print(msg)
-        return
+        if not os.path.isfile(rdf_path):
+            msg = f"Robot {robot_name} rdf_path bad - file not found:{rdf_path}"
+            carb.log_error(msg)
+            print(msg)
+            return
 
-    if not os.path.isfile(urdf_path):
-        msg = f"Robot {robot_name} urdf_path bad - file not found:{urdf_path}"
-        carb.log_error(msg)
-        print(msg)
-        return
+        if not os.path.isfile(urdf_path):
+            msg = f"Robot {robot_name} urdf_path bad - file not found:{urdf_path}"
+            carb.log_error(msg)
+            print(msg)
+            return
 
-    if not os.path.isfile(rmp_config_path):
-        msg = f"Robot {robot_name} rmp_config_path bad - file not found:{rmp_config_path}"
-        carb.log_error(msg)
-        print(msg)
-        return
+        if not os.path.isfile(rmp_config_path):
+            msg = f"Robot {robot_name} rmp_config_path bad - file not found:{rmp_config_path}"
+            carb.log_error(msg)
+            print(msg)
+            return
 
     rc = robcfg()
     rc.robot_name = robot_name
+    rc.robot_id = get_robot_id(robot_name)
     rc.robot_prim_path = robot_prim_path
     rc.eeframe_name = eeframe_name
     rc.max_step_size = max_step_size
@@ -467,3 +488,18 @@ def get_robot_config(robot_name, skiplula=False):
             print(msg)
 
     return rc
+
+ids = {}
+def get_robot_id(robot_name):
+    global ids
+    i = 0
+    while True:
+        robid = f"robot_name_{i}"
+        if robid not in ids:
+            ids[robid] = True
+            return robid
+        i += 1
+
+def init_configs():
+    global ids
+    ids = {}
