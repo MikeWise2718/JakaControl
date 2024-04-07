@@ -220,8 +220,38 @@ def calc_robot_circle_pose(angle, cen=[0, 0, 0.85], rad=0.35, xang=0, yang=130):
     return pos, rot
 
 
+def build_material_dict_recur(stage, dict, prim, level):
+    if level > 10:
+        carb.log_warn("build_material_dict_recur - level too deep ({level})")
+        return 0
+    nhit = 0
+    gprim = UsdGeom.Gprim(prim)
+    matapi = UsdShade.MaterialBindingAPI(gprim)
+    if matapi is not None:
+        # matname = matapi.GetDirectBindingRel().GetTargets()[0].pathString
+        gdbr = matapi.GetDirectBindingRel()
+        targets = gdbr.GetTargets()
+        if len(targets)>0:
+            matname = targets[0].pathString
+            # primpath = prim.GetPath().pathString
+            primpath = prim.GetPath()
+            ppstr = primpath.pathString
+            dict[ppstr] = matname
+            nhit += 1
+    children = prim.GetChildren()
+    for child_prim in children:
+        nhit += build_material_dict_recur(stage, dict, child_prim, level+1)
+    return nhit
+
+def build_material_dict(stage,primname):
+    prim = stage.GetPrimAtPath(primname)
+    dict = {}
+    build_material_dict_recur(stage, dict, prim, 0)
+    return dict
+
 def apply_material_to_prim_and_children_recur(stage, material, prim, level):
     if level > 32:
+        carb.log_warn("apply_material_to_prim_and_children_recur - level too deep ({level})")
         return 0
     nhit = 0
     gprim = UsdGeom.Gprim(prim)
@@ -230,8 +260,8 @@ def apply_material_to_prim_and_children_recur(stage, material, prim, level):
         matapi.Bind(material)
         nhit += 1
     children = prim.GetChildren()
-    for child in children:
-        nhit += apply_material_to_prim_and_children_recur(stage, material, child, level+1)
+    for child_prim in children:
+        nhit += apply_material_to_prim_and_children_recur(stage, material, child_prim, level+1)
     return nhit
 
 def apply_material_to_prim_and_children(stage, matman, matname, primname):
@@ -240,9 +270,34 @@ def apply_material_to_prim_and_children(stage, matman, matname, primname):
     nhit = apply_material_to_prim_and_children_recur(stage, material, prim, 0)
     return nhit
 
+def apply_matdict_to_prim_and_children_recur(stage, matdict, prim, level):
+    if level > 32:
+        carb.log_warn("apply_material_to_prim_and_children_recur - level too deep ({level})")
+        return 0
+    nhit = 0
+    gprim = UsdGeom.Gprim(prim)
+    path = prim.GetPath()
+    mpath = matdict.get(path.pathString)
+    if mpath is not None:
+        material = UsdShade.Material(stage.GetPrimAtPath(mpath))
+        matapi = UsdShade.MaterialBindingAPI(gprim)
+        if matapi is not None:
+            matapi.Bind(material)
+            nhit += 1
+
+    children = prim.GetChildren()
+    for child_prim in children:
+        nhit += apply_matdict_to_prim_and_children_recur(stage, matdict, child_prim, level+1)
+    return nhit
+
+def apply_matdict_to_prim_and_children(stage, matdict, primname):
+    prim = stage.GetPrimAtPath(primname)
+    nhit = apply_matdict_to_prim_and_children_recur(stage, matdict, prim, 0)
+    return nhit
 
 def apply_convex_decomposition_to_mesh_and_children_recur(stage, prim, level):
     if level > 12:
+        carb.log_warn("apply_convex_decomposition_to_mesh_and_children_recur - level too deep ({level})")
         return 0
     # https://forums.developer.nvidia.com/t/script-for-convex-decomposition-collisions/259649/2
     # collApi = UsdPhysics.CollisionAPI(prim)
@@ -265,8 +320,8 @@ def apply_convex_decomposition_to_mesh_and_children_recur(stage, prim, level):
         # # aproxatr.Set(UsdPhysics.Tokens.convexDecomposition)
         # collApi.GetAttribute("physics:approximation").Set("convexDecomposition")
     children = prim.GetChildren()
-    for child in children:
-        nhit += apply_convex_decomposition_to_mesh_and_children_recur(stage, child, level+1)
+    for child_prim in children:
+        nhit += apply_convex_decomposition_to_mesh_and_children_recur(stage, child_prim, level+1)
     return nhit
 
 def apply_convex_decomposition_to_mesh_and_children(stage, primname):
@@ -277,6 +332,7 @@ def apply_convex_decomposition_to_mesh_and_children(stage, primname):
 
 def apply_diable_gravity_to_rigid_bodies_recur(stage, prim, level, disableGravity=True):
     if level > 12:
+        carb.log_warn("apply_diable_gravity_to_rigid_bodies_recur - level too deep ({level})")
         return 0
     nhit = 0
     schemas = prim.GetAppliedSchemas()
@@ -303,6 +359,7 @@ def apply_diable_gravity_to_rigid_bodies(stage, primname,  disableGravity=True):
 
 def delete_articulations_recur(stage, prim, level):
     if level>12:
+        carb.log_warn("delete_articulations_recur - level too deep ({level})")
         return 0
     nhit = 0
     if level>0:
@@ -411,4 +468,3 @@ def add_camera_to_robot(robot_name,robot_id,robot_prim_path):
         campath = add_cam(robot_name, camera_root)
 
     return campath
-

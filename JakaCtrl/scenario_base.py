@@ -1,10 +1,15 @@
 import os
 import numpy as np
 import lula
+import copy
+
 from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelper
 from .matman import MatMan
 from pxr import Usd, UsdGeom, UsdShade, Gf
 from typing import Tuple, List
+import omni
+import omni.ui as ui
+from omni.kit.widget.viewport import ViewportWidget
 
 from omni.isaac.core.utils.stage import get_current_stage
 
@@ -12,8 +17,9 @@ from omni.isaac.core.prims import XFormPrim
 
 from .scenario_robot_configs import get_robot_config, init_configs
 
-from .senut import find_prim_by_name, find_prims_by_name
-from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
+from .senut import find_prims_by_name
+from .senut import build_material_dict, apply_material_to_prim_and_children
+from .senut import apply_matdict_to_prim_and_children
 
 import carb.settings
 
@@ -145,22 +151,58 @@ class ScenarioBase:
         self.camlist[cam_name]["display_name"] = cam_display_name
         self.camlist[cam_name]["usdpath"] = campath
 
+    def check_alarm_status(self, rcfg):
+        art = rcfg._articulation
+        pos = art.get_joint_positions()
+        nalarm = 0
+        for j,jn in enumerate(rcfg.joint_names):
+            rcfg.joint_lamda[j] = (pos[j] - rcfg.lower_joint_limits[j])/rcfg.joint_range[j]
+            toolo = pos[j] < rcfg.joint_alarm_llim[j]
+            toohi = pos[j] > rcfg.joint_alarm_ulim[j]
+            if toolo or toohi:
+                rcfg.joint_alarm[j] = True
+                nalarm += 1
+            else:
+                rcfg.joint_alarm[j] = False
+        return nalarm
 
-    def register_articulation(self, articulation, rc=None):
+
+    def register_articulation(self, articulation, rcfg=None):
         # this has to happen in post_load_scenario - some initialization must be happening before this
         # probably as a result of articuation being added to the world.scene
         # self._articulation = articulation
-        if rc is None:
-            rc = self._robcfg
-        rc._articulation = articulation
-        rc.lower_joint_limits = self._articulation.dof_properties["lower"]
-        rc.upper_joint_limits = self._articulation.dof_properties["upper"]
-        rc.njoints = self._articulation.num_dof
-        rc.joint_names = self._articulation.dof_names
-        rc.joint_zero_pos = np.zeros(self._robcfg.njoints)
+        if rcfg is None:
+            rcfg = self._robcfg
+
+        art = articulation
+        rcfg._articulation = art
+
+        rcfg.lower_joint_limits = self._articulation.dof_properties["lower"]
+        rcfg.upper_joint_limits = self._articulation.dof_properties["upper"]
+        rcfg.njoints = self._articulation.num_dof
+        rcfg.joint_names = self._articulation.dof_names
+        rcfg.joint_zero_pos = np.zeros(self._robcfg.njoints)
+
+        pos = art.get_joint_positions()
+        props = art.dof_properties
+        stiffs = props["stiffness"]
+        damps = props["damping"]
+        rcfg.joint_alarm_llim = np.zeros(rcfg.njoints)
+        rcfg.joint_alarm_ulim = np.zeros(rcfg.njoints)
+        rcfg.orig_joint_pos =  copy.deepcopy(pos)
+        lower_alarm_gap = 0.1
+        upper_alarm_gap = 0.1
+        rcfg.joint_alarm = np.zeros(rcfg.njoints, dtype=bool)
+        rcfg.joint_range = np.zeros(rcfg.njoints)
+        rcfg.joint_lamda = np.zeros(rcfg.njoints)
+        for j,jn in enumerate(rcfg.joint_names):
+            llim = rcfg.lower_joint_limits[j]
+            ulim = rcfg.upper_joint_limits[j]
+            rcfg.joint_range[j] = ulim - llim
+            rcfg.joint_alarm_llim[j] = llim + lower_alarm_gap*(ulim-llim)
+            rcfg.joint_alarm_ulim[j] = ulim - upper_alarm_gap*(ulim-llim)
+        self.check_alarm_status(rcfg)
         print("senut.register_articulation")
-        # print(f"{self._cfg_robot_name} - njoints:{self._cfg_njoints} lower:{self._cfg_lower_joint_limits} upper:{self._cfg_upper_joint_limits}")
-        # print(f"{self._cfg_robot_name} - {self._cfg_joint_names}")
 
     def load_scenario(self, robot_name="default", ground_opt="default"):
         self._matman = MatMan(get_current_stage())
@@ -203,10 +245,24 @@ class ScenarioBase:
            if self._show_rmp_target:
                self.visualize_rmp_target()
 
+
+    def restore_robot_skins(self):
+        if hasattr(self, "_robcfg"):
+            if hasattr(self._robcfg, "orimat"):
+                matdict = self._robcfg.orimat
+                nchg = apply_matdict_to_prim_and_children(self._stage, matdict, self._robcfg.robot_prim_path)
+                print(f"restore_robot_skins - {nchg} materials restored for {self._robcfg.robot_prim_path}")
+        if hasattr(self, "_robcfg1"):
+            if hasattr(self._robcfg1, "orimat"):
+                matdict = self._robcfg1.orimat
+                nchg = apply_matdict_to_prim_and_children(self._stage, matdict, self._robcfg1.robot_prim_path)
+                print(f"restore_robot_skins - {nchg} materials restored for {self._robcfg1.robot_prim_path}")
+
+
     def realize_robot_skin(self, skinopt):
         match skinopt:
-            case "Default":
-                carb.log_warn("realize_robot_skin - skinopt is default - no action taken")
+            case "Default"|"default":
+                self.restore_robot_skins()
                 return
             case "Clear Glass":
                 mat1 = mat2 =  "Clear_Glass"
@@ -230,6 +286,7 @@ class ScenarioBase:
         print(f"realize_robot_skin robskin opt {skinopt} mat1:{mat1} mat2:{mat2}")
 
         didone = False
+        self.ensure_orimat()
         if hasattr(self, "_robcfg"):
             apply_material_to_prim_and_children(self._stage, self._matman, mat1, self._robcfg.robot_prim_path)
             didone = True
@@ -389,6 +446,42 @@ class ScenarioBase:
         else:
             return None
 
+    def ensure_orimat(self):
+        if hasattr(self, "_robcfg"):
+            if not hasattr(self._robcfg, "orimat"):
+                self._robcfg.orimat = build_material_dict(self._stage, self._robcfg.robot_prim_path)
+        if hasattr(self, "_robcfg1"):
+            if not hasattr(self._robcfg1, "orimat"):
+                self._robcfg1.orimat = build_material_dict(self._stage, self._robcfg1.robot_prim_path)
+
+
+    def joint_check_robot(self,rcfg):
+        degs = 180/np.pi
+        art = rcfg._articulation
+        pos = art.get_joint_positions()
+        props = art.dof_properties
+        # stiffs = props["stiffness"]
+        # damps = props["damping"]
+        for j,jn in enumerate(rcfg.joint_names):
+            # stiff = stiffs[j]
+            # damp = damps[j]
+            jpos = degs*pos[j]
+            llim = degs*rcfg.lower_joint_limits[j]
+            ulim = degs*rcfg.upper_joint_limits[j]
+            denom = ulim - llim
+            if denom == 0:
+                denom = 1
+            pct = 100*(jpos - llim)/denom
+            if pct<10 or 90>pct:
+                clr = "green"
+
+
+    def joint_check(self):
+        self.ensure_orimat()
+        if hasattr(self, "_robcfg"):
+            self.joint_check_robot(self._robcfg)
+        if hasattr(self, "_robcfg1"):
+            self.joint_check_robot(self._robcfg1)
 
     def scenario_action(self, action_name, action_args):
         match action_name:
@@ -400,7 +493,8 @@ class ScenarioBase:
                     return
                 self.wtit = self.make_camera_views()
                 # ui.Workspace.show_window(self.wtit,True)
-                pass
+            case "Camera Viewports":
+                self.joint_check()
 
     def get_scenario_actions(self):
-        return ["Camera Viewports"]
+        return ["Camera Viewports","Joint Check"]

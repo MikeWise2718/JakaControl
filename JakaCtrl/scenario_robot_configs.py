@@ -460,6 +460,7 @@ def get_robot_config(robot_name, skiplula=False):
     rc.stiffness = stiffness
     rc.damping = damping
     rc.mopo_robot_name = mopo_robot_name
+    rc.material = "default"
 
     rc.mg_extension_dir = mg_extension_dir
     rc.rmp_config_dir = rmp_config_dir

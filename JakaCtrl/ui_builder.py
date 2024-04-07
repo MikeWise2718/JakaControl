@@ -473,6 +473,8 @@ class UIBuilder:
         pos = art.get_joint_positions()
         newjpos = pos[jidx] + inc*np.pi/180
         art.set_joint_positions(joint_indices=jidxlist, positions=[newjpos])
+        self.update_joint_vals(robot_idx, joint_idx)
+
 
         print(f"_rot_robot_joint robot_idx:{robot_idx} joint_idx {joint_idx} ({jname}) by {inc} degrees")
 
@@ -480,7 +482,7 @@ class UIBuilder:
         print("_load_robot_joints")
         self.rob_joints_vstack.clear()
         self.rob_config_stack = ui.VStack(style=get_style(), spacing=5, height=0)
-        self.cfg_joint_dict = {}
+        self.joint_ui_dict = {}
         self.config_line_list = []
         nrobots = self._cur_scenario._nrobots
         with self.rob_joints_vstack:
@@ -505,39 +507,62 @@ class UIBuilder:
         with hstack:
             lab =ui.Label(f"Robot {robot_idx}", style={'color': self.btwhite}, width=120)
         self.rob_joints_vstack.add_child(hstack)
+        if not hasattr(rc, "_articulation"):
+            carb.log_warn(f"Robot {robot_idx} has no articulation - probably not initialized yet")
+            return
         art = rc._articulation
-        pos = art.get_joint_positions()
         props = art.dof_properties
-        stiffs = props["stiffness"]
-        damps = props["damping"]
+        self.joint_inc_step = 5
         for j,jn in enumerate(rc.joint_names):
             self.config_line_list.append(f"{jn}")
             hstack = ui.HStack(style=get_style(), spacing=5, height=0)
             def rot_joint(j,jn,inc):
-                return lambda: self._rot_robot_joint(robot_idx,j,jn,inc)
+                rinc = self.joint_inc_step*inc
+                return lambda: self._rot_robot_joint(robot_idx,j,jn,rinc)
             with hstack:
-                stiff = stiffs[j]
-                damp = damps[j]
-                jpos = degs*pos[j]
-                llim = degs*rc.lower_joint_limits[j]
-                ulim = degs*rc.upper_joint_limits[j]
-                denom = ulim - llim
-                if denom == 0:
-                    denom = 1
-                pct = 100*(jpos - llim)/denom
-                txt1 = f"{j}: {jn}"
-                txt2 = f"s-d: {stiff:.1f} {damp:.1f}"
-                txt3 = f"jlim: {llim:.1f} to {ulim:.1f}"
-                txt4 = f"cur: {jpos:.1f}  ({pct:.1f}%)"
-                lab1 = ui.Label(txt1, style={'color': self.btcyan}, width=120)
-                lab2 = ui.Label(txt2, style={'color': self.btwhite}, width=120)
-                lab3 = ui.Label(txt3, style={'color': self.btwhite}, width=120)
-                but1 = ui.Button("+", clicked_fn=rot_joint(j,jn,5), style={'background_color': self.dkgreen})
-                but2 = ui.Button("-", clicked_fn=rot_joint(j,jn,-5), style={'background_color': self.dkgreen})
-                clr = self.btwhite if 10<pct and pct<90 else self.btred
-                lab4 = ui.Label(txt4, style={'color': clr}, width=120)
+                labstyle = {'color': self.btwhite}
+                btnstyle = {'background_color': self.dkgreen}
+                lab1 = ui.Label("", style=labstyle, width=120)
+                lab2 = ui.Label("", style=labstyle, width=120)
+                lab3 = ui.Label("", style=labstyle, width=120)
+                but1 = ui.Button("", clicked_fn=rot_joint(j,jn,1), style=btnstyle)
+                but2 = ui.Button("", clicked_fn=rot_joint(j,jn,-1), style=btnstyle)
+                lab4 = ui.Label("", style=labstyle, width=120)
+            self.joint_ui_dict[(robot_idx,jn)] = (lab1, lab2, lab3, but1, but2, lab4)
             self.rob_joints_vstack.add_child(hstack)
+            self.update_joint_vals(robot_idx, j)
         print("done _load_robot_joints")
+
+    def update_joint_vals(self, robot_idx, joint_idx):
+        rc = self.get_robot_config(robot_idx)
+        self._cur_scenario.check_alarm_status(rc)
+        j = joint_idx
+        jn = rc.joint_names[j]
+        art = rc._articulation
+        pos = art.get_joint_positions()
+        props = art.dof_properties
+        stiff = props["stiffness"][j]
+        damp = props["stiffness"][j]
+        degs = 180/np.pi
+        jpos = degs*pos[j]
+        llim = degs*rc.lower_joint_limits[j]
+        ulim = degs*rc.upper_joint_limits[j]
+        lmb = 100*rc.joint_lamda[j]
+        txt1 = f"{j}: {jn}"
+        txt2 = f"s-d: {stiff:.1f} {damp:.1f}"
+        txt3 = f"jlim: {llim:.1f} to {ulim:.1f}"
+        txt4 = f"cur: {jpos:.1f}  ({lmb:.1f}%)"
+        uientry = self.joint_ui_dict[(robot_idx,jn)]
+        clr = self.btred if rc.joint_alarm[j] else self.btwhite
+        lab4style={'color': clr}
+        (lab1, lab2, lab3, but1, but2, lab4) = uientry
+        lab1.text = txt1
+        lab2.text = txt2
+        lab3.text = txt3
+        lab4.text = txt4
+        but1.text = "+"
+        but2.text = "-"
+        lab4.set_style(lab4style)
 
 
     def pick_scenario(self, scenario_name):

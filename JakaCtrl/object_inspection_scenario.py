@@ -326,10 +326,11 @@ class ObjectInspectionScenario(ScenarioBase):
              target1_position, target1_orientation
         )
 
-        action = self._articulation_rmpflow.get_next_articulation_action(step_size)
-        self._articulation.apply_action(action)
-        action1 = self._articulation_rmpflow1.get_next_articulation_action(step_size)
-        self._articulation1.apply_action(action1)
+        if self.rmpactive:
+            action = self._articulation_rmpflow.get_next_articulation_action(step_size)
+            self._articulation.apply_action(action)
+            action1 = self._articulation_rmpflow1.get_next_articulation_action(step_size)
+            self._articulation1.apply_action(action1)
 
     def teardown_scenario(self):
         pass
