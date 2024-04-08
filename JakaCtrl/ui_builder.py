@@ -70,7 +70,9 @@ class UIBuilder:
     _rmptarg_vis = "Invisible"
     _rotate_opts = ["None", "RotateForward", "none", "RotateBackward"]
     _rotate_opt = "None"
-    _robskin_opts = ["Default", "Clear Glass", "Red Glass","Green Glass","Blue Glass", "Red/Green Glass", "Red/Blue Glass", "Green/Blue Glass"]
+    _robskin_opts = ["Default",
+                     "Clear Glass","Tinted Glass 85","Tinted Glass 75","Tinted Glass",
+                     "Red Glass","Green Glass","Blue Glass", "Red/Green Glass", "Red/Blue Glass", "Green/Blue Glass"]
     _robskin_opt = "Default"
 
     def __init__(self):
@@ -350,23 +352,23 @@ class UIBuilder:
         with robot_config_frame:
             self.rob_config_vstack = ui.VStack(style=get_style(), spacing=5, height=0)
             with self.rob_config_vstack:
-                self._load_robot_config_btn = Button(
-                        "Load Robot Config", clicked_fn=self._load_robot_config,
+                self._show_robot_config_btn = Button(
+                        "Show Robot Config", clicked_fn=self._show_robot_config,
                         style={'background_color': self.dkblue}
                 )
-                self._load_robot_config_btn.enabled = True
-                # self.wrapped_ui_elements.append(self._load_robot_config_btn)
+                self._show_robot_config_btn.enabled = True
+                # self.wrapped_ui_elements.append(self._show_robot_config_btn)
 
-        robot_joints_frame = CollapsableFrame("Robot Joints")
+        robot_joints_frame = CollapsableFrame("Robot DOF Joints")
 
         with robot_joints_frame:
             self.rob_joints_vstack = ui.VStack(style=get_style(), spacing=5, height=0)
             with self.rob_joints_vstack:
-                self._load_robot_joint_btn = Button(
-                        "Load Robot Joints", clicked_fn=self._load_robot_joints,
+                self._show_robot_joint_btn = Button(
+                        "Show Robot DOF Joints", clicked_fn=self._show_robot_joint_values,
                         style={'background_color': self.dkblue}
                 )
-                self._load_robot_joint_btn.enabled = True
+                self._show_robot_joint_btn.enabled = True
 
 
     ######################################################################################
@@ -411,8 +413,8 @@ class UIBuilder:
     def get_robot_config(self, index=0):
         return self._cur_scenario.get_robot_config(index)
 
-    def _load_robot_config(self, index=0):
-        print("_load_robot_config")
+    def _show_robot_config(self, index=0):
+        print("_show_robot_config")
         self.rob_config_vstack.clear()
         self.cfg_lab_dict = {}
         self.config_line_list = []
@@ -420,10 +422,10 @@ class UIBuilder:
         with self.rob_config_vstack:
             with ui.HStack(style=get_style(), spacing=5, height=0):
                 for i in range(nrobots):
-                    def load_config(i):
-                        return lambda: self._load_robot_config(i)
+                    def show_config(i):
+                        return lambda: self._show_robot_config(i)
                     butt = Button(
-                            f"Load Robot Config {i}", clicked_fn=load_config(i),
+                            f"Show Robot Config {i}", clicked_fn=show_config(i),
                             style={'background_color': self.dkblue}
                     )
                     butt.enabled = True
@@ -439,7 +441,7 @@ class UIBuilder:
         gn = self.btgreen
         yt = self.btyellow
         cy = self.btcyan
-        self._add_title("Parameters", bl)
+        self._add_title("Identity", bl)
         self._load_one_param(rc, "robot_name", cy)
         self._load_one_param(rc, "robot_id", cy)
         self._load_one_param(rc, "manufacturer", cy)
@@ -449,6 +451,8 @@ class UIBuilder:
         self._load_one_param(rc, "robot_prim_path", cy)
         self._load_one_param(rc, "ground_opt", cy)
         self._load_one_param(rc, "eeframe_name", cy)
+
+        self._add_title("Parameters", bl)
         self._load_one_param(rc, "max_step_size", cy)
         self._load_one_param(rc, "stiffness", cy)
         self._load_one_param(rc, "damping", cy)
@@ -463,7 +467,7 @@ class UIBuilder:
         self._load_one_param(rc, "rdf_path", yt)
         self._load_one_param(rc, "rmp_config_path", yt)
         self._load_one_param(rc, "robot_usd_file_path", yt)
-        print("done _load_robot_config")
+        print("done _show_robot_config")
 
     def _rot_robot_joint(self, robot_idx, joint_idx, jname, inc):
         rc = self.get_robot_config(robot_idx)
@@ -473,13 +477,12 @@ class UIBuilder:
         pos = art.get_joint_positions()
         newjpos = pos[jidx] + inc*np.pi/180
         art.set_joint_positions(joint_indices=jidxlist, positions=[newjpos])
-        self.update_joint_vals(robot_idx, joint_idx)
-
+        self.refresh_robot_joint_values(robot_idx, joint_idx)
 
         print(f"_rot_robot_joint robot_idx:{robot_idx} joint_idx {joint_idx} ({jname}) by {inc} degrees")
 
-    def _load_robot_joints(self, robot_idx=0):
-        print("_load_robot_joints")
+    def _show_robot_joint_values(self, robot_idx=0):
+        print("_show_robot_joints")
         self.rob_joints_vstack.clear()
         self.rob_config_stack = ui.VStack(style=get_style(), spacing=5, height=0)
         self.joint_ui_dict = {}
@@ -488,10 +491,10 @@ class UIBuilder:
         with self.rob_joints_vstack:
             with ui.HStack(style=get_style(), spacing=5, height=0):
                 for i in range(nrobots):
-                    def load_config(i):
-                        return lambda: self._load_robot_joints(i)
+                    def show_robot_config(i):
+                        return lambda: self._show_robot_joint_values(i)
                     butt = Button(
-                            f"Load Robot Joints {i}", clicked_fn=load_config(i),
+                            f"Show Robot Joints {i}", clicked_fn=show_robot_config(i),
                             style={'background_color': self.dkblue}
                     )
                     butt.enabled = True
@@ -502,18 +505,16 @@ class UIBuilder:
                 self._copy_clipboard_btn.enabled = True
 
         rc = self.get_robot_config(robot_idx)
-        degs = 180/np.pi
         hstack = ui.HStack(style=get_style(), spacing=5, height=0)
         with hstack:
-            lab =ui.Label(f"Robot {robot_idx}", style={'color': self.btwhite}, width=120)
+            ui.Label(f"Robot {rc.robot_name} - {robot_idx}", style={'color': self.btwhite}, width=120)
+            labtime = ui.Label("", style={'color': self.btwhite}, width=120)
         self.rob_joints_vstack.add_child(hstack)
         if not hasattr(rc, "_articulation"):
             carb.log_warn(f"Robot {robot_idx} has no articulation - probably not initialized yet")
             return
-        art = rc._articulation
-        props = art.dof_properties
         self.joint_inc_step = 5
-        for j,jn in enumerate(rc.joint_names):
+        for j,jn in enumerate(rc.dof_names):
             self.config_line_list.append(f"{jn}")
             hstack = ui.HStack(style=get_style(), spacing=5, height=0)
             def rot_joint(j,jn,inc):
@@ -528,42 +529,49 @@ class UIBuilder:
                 but1 = ui.Button("", clicked_fn=rot_joint(j,jn,1), style=btnstyle)
                 but2 = ui.Button("", clicked_fn=rot_joint(j,jn,-1), style=btnstyle)
                 lab4 = ui.Label("", style=labstyle, width=120)
-            self.joint_ui_dict[(robot_idx,jn)] = (lab1, lab2, lab3, but1, but2, lab4)
+            self.joint_ui_dict[(robot_idx,j,jn)] = (labtime, lab1, lab2, lab3, but1, but2, lab4)
             self.rob_joints_vstack.add_child(hstack)
-            self.update_joint_vals(robot_idx, j)
-        print("done _load_robot_joints")
+            self.refresh_robot_joint_values(robot_idx, j)
+        print("done _show_robot_joints")
 
-    def update_joint_vals(self, robot_idx, joint_idx):
+    def refresh_robot_joint_values(self, robot_idx, joint_idx):
         rc = self.get_robot_config(robot_idx)
         self._cur_scenario.check_alarm_status(rc)
+        txttime = f"Secs: {self._cur_scenario.global_time:.3f}"
         j = joint_idx
-        jn = rc.joint_names[j]
+        jn = rc.dof_names[j]
         art = rc._articulation
         pos = art.get_joint_positions()
         props = art.dof_properties
         stiff = props["stiffness"][j]
-        damp = props["stiffness"][j]
+        damp = props["damping"][j]
         degs = 180/np.pi
         jpos = degs*pos[j]
-        llim = degs*rc.lower_joint_limits[j]
-        ulim = degs*rc.upper_joint_limits[j]
-        lmb = 100*rc.joint_lamda[j]
+        llim = degs*rc.lower_dof_lim[j]
+        ulim = degs*rc.upper_dof_lim[j]
+        lmb = 100*rc.dof_lamda[j]
+        jtyp = rc.dof_types[j]
         txt1 = f"{j}: {jn}"
-        txt2 = f"s-d: {stiff:.1f} {damp:.1f}"
-        txt3 = f"jlim: {llim:.1f} to {ulim:.1f}"
-        txt4 = f"cur: {jpos:.1f}  ({lmb:.1f}%)"
-        uientry = self.joint_ui_dict[(robot_idx,jn)]
-        clr = self.btred if rc.joint_alarm[j] else self.btwhite
-        lab4style={'color': clr}
-        (lab1, lab2, lab3, but1, but2, lab4) = uientry
+        txt2 = f"{llim:.1f} to {ulim:.1f}"
+        txt3 = f" cur: {jpos:.1f}  ({lmb:.1f}%)"
+        txt4 = f"{jtyp}  --  stiff-damp: {stiff:8.1f} {damp:8.1f}"
+        uientry = self.joint_ui_dict[(robot_idx,j,jn)]
+        clr = self.btred if rc.dof_alarm[j] else self.btwhite
+        alarmstyle={'color': clr}
+        (labtime, lab1, lab2, lab3, but1, but2, lab4) = uientry
+        labtime.text = txttime
         lab1.text = txt1
         lab2.text = txt2
         lab3.text = txt3
         lab4.text = txt4
         but1.text = "+"
         but2.text = "-"
-        lab4.set_style(lab4style)
+        lab3.set_style(alarmstyle)
 
+    def refresh_open_robot_joint_values(self):
+        if hasattr(self, "joint_ui_dict"):
+            for (robot_idx,j,_) in self.joint_ui_dict:
+                self.refresh_robot_joint_values(robot_idx, j)
 
     def pick_scenario(self, scenario_name):
         if scenario_name == "sinusoid-joint":
@@ -768,6 +776,7 @@ class UIBuilder:
             step (float): The dt of the current physics step
         """
         self._cur_scenario.update_scenario(step)
+        self.refresh_open_robot_joint_values()
 
     def _on_run_scenario_a_text(self):
         """

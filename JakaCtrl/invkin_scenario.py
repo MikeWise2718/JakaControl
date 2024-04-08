@@ -123,7 +123,7 @@ class InvkinScenario(ScenarioBase):
         self.register_articulation(self._articulation) # this has to happen in post_load_scenario
 
         # teleport robot to zeros
-        self._articulation.set_joint_positions(self._robcfg.joint_zero_pos)
+        self._articulation.set_joint_positions(self._robcfg.dof_zero_pos)
 
         # RMPflow config files for supported robots are stored in the motion_generation extension under "/motion_policy_configs"
 
@@ -158,7 +158,7 @@ class InvkinScenario(ScenarioBase):
 
     def reset_scenario(self):
         # self._target.set_world_pose(np.array([0.2,0.2,0.6]),euler_angles_to_quats([0,np.pi,0]))
-        self._articulation.set_joint_positions(self._robcfg.joint_zero_pos)
+        self._articulation.set_joint_positions(self._robcfg.dof_zero_pos)
         ee_position,ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
         self._ee_pos = ee_position
         self._ee_rot = ee_rot_mat
@@ -217,23 +217,23 @@ class InvkinScenario(ScenarioBase):
 
 
     def set_stiffness_for_all_joints(self, stiffness):
-        joint_names = self.lulaHelper.get_active_joints()
-        set_stiffness_for_joints(joint_names, stiffness)
+        active_joints = self.lulaHelper.get_active_joints()
+        set_stiffness_for_joints(active_joints, stiffness)
 
     def set_damping_for_all_joints(self, damping):
-        joint_names = self.lulaHelper.get_active_joints()
-        set_damping_for_joints(joint_names, damping)
+        active_joints = self.lulaHelper.get_active_joints()
+        set_damping_for_joints(active_joints, damping)
 
     def adjust_stiffness_for_all_joints(self,fak):
-        joint_names = self.lulaHelper.get_active_joints()
-        print(f"joint_names:{joint_names} fak:{fak:.2f} tot_stiffness:{self.tot_stiffness_factor:.4e}")
-        adjust_joint_values(joint_names,"stiffness",fak)
+        active_joints = self.lulaHelper.get_active_joints()
+        # print(f"active_joints:{active_joints} fak:{fak:.2f} tot_stiffness:{self.tot_stiffness_factor:.4e}")
+        adjust_joint_values(active_joints,"stiffness",fak)
         self.tot_stiffness_factor = self.tot_stiffness_factor * fak
 
     def adjust_damping_for_all_joints(self,fak):
-        joint_names = self.lulaHelper.get_active_joints()
-        print(f"joint_names:{joint_names} fak:{fak:.2f} tot_damping:{self.tot_damping_factor:.4e}")
-        adjust_joint_values(joint_names,"damping",fak)
+        active_joints = self.lulaHelper.get_active_joints()
+        # print(f"active_joints:{active_joints} fak:{fak:.2f} tot_damping:{self.tot_damping_factor:.4e}")
+        adjust_joint_values(active_joints,"damping",fak)
         self.tot_damping_factor = self.tot_damping_factor * fak
 
     def scenario_action(self, actionname, mouse_button=0 ):

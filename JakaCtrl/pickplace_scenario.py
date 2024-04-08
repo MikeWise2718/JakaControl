@@ -203,12 +203,12 @@ class PickAndPlaceScenario(ScenarioBase):
         self._start_robot_rot = rot
 
     def set_stiffness_for_all_joints(self, stiffness):
-        joint_names = self._rmpflow.get_active_joints()
-        set_stiffness_for_joints(joint_names, stiffness)
+        active_joints = self._rmpflow.get_active_joints()
+        set_stiffness_for_joints(active_joints, stiffness)
 
     def set_damping_for_all_joints(self, damping):
-        joint_names = self._rmpflow.get_active_joints()
-        set_damping_for_joints(joint_names, damping)
+        active_joints = self._rmpflow.get_active_joints()
+        set_damping_for_joints(active_joints, damping)
 
     def post_load_scenario(self):
         print("post_load_scenario - start")
@@ -218,16 +218,22 @@ class PickAndPlaceScenario(ScenarioBase):
         self.register_articulation(self._articulation) # this has to happen in post_load_scenario
 
         if self._robot_name in ["minicobo-rg2-high","minicobo-suction-high"]:
-            self._robcfg.joint_zero_pos[2] = 0.9
-            self._robcfg.joint_zero_pos[4] = 0.9
-            self._articulation.set_joints_default_state(self._robcfg.joint_zero_pos)
+            self._robcfg.dof_zero_pos[2] = 0.9
+            self._robcfg.dof_zero_pos[4] = 0.9
+            self._articulation.set_joints_default_state(self._robcfg.dof_zero_pos)
             self._articulation.initialize()
 
-        # self._articulation.set_joint_positions(self._robcfg.joint_zero_pos)
+        # self._articulation.set_joint_positions(self._robcfg.dof_zero_pos)
+
+        # these always need to exist
+        self.grip_eeori = euler_angles_to_quat(np.array([0,0,0]))
+        self.grip_eeoff = np.array([0,0,0])
 
 
+        if not hasattr(self._articulation, "gripper"):
+            self._articulation.gripper = self.get_gripper()
 
-        self._articulation.gripper = self.get_gripper()
+
         self._robot_id = self._robcfg.robot_id
 
         add_camera_to_robot(self._robot_name, self._robot_id, self._robcfg.robot_prim_path)
@@ -260,13 +266,15 @@ class PickAndPlaceScenario(ScenarioBase):
         self._ee_pos = ee_pos
         self._ee_rot = ee_rot_mat
 
-        print("post_load_scenario - done")
+        print(f"post_load_scenario done - eeori: {self.grip_eeori}")
 
     def reset_scenario(self):
+        print(f"reset_scenario start - eeori: {self.grip_eeori}")
         self.nphysstep_calls = 0
         self.global_time = 0
         self.global_ang = 0
         gripper = self.get_gripper()
+        print(f"reset_scenario after get_gripper - eeori: {self.grip_eeori}")
 
         if self._controller is not None:
             self._controller.reset()
@@ -285,17 +293,16 @@ class PickAndPlaceScenario(ScenarioBase):
                     gripper.open()
 
         if self._robot_name in ["minicobo-rg2-high","minicobo-suction-high"]:
-            self._robcfg.joint_zero_pos[2] = 0.9
-            self._robcfg.joint_zero_pos[4] = 0.9
-            self._articulation.set_joint_positions(self._robcfg.joint_zero_pos)
-
-
+            self._robcfg.dof_zero_pos[2] = 0.9
+            self._robcfg.dof_zero_pos[4] = 0.9
+            self._articulation.set_joint_positions(self._robcfg.dof_zero_pos)
+        print(f"reset_scenario done - eeori: {self.grip_eeori}")
 
     def add_controllers(self):
 
         events_dt = [0.008, 0.005, 0.1,  0.1, 0.005, 0.005, 0.005, 0.1, 0.008, 0.08]
 
-        gripper = self.get_gripper()
+        gripper = self._articulation.gripper
         if gripper is not None:
             if self._robot_name in ["fancy_franka", "franka", "rs007n"]:
                 self._gripper_type = "parallel"
@@ -353,10 +360,14 @@ class PickAndPlaceScenario(ScenarioBase):
     def get_gripper(self):
         art = self._articulation
         if not hasattr(art, "_policy_robot_name"):
-            art._policy_robot_name = self._mopo_robot_name
-        if hasattr(self._articulation,"gripper"):
-            gripper = art.gripper
-            return gripper
+            art._policy_robot_name = self._mopo_robot_name #ugly hack, should remove at some point
+        if hasattr(art,"gripper"):
+            # this is the case for robots with pre-configured grippers
+            if not hasattr(self,"grip_eeori"):
+                self.grip_eeori = euler_angles_to_quat(np.array([0,0,0]))
+            if not hasattr(self,"grip_eeoff"):
+                self.grip_eeoff = np.array([0,0,0])
+            return art.gripper
         else:
             art = self._articulation
             self._gripper_type = "parallel"
@@ -520,10 +531,16 @@ class PickAndPlaceScenario(ScenarioBase):
     global_time = 0
     global_ang = 0
     def physics_step(self, step_size):
-        if self.nphysstep_calls==0:
+        npc = self.nphysstep_calls
+        print(f"physics_step {npc} start - time: {self.global_time:.4f} eeori: {self.grip_eeori} ")
+
+
+        if npc==0:
             robot_base_translation,robot_base_orientation = self._articulation.get_world_pose()
             print(f"physics step zero: robot_base_translation: {robot_base_translation}, robot_base_orientation: {robot_base_orientation}")
             self._rmpflow.set_robot_base_pose(robot_base_translation,robot_base_orientation)
+
+        phase = self._controller._event
 
         if self._robot_name in ["minicobo-rg2-high","minicobo-suction-high"] and self._rotate:
             angvel = 20
@@ -540,8 +557,6 @@ class PickAndPlaceScenario(ScenarioBase):
             rrot = np.array(rot)*np.pi/180
             quat = euler_angles_to_quat(rrot)
             self._rmpflow.set_robot_base_pose(pos ,quat)
-            n = self.nphysstep_calls
-            # print(f"physics_step {n} rotate - step_size: {step_size:.4f} ang: {self.global_ang} phase:{phase}")
 
         if self._show_rmp_target:
             self.visualize_rmp_target()
@@ -569,9 +584,11 @@ class PickAndPlaceScenario(ScenarioBase):
         self._ee_rot = ee_rot_mat
         # print(f"ee_pos:{ee_pos}")
 
+        print(f"physics_step {npc} rotate - time: {self.global_time:.4f} phase:{phase} eeori: {self.grip_eeori} ")
 
-        self.nphysstep_calls += 1
         self.global_time += step_size
+        self.nphysstep_calls += 1
+
         # Only for the pick and place controller, indicating if the state
         # machine reached the final state.
         if self._controller is not None:

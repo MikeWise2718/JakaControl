@@ -20,12 +20,14 @@ from .scenario_robot_configs import get_robot_config, init_configs
 from .senut import find_prims_by_name
 from .senut import build_material_dict, apply_material_to_prim_and_children
 from .senut import apply_matdict_to_prim_and_children
+from .senut import set_stiffness_for_joints, set_damping_for_joints
 
 import carb.settings
 
 
 class ScenarioBase:
     rmpactive = True
+    global_time = 0
 
     def __init__(self):
         self._scenario_name = "empty scenario"
@@ -155,15 +157,15 @@ class ScenarioBase:
         art = rcfg._articulation
         pos = art.get_joint_positions()
         nalarm = 0
-        for j,jn in enumerate(rcfg.joint_names):
-            rcfg.joint_lamda[j] = (pos[j] - rcfg.lower_joint_limits[j])/rcfg.joint_range[j]
-            toolo = pos[j] < rcfg.joint_alarm_llim[j]
-            toohi = pos[j] > rcfg.joint_alarm_ulim[j]
+        for j,jn in enumerate(rcfg.dof_names):
+            rcfg.dof_lamda[j] = (pos[j] - rcfg.lower_dof_lim[j])/rcfg.dof_range[j]
+            toolo = pos[j] < rcfg.dof_alarm_llim[j]
+            toohi = pos[j] > rcfg.dof_alarm_ulim[j]
             if toolo or toohi:
-                rcfg.joint_alarm[j] = True
+                rcfg.dof_alarm[j] = True
                 nalarm += 1
             else:
-                rcfg.joint_alarm[j] = False
+                rcfg.dof_alarm[j] = False
         return nalarm
 
 
@@ -176,31 +178,33 @@ class ScenarioBase:
 
         art = articulation
         rcfg._articulation = art
+        rcfg.dof_paths = art._prim_view._dof_paths
+        rcfg.dof_types = art._prim_view._dof_types
+        rcfg.dof_names = art._prim_view._dof_names
 
-        rcfg.lower_joint_limits = self._articulation.dof_properties["lower"]
-        rcfg.upper_joint_limits = self._articulation.dof_properties["upper"]
+        rcfg.lower_dof_lim = self._articulation.dof_properties["lower"]
+        rcfg.upper_dof_lim = self._articulation.dof_properties["upper"]
         rcfg.njoints = self._articulation.num_dof
-        rcfg.joint_names = self._articulation.dof_names
-        rcfg.joint_zero_pos = np.zeros(self._robcfg.njoints)
+        rcfg.dof_zero_pos = np.zeros(self._robcfg.njoints)
 
         pos = art.get_joint_positions()
         props = art.dof_properties
         stiffs = props["stiffness"]
         damps = props["damping"]
-        rcfg.joint_alarm_llim = np.zeros(rcfg.njoints)
-        rcfg.joint_alarm_ulim = np.zeros(rcfg.njoints)
-        rcfg.orig_joint_pos =  copy.deepcopy(pos)
+        rcfg.dof_alarm_llim = np.zeros(rcfg.njoints)
+        rcfg.dof_alarm_ulim = np.zeros(rcfg.njoints)
+        rcfg.orig_dof_pos =  copy.deepcopy(pos)
         lower_alarm_gap = 0.1
         upper_alarm_gap = 0.1
-        rcfg.joint_alarm = np.zeros(rcfg.njoints, dtype=bool)
-        rcfg.joint_range = np.zeros(rcfg.njoints)
-        rcfg.joint_lamda = np.zeros(rcfg.njoints)
-        for j,jn in enumerate(rcfg.joint_names):
-            llim = rcfg.lower_joint_limits[j]
-            ulim = rcfg.upper_joint_limits[j]
-            rcfg.joint_range[j] = ulim - llim
-            rcfg.joint_alarm_llim[j] = llim + lower_alarm_gap*(ulim-llim)
-            rcfg.joint_alarm_ulim[j] = ulim - upper_alarm_gap*(ulim-llim)
+        rcfg.dof_alarm = np.zeros(rcfg.njoints, dtype=bool)
+        rcfg.dof_range = np.zeros(rcfg.njoints)
+        rcfg.dof_lamda = np.zeros(rcfg.njoints)
+        for j,jn in enumerate(rcfg.dof_names):
+            llim = rcfg.lower_dof_lim[j]
+            ulim = rcfg.upper_dof_lim[j]
+            rcfg.dof_range[j] = ulim - llim
+            rcfg.dof_alarm_llim[j] = llim + lower_alarm_gap*(ulim-llim)
+            rcfg.dof_alarm_ulim[j] = ulim - upper_alarm_gap*(ulim-llim)
         self.check_alarm_status(rcfg)
         print("senut.register_articulation")
 
@@ -272,6 +276,14 @@ class ScenarioBase:
                 mat1 = mat2 =  "Green_Glass"
             case "Blue Glass":
                 mat1 = mat2 =  "Blue_Glass"
+            case "Tinted Glass":
+                mat1 = mat2 =  "Tinted_Glass"
+            case "Tinted Glass 75":
+                mat1 = mat2 =  "Tinted_Glass_R75"
+            case "Tinted Glass 85":
+                mat1 = mat2 =  "Tinted_Glass_R85"
+            case "Tinted Glass 98":
+                mat1 = mat2 =  "Tinted_Glass_R98"
             case "Red/Green Glass":
                 mat1 = "Red_Glass"
                 mat2 = "Green_Glass"
@@ -446,6 +458,15 @@ class ScenarioBase:
         else:
             return None
 
+    def set_stiffness_and_damping_for_all_joints(self, rcfg):
+        if rcfg.stiffness>0:
+            active_joints = rcfg.lulaHelper.get_active_joints()
+            set_stiffness_for_joints(active_joints, rcfg.stiffness)
+        if rcfg.damping>0:
+            active_joints = rcfg.lulaHelper.get_active_joints()
+            set_damping_for_joints(active_joints, rcfg.damping)
+
+
     def ensure_orimat(self):
         if hasattr(self, "_robcfg"):
             if not hasattr(self._robcfg, "orimat"):
@@ -462,12 +483,12 @@ class ScenarioBase:
         props = art.dof_properties
         # stiffs = props["stiffness"]
         # damps = props["damping"]
-        for j,jn in enumerate(rcfg.joint_names):
+        for j,jn in enumerate(rcfg.dof_names):
             # stiff = stiffs[j]
             # damp = damps[j]
             jpos = degs*pos[j]
-            llim = degs*rcfg.lower_joint_limits[j]
-            ulim = degs*rcfg.upper_joint_limits[j]
+            llim = degs*rcfg.lower_dof_lim[j]
+            ulim = degs*rcfg.upper_dof_lim[j]
             denom = ulim - llim
             if denom == 0:
                 denom = 1

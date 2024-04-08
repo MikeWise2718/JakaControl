@@ -120,16 +120,16 @@ def set_damping_for_joint(joint_name, damping):
     val = joint.GetDampingAttr()
     val.Set(damping)
 
-def set_stiffness_for_joints(joint_names, stiffness):
-    for jp in joint_names:
+def set_stiffness_for_joints(active_joints, stiffness):
+    for jp in active_joints:
         set_stiffness_for_joint(jp, stiffness)
 
-def set_damping_for_joints(joint_names, damping):
-    for jp in joint_names:
+def set_damping_for_joints(active_joints, damping):
+    for jp in active_joints:
         set_damping_for_joint(jp, damping)
 
-def adjust_joint_values(joint_names, valname, fak):
-    for jp in joint_names:
+def adjust_joint_values(active_joints, valname, fak):
+    for jp in active_joints:
         adjust_joint_value(jp, valname, fak)
 
 def adjust_joint_value(joint_name, valname, fak):

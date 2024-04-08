@@ -71,8 +71,6 @@ class GripperScenario(ScenarioBase):
 
         self._joint_index = 0
         self._max_joint_speed = 4  # rad/sec
-        # self._lower_joint_limits = None
-        # self._upper_joint_limits = None
 
         self._joint_time = 0
         self._path_duration = 0
@@ -446,7 +444,6 @@ class GripperScenario(ScenarioBase):
                 nhit = apply_material_to_prim_and_children(self._stage, self._matman, self.mat_open, self.gripperActorPath)
 
     nphysstep_calls = 0
-    global_time = 0
     def physics_step(self, step_size):
         if self.nphysstep_calls==0:
             pass
