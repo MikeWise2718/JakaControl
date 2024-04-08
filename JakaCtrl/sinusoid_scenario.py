@@ -152,7 +152,7 @@ class SinusoidJointScenario(ScenarioBase):
         # teleport robot to lower joint range
         # epsilon = 0.001
         # articulation.set_joint_positions(self._lower_joint_limits + epsilon)
-        self._articulation.set_joint_positions(self._robcfg.joint_zero_pos)
+        self._articulation.set_joint_positions(self._robcfg.dof_zero_pos)
 
         self._derive_sinusoid_params(0)
 

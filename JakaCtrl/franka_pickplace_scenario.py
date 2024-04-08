@@ -54,6 +54,8 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
         super().load_scenario(robot_name, ground_opt)
         self._robcfg = self.get_robcfg(robot_name, ground_opt)
 
+
+
         # self.get_robot_config(robot_name, ground_opt)
 
         self._robot_name = robot_name
@@ -237,6 +239,9 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
 
 
     def post_load_scenario(self):
+
+        self.register_articulation(self._articulation) # this has to happen in post_load_scenario
+
         gripper = self.get_gripper()
         if gripper is not None:
             if self._robot_name in ["fancy_franka", "franka", "rs007n"]:
@@ -310,8 +315,8 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
 
         # Only for the pick and place controller, indicating if the state
         # machine reached the final state.
-        if self._controller.is_done():
-            self._world.pause()
+        # if self._controller.is_done():
+        #     self._world.pause()
         return
 
     def setup_scenario(self):
