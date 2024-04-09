@@ -439,13 +439,3 @@ def add_cam(robot_name, cam_root):
     ovcam.set_clipping_range(0.1, 1.0e5)
 
     return ovcam, camera_prim_path
-
-def add_camera_to_robot(robot_name,robot_id,robot_prim_path):
-    #camera_ring_path = "/World/roborg/minicobo_v1_4/dummy_tcp/ring"
-
-    campath = None
-    if robot_name in ["jaka-minicobo-1a","minicobo-dual-sucker"]:
-        camera_root = f"{robot_prim_path}/dummy_tcp"
-        campath = add_cam(robot_name, camera_root)
-
-    return campath

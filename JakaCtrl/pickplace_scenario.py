@@ -37,7 +37,7 @@ from omni.isaac.core.utils.rotations import euler_angles_to_quat
 
 from omni.isaac.core.prims.rigid_prim import RigidPrim
 from .senut import calc_robot_circle_pose, interp, GetXformOps, GetXformOpsFromPath, deg_euler_to_quatd, deg_euler_to_quatf
-from .senut import add_camera_to_robot
+
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
@@ -68,7 +68,7 @@ class PickAndPlaceScenario(ScenarioBase):
     def load_scenario(self, robot_name, ground_opt):
         super().load_scenario(robot_name, ground_opt)
 
-        self._robcfg = self.create_robot_config(robot_name, ground_opt)
+        self._robcfg = self.create_robot_config(robot_name, "/world/roborg", ground_opt)
 
         # self.get_robot_config(robot_name, ground_opt)
 
@@ -236,7 +236,8 @@ class PickAndPlaceScenario(ScenarioBase):
 
         self._robot_id = self._robcfg.robot_id
 
-        add_camera_to_robot(self._robot_name, self._robot_id, self._robcfg.robot_prim_path)
+        # add_camera_to_robot(self._robot_name, self._robot_id, self._robcfg.robot_prim_path)
+        self.add_cameras_to_robots()
 
         self.add_controllers()
 

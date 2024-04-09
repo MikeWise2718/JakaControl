@@ -35,6 +35,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
     stiffness = -1
     damping = -1
     desc = "no description"
+    camera_root = ""
     gripper = "none"
 
     ok = True
@@ -234,8 +235,9 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
             damping = 40
             max_step_size = 0.00334
 
-            grippername = "dual sucker"
+            camera_root = f"{robot_prim_path}/dummy_tcp"
 
+            grippername = "dual sucker"
 
             mfg = "Jaka"
             model = "Minicobo"
@@ -258,6 +260,8 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
             stiffness = 400
             damping = 40
             max_step_size = 0.00334
+
+            camera_root = f"{robot_prim_path}/dummy_tcp"
 
             grippername = "dual sucker"
 
@@ -470,6 +474,8 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
     rc.asv_extension_dir = asimovjaka_extension_dir
 
     rc.artpath = artpath
+
+    rc.camera_root = camera_root
 
     rc.urdf_path = urdf_path
     rc.rdf_path = rdf_path

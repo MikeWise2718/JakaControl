@@ -16,10 +16,14 @@ from omni.kit.widget.viewport import ViewportWidget
 from omni.isaac.core.articulations import Articulation
 
 from omni.isaac.core.utils.stage import get_current_stage
+from omni.isaac.motion_generation import RmpFlow, ArticulationMotionPolicy
+from omni.isaac.core.utils.rotations import euler_angles_to_quat
+
 
 from .scenario_robot_configs import create_and_populate_robot_config, init_configs
 
 from .senut import find_prims_by_name
+from .senut import add_cam
 from .senut import build_material_dict, apply_material_to_prim_and_children
 from .senut import apply_matdict_to_prim_and_children
 from .senut import set_stiffness_for_joints, set_damping_for_joints
@@ -165,6 +169,20 @@ class ScenarioBase:
         self.camlist[cam_name]["display_name"] = cam_display_name
         self.camlist[cam_name]["usdpath"] = campath
 
+    def add_camera_to_robot(self,robot_name,robot_id,robot_prim_path):
+        campath = None
+        if robot_name in ["jaka-minicobo-1a","minicobo-dual-sucker"]:
+            camera_root = f"{robot_prim_path}/dummy_tcp"
+            campath = add_cam(robot_name, camera_root)
+        return campath
+
+    def add_cameras_to_robots(self):
+        for idx in range(self._nrobots):
+            rcfg = self.get_robot_config(idx)
+            if rcfg.camera_root != "":
+                _, campath = add_cam(rcfg.robot_name, rcfg.camera_root)
+                self.add_camera_to_camlist(rcfg.robot_id, rcfg.robot_name, campath)
+
     def check_alarm_status(self, rcfg):
         art = rcfg._articulation
         pos = art.get_joint_positions()
@@ -261,6 +279,62 @@ class ScenarioBase:
             rcfg = self.get_robot_config(i)
             if rcfg is not None:
                 rcfg._articulation.set_joint_positions(rcfg.dof_zero_pos)
+
+    def make_rmpflow(self, rob_idx, oblist = []):
+        rcfg = self.get_robot_config(rob_idx)
+        rmpflow = RmpFlow(
+            robot_description_path = rcfg.rdf_path,
+            urdf_path = rcfg.urdf_path,
+            rmpflow_config_path = rcfg.rmp_config_path,
+            end_effector_frame_name = rcfg.eeframe_name,
+            maximum_substep_size = rcfg.max_step_size
+        )
+        quat = euler_angles_to_quat(rcfg.robot_rotvek)
+        rmpflow.set_robot_base_pose(rcfg.start_robot_pos, quat)
+
+        for ob in oblist:
+            rmpflow.add_obstacle(ob)
+
+        self.set_stiffness_and_damping_for_all_joints(rcfg)
+
+        rmpflow.set_ignore_state_updates(True)
+        rmpflow.visualize_collision_spheres()
+        articulation_rmpflow = ArticulationMotionPolicy(rcfg._articulation,rmpflow)
+        rcfg.rmpflow = rmpflow
+        rcfg.articulation_rmpflow = articulation_rmpflow
+        return rmpflow, articulation_rmpflow
+
+    def make_robot_mpflows(self, oblist = []):
+        for i in range(self._nrobots):
+            self.make_rmpflow(i, oblist)
+
+    def reset_robot_rmpflow(self, rob_idx):
+        rcfg = self.get_robot_config(rob_idx)
+        # rcfg.rmpflow.reset()
+        rcfg.rmpflow.visualize_collision_spheres()
+        rcfg.rmpflow.visualize_end_effector_position()
+
+    def reset_robot_rmpflows(self):
+        for i in range(self._nrobots):
+            self.reset_robot_rmpflow(i)
+
+    def forward_rmpflow_step_for_robot(self, rob_idx, step_size):
+        rcfg = self.get_robot_config(rob_idx)
+        action = rcfg.articulation_rmpflow.get_next_articulation_action(step_size)
+        rcfg._articulation.apply_action(action)
+
+    def forward_rmpflow_step_for_robots(self, step_size):
+        for i in range(self._nrobots):
+            self.forward_rmpflow_step_for_robot(i, step_size)
+
+    def rmpflow_update_world_for_all(self):
+        for i in range(self._nrobots):
+            rcfg = self.get_robot_config(i)
+            rcfg.rmpflow.update_world()
+
+    def set_end_effector_target_for_robot(self, rob_idx, ee_targ_pos, ee_targ_ori):
+        rcfg = self.get_robot_config(rob_idx)
+        rcfg.rmpflow.set_end_effector_target(ee_targ_pos, ee_targ_ori)
 
     def load_scenario(self, robot_name="default", ground_opt="default"):
         self._matman = MatMan(get_current_stage())
