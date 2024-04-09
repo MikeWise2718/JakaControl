@@ -3,17 +3,19 @@ import numpy as np
 import lula
 import copy
 
+import carb
+import carb.settings
 from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelper
 from .matman import MatMan
 from pxr import Usd, UsdGeom, UsdShade, Gf
-from typing import Tuple, List
+from typing import List
 import omni
 import omni.ui as ui
 from omni.kit.widget.viewport import ViewportWidget
 
-from omni.isaac.core.utils.stage import get_current_stage
+from omni.isaac.core.articulations import Articulation
 
-from omni.isaac.core.prims import XFormPrim
+from omni.isaac.core.utils.stage import get_current_stage
 
 from .scenario_robot_configs import create_and_populate_robot_config, init_configs
 
@@ -22,7 +24,9 @@ from .senut import build_material_dict, apply_material_to_prim_and_children
 from .senut import apply_matdict_to_prim_and_children
 from .senut import set_stiffness_for_joints, set_damping_for_joints
 
-import carb.settings
+from omni.isaac.core.utils.stage import add_reference_to_stage
+from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
+from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulationAPI_location_if_needed
 
 
 class ScenarioBase:
@@ -176,11 +180,16 @@ class ScenarioBase:
                 rcfg.dof_alarm[j] = False
         return nalarm
 
+    def register_robot_articulations(self):
+        for idx in range(0,self._nrobots):
+            rcfg = self.get_robot_config(idx)
+            self.register_articulation(rcfg._articulation, rcfg)
 
     def register_articulation(self, articulation, rcfg=None):
         # this has to happen in post_load_scenario - some initialization must be happening before this
         # probably as a result of articuation being added to the world.scene
         # self._articulation = articulation
+        # TODO: once everthing uses register_robot_articulations we can get rid of the articulation parameters
         if rcfg is None:
             rcfg = self._robcfg
 
@@ -216,6 +225,43 @@ class ScenarioBase:
         self.check_alarm_status(rcfg)
         print("senut.register_articulation")
 
+    def setup_robot_for_pose_movement(self, gprim, rcfg, pos, rot):
+        pos = Gf.Vec3d(list(pos))
+        rot = list(rot)
+        rcfg.tranop = gprim.AddTranslateOp()
+        rcfg.zrotop = gprim.AddRotateZOp()
+        rcfg.yrotop = gprim.AddRotateYOp()
+        rcfg.xrotop = gprim.AddRotateXOp()
+        rcfg.tranop.Set(pos)
+        rcfg.zrotop.Set(rot[2])
+        rcfg.yrotop.Set(rot[1])
+        rcfg.xrotop.Set(rot[0])
+        rcfg.start_robot_pos = pos
+        rcfg.start_robot_rot = rot
+        rcfg.robot_rotvek = np.array(rot)*np.pi/180
+
+    def load_robot_into_scene(self, ridx, pos, rot):
+        stage = self._stage
+        rcfg = self.get_robot_config(ridx)
+
+        roborg = UsdGeom.Xform.Define(stage, rcfg.root_usdpath)
+        self.setup_robot_for_pose_movement(roborg, rcfg, pos, rot)
+
+        add_reference_to_stage(rcfg.robot_usd_file_path, rcfg.robot_prim_path)
+        apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg.robot_prim_path)
+        apply_diable_gravity_to_rigid_bodies(stage, rcfg.robot_prim_path)
+
+        adjust_articulationAPI_location_if_needed(stage, rcfg.robot_prim_path)
+        rcfg._articulation = Articulation(rcfg.artpath,f"mico-{ridx}")
+
+        return rcfg._articulation
+
+    def teleport_robots_to_zeropos(self):
+        for i in range(self._nrobots):
+            rcfg = self.get_robot_config(i)
+            if rcfg is not None:
+                rcfg._articulation.set_joint_positions(rcfg.dof_zero_pos)
+
     def load_scenario(self, robot_name="default", ground_opt="default"):
         self._matman = MatMan(get_current_stage())
 
@@ -233,7 +279,6 @@ class ScenarioBase:
 
     def update_scenario(self):
         pass
-
 
     targXformTop = None
     def visualize_rmp_target(self):
@@ -257,7 +302,6 @@ class ScenarioBase:
            if self._show_rmp_target:
                self.visualize_rmp_target()
 
-
     def restore_robot_skins(self):
         if hasattr(self, "_robcfg"):
             if hasattr(self._robcfg, "orimat"):
@@ -269,7 +313,6 @@ class ScenarioBase:
                 matdict = self._robcfg1.orimat
                 nchg = apply_matdict_to_prim_and_children(self._stage, matdict, self._robcfg1.robot_prim_path)
                 print(f"restore_robot_skins - {nchg} materials restored for {self._robcfg1.robot_prim_path}")
-
 
     def realize_robot_skin(self, skinopt):
         match skinopt:
@@ -406,10 +449,7 @@ class ScenarioBase:
                     material = self._matman.GetMaterial("Blue_Glass")
                     UsdShade.MaterialBindingAPI(gprim).Bind(material)
                 elif opt == "Invisible":
-                    # lula = Usd.GetPrimAtPath("lula")
-                    # lula.GetVisibilityAttr().Set(False)
                     gprim.MakeInvisible()
-                    # UsdGeom.Imageable(prim).MakeInvisible()
             except:
                 pass
 
@@ -443,28 +483,8 @@ class ScenarioBase:
                         # We can also switch to a different camera if we know the path to one that exists
                         viewport_api.camera_path = cam["usdpath"]
 
-
-        # from functools import partial
-        # ui.Workspace.set_show_window_fn(wintitle, partial(ui.Workspace.show_window, wintitle))
-
-        # # Add a Menu Item for the window
-        # editor_menu = omni.kit.ui.get_editor_menu()
-        # if editor_menu:
-        #     self._menu = editor_menu.add_item(
-        #         "CamViews", ui.Workspace.show_window, toggle=True, value=True
-        #     )
         self.camviews = camviews
         return wintitle
-
-    # def get_robot_config(self, i):
-    #     if i == 0:
-    #         if hasattr(self, "_robcfg"):
-    #             return self._robcfg
-    #     elif i == 1:
-    #         if hasattr(self, "_robcfg1"):
-    #             return self._robcfg1
-    #     else:
-    #         return None
 
     def set_stiffness_and_damping_for_all_joints(self, rcfg):
         if rcfg.stiffness>0:
@@ -474,7 +494,6 @@ class ScenarioBase:
             active_joints = rcfg.lulaHelper.get_active_joints()
             set_damping_for_joints(active_joints, rcfg.damping)
 
-
     def ensure_orimat(self):
         rc = self.get_robot_config(0)
         if hasattr(self, "_robcfg"):
@@ -483,7 +502,6 @@ class ScenarioBase:
         if hasattr(self, "_robcfg1"):
             if not hasattr(self._robcfg1, "orimat"):
                 self._robcfg1.orimat = build_material_dict(self._stage, self._robcfg1.robot_prim_path)
-
 
     def joint_check_robot(self,rcfg):
         degs = 180/np.pi
@@ -504,7 +522,6 @@ class ScenarioBase:
             pct = 100*(jpos - llim)/denom
             if pct<10 or 90>pct:
                 clr = "green"
-
 
     def joint_check(self):
         self.ensure_orimat()

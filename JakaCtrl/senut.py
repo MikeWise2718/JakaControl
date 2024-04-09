@@ -1,12 +1,8 @@
 import math
-import os
 import numpy as np
-import lula
-from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelper
-from .matman import MatMan
 from pxr import Usd, UsdGeom, UsdShade, Gf, UsdPhysics, UsdPhysics, PhysxSchema
-from typing import Tuple, List
 
+from omni.isaac.core.utils.extensions import get_extension_path_from_name # why do we need this?
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
 
 from pxr import Sdf, UsdLux, UsdPhysics, Usd
@@ -15,12 +11,8 @@ from omni.isaac.core.utils.stage import get_current_stage
 
 from omni.isaac.core.prims import XFormPrim
 
-from omni.isaac.core.utils.extensions import get_extension_path_from_name
-
 import carb.settings
-import omni.kit.app
 from omni.isaac.sensor import Camera
-
 
 _settings = None
 
@@ -66,7 +58,7 @@ def truncf(number, digits) -> float:
     stepper = 10.0 ** digits
     return math.trunc(stepper * number) / stepper
 
-def add_light_to_stage():
+def add_sphere_light_to_stage():
     """
     A new stage does not have a light by default.  This function creates a spherical light
     """
@@ -82,8 +74,6 @@ def add_dome_light_to_stage():
     domeLight = UsdLux.DomeLight.Define(get_current_stage(), Sdf.Path("/World/DomeLight"))
     # domeLight.CreateRadiusAttr(2)
     domeLight.CreateIntensityAttr(1000)
-    # XFormPrim(str(domeLight.GetPath())).set_world_pose([6.5, 0, 12])
-
 
 def find_prims_by_name(prim_name: str):
     stage = get_current_stage()
@@ -300,9 +290,6 @@ def apply_convex_decomposition_to_mesh_and_children_recur(stage, prim, level):
         carb.log_warn("apply_convex_decomposition_to_mesh_and_children_recur - level too deep ({level})")
         return 0
     # https://forums.developer.nvidia.com/t/script-for-convex-decomposition-collisions/259649/2
-    # collApi = UsdPhysics.CollisionAPI(prim)
-    # if collApi is not None:
-    #     collApi.GetPhysicsApproximationAttr().Set(UsdPhysics.Tokens.convexDecomposition)
     nhit = 0
     schemas = prim.GetAppliedSchemas()
     # print("prim:",prim.GetPath()," schemas:",schemas)
@@ -314,11 +301,6 @@ def apply_convex_decomposition_to_mesh_and_children_recur(stage, prim, level):
             if aproxatr is not None:
                 aproxatr.Set(UsdPhysics.Tokens.convexDecomposition)
                 nhit += 1
-            # aaa = collApi.GetAttribute("physics:approximation")
-            # if aaa is not None:
-            #     aaa.Set("convexDecomposition")
-        # # aproxatr.Set(UsdPhysics.Tokens.convexDecomposition)
-        # collApi.GetAttribute("physics:approximation").Set("convexDecomposition")
     children = prim.GetChildren()
     for child_prim in children:
         nhit += apply_convex_decomposition_to_mesh_and_children_recur(stage, child_prim, level+1)
@@ -340,12 +322,9 @@ def apply_diable_gravity_to_rigid_bodies_recur(stage, prim, level, disableGravit
     if "PhysicsRigidBodyAPI" in schemas:
         rigi = UsdPhysics.RigidBodyAPI(prim)
         if rigi is not None:
-            # prapi = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
             physxRigidBody = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
             physxRigidBody.GetDisableGravityAttr().Set(disableGravity)
 
-            # gda = prapi.GetDisableGravityAttr()
-            # gda.Set(True)
     children = prim.GetChildren()
     for child in children:
         nhit += apply_diable_gravity_to_rigid_bodies_recur(stage, child, level+1)
@@ -372,7 +351,7 @@ def delete_articulations_recur(stage, prim, level):
         nhit += delete_articulations_recur(stage, child, level+1)
     return nhit
 
-def adjust_articulation(stage, primname):
+def adjust_articulationAPI_location_if_needed(stage, primname):
     prim = stage.GetPrimAtPath(primname)
     schemas = prim.GetAppliedSchemas()
     nadd = 0
@@ -381,14 +360,16 @@ def adjust_articulation(stage, primname):
         nadd += 1
     schemas = prim.GetAppliedSchemas()
     nhit = delete_articulations_recur(stage, prim, 0)
-    print(f"adjust_articulation - removed {nhit} and added {nadd} articulations from {primname}")
-    return nhit
+    if nhit>0 or nadd>0:
+        msg = f"adjust_articulation - added {nadd} and removed {nhit} articulationAPIs from {primname}"
+        carb.log_info(msg)
+        print(msg)
+    return
 
 def interp(x, x1, x2, y1, y2):
     if (y1==y2):
         return y1
     return y1 + (x-x1)*(y2-y1)/(x2-x1)
-
 
 def add_cam(robot_name, cam_root):
     #camera_ring_path = "/World/roborg/minicobo_v1_4/dummy_tcp/ring"

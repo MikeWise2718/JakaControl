@@ -4,7 +4,6 @@ from pxr import Usd, UsdGeom, Gf
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.core.utils.stage import add_reference_to_stage
 from omni.isaac.core.utils.stage import get_current_stage
-from omni.isaac.core.articulations import Articulation
 from omni.isaac.core.objects.cuboid import FixedCuboid
 from omni.isaac.core.objects import GroundPlane
 from omni.isaac.core.prims import XFormPrim
@@ -16,8 +15,7 @@ from omni.isaac.motion_generation import RmpFlow, ArticulationMotionPolicy
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
 
 from .senut import add_dome_light_to_stage
-from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
-from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulation
+from .senut import apply_material_to_prim_and_children
 
 from .senut import add_camera_to_robot
 
@@ -42,41 +40,6 @@ class ObjectInspectionScenario(ScenarioBase):
         self._scenario_description = ScenarioBase.get_scenario_desc(self._scenario_name)
         self._nrobots = 2
         pass
-
-    def calc_oi_robot_pos(self, cen=[0, 0, 0.85], radius=0.35):
-        ang_rads = np.pi
-        pos = cen + radius*np.array([np.cos(ang_rads), np.sin(ang_rads), 0])
-        pos = Gf.Vec3d(list(pos))
-        return pos
-
-
-    def set_robot_pose(self, gprim, rcfg, pos, rot):
-        rcfg.tranop = gprim.AddTranslateOp()
-        rcfg.zrotop = gprim.AddRotateZOp()
-        rcfg.yrotop = gprim.AddRotateYOp()
-        rcfg.xrotop = gprim.AddRotateXOp()
-        rcfg.tranop.Set(pos)
-        rcfg.zrotop.Set(rot[2])
-        rcfg.yrotop.Set(rot[1])
-        rcfg.xrotop.Set(rot[0])
-        rcfg.start_robot_pos = pos
-        rcfg.start_robot_rot = rot
-        rcfg.robot_rotvek = np.array(rot)*np.pi/180
-
-    def setup_robot(self, ridx, cen, rad, rot):
-        stage = self._stage
-        rcfg = self.get_robot_config(ridx)
-        pos = self.calc_oi_robot_pos(cen=cen, radius=rad)
-
-        roborg = UsdGeom.Xform.Define(stage, rcfg.root_usdpath)
-        self.set_robot_pose(roborg, rcfg, pos, rot)
-
-        add_reference_to_stage(rcfg.robot_usd_file_path, rcfg.robot_prim_path)
-        apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg.robot_prim_path)
-        apply_diable_gravity_to_rigid_bodies(stage, rcfg.robot_prim_path)
-        adjust_articulation(stage, rcfg.robot_prim_path)
-        rcfg._articulation = Articulation(rcfg.artpath,f"mico-{ridx}")
-        return rcfg._articulation
 
     def load_scenario(self, robot_name, ground_opt):
         super().load_scenario(robot_name, ground_opt)
@@ -108,11 +71,13 @@ class ObjectInspectionScenario(ScenarioBase):
 
         # Robot 0
         (cen, rad, rot) = ([-0.08, 0, 0.77], 0, [0, -150, 0])
-        self._articulation = self.setup_robot(0, cen, rad, rot)
+        # self._articulation = self.setup_robot(0, cen, rad, rot)
+        self._articulation = self.load_robot_into_scene(0, cen, rot)
 
         # Robot 1
         (cen1, rad1, rot1) = ([0.14, 0, 0.77], 0, [0, 150, 0])
-        self._articulation1 = self.setup_robot(1, cen1, rad1, rot1)
+        # self._articulation1 = self.setup_robot(1, cen1, rad1, rot1)
+        self._articulation1 = self.load_robot_into_scene(1, cen1, rot1)
 
         world.scene.add(self._articulation)
         world.scene.add(self._articulation1)
@@ -140,29 +105,18 @@ class ObjectInspectionScenario(ScenarioBase):
 
         self._world = world
 
+
+
     def setup_scenario(self):
         print("ObjectInspection setup_scenario")
 
-        self.register_articulation(self._articulation, self._robcfg) # this has to happen in post_load_scenario
-        self.register_articulation(self._articulation1, self._robcfg1) # this has to happen in post_load_scenario
+        self.register_robot_articulations()
 
-        self._running_scenario = True
-
-        self._joint_index = 0
-        self._lower_joint_limits = self._articulation.dof_properties["lower"]
-        self._upper_joint_limits = self._articulation.dof_properties["upper"]
-        self._njoints = self._articulation.num_dof
-        self._zeros = np.zeros(self._njoints)
-        print(f"jaka - njoints:{self._njoints} lower:{self._lower_joint_limits} upper:{self._upper_joint_limits}")
-
-        # teleport robot to lower joint range
-        epsilon = 0.001
-        self._articulation.set_joint_positions(self._zeros + epsilon)
-        self._articulation1.set_joint_positions(self._zeros + epsilon)
+        self.teleport_robots_to_zeropos()
 
         self._obstacle = FixedCuboid("/World/obstacle",size=.05,position=np.array([0.4, 0.0, 1.65]),color=np.array([0.,0.,1.]))
 
-        # Initialize an RmpFlow object
+        # Initialize RmpFlow objects
         self._rmpflow = RmpFlow(
             robot_description_path = self._robcfg.rdf_path,
             urdf_path = self._robcfg.urdf_path,
@@ -173,8 +127,14 @@ class ObjectInspectionScenario(ScenarioBase):
         quat = euler_angles_to_quat(self._robcfg.robot_rotvek)
         self._rmpflow.set_robot_base_pose(self._robcfg.start_robot_pos, quat)
         self._rmpflow.add_obstacle(self._obstacle)
-        # self._rmpflow.add_obstacle(self._cage)
 
+        self.set_stiffness_and_damping_for_all_joints(self._robcfg)
+
+        self._rmpflow.set_ignore_state_updates(True)
+        self._rmpflow.visualize_collision_spheres()
+        self._articulation_rmpflow = ArticulationMotionPolicy(self._articulation,self._rmpflow)
+
+        # Initialize RmpFlow1 objects
         self._rmpflow1 = RmpFlow(
             robot_description_path = self._robcfg1.rdf_path,
             urdf_path = self._robcfg1.urdf_path,
@@ -185,26 +145,21 @@ class ObjectInspectionScenario(ScenarioBase):
         quat = euler_angles_to_quat(self._robcfg1.robot_rotvek)
         self._rmpflow1.set_robot_base_pose(self._robcfg1.start_robot_pos, quat)
         self._rmpflow1.add_obstacle(self._obstacle)
-        # self._rmpflow1.add_obstacle(self._cage)
 
-        self.set_stiffness_and_damping_for_all_joints(self._robcfg)
         self.set_stiffness_and_damping_for_all_joints(self._robcfg1)
 
+        self._rmpflow1.set_ignore_state_updates(True)
+        self._rmpflow1.visualize_collision_spheres()
+
+        self._articulation_rmpflow1 = ArticulationMotionPolicy(self._articulation1,self._rmpflow1)
+
+        # Camera
         _, campath = add_camera_to_robot(self._robcfg.robot_name, self._robcfg.robot_id, self._robcfg.robot_prim_path)
         self.add_camera_to_camlist(self._robcfg.robot_id, self._robcfg.robot_name, campath)
         _, campath = add_camera_to_robot(self._robcfg1.robot_name, self._robcfg1.robot_id, self._robcfg1.robot_prim_path)
         self.add_camera_to_camlist(self._robcfg1.robot_id, self._robcfg1.robot_name, campath)
 
-        self._rmpflow.set_ignore_state_updates(True)
-        self._rmpflow.visualize_collision_spheres()
-        self._rmpflow1.set_ignore_state_updates(True)
-        self._rmpflow1.visualize_collision_spheres()
-
-        self._articulation_rmpflow = ArticulationMotionPolicy(self._articulation,self._rmpflow)
-        self._articulation_rmpflow1 = ArticulationMotionPolicy(self._articulation1,self._rmpflow1)
-
-
-
+        self._running_scenario = True
 
     def reset_scenario(self):
         self._rmpflow.visualize_collision_spheres()

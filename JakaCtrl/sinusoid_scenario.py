@@ -13,7 +13,7 @@ from omni.isaac.core.objects import GroundPlane
 from omni.isaac.core.utils.types import ArticulationAction
 from omni.isaac.core.world import World
 
-from .senut import add_light_to_stage
+from .senut import add_sphere_light_to_stage
 from .scenario_base import ScenarioBase
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
@@ -75,7 +75,7 @@ class SinusoidJointScenario(ScenarioBase):
 
         # self.get_robot_config(robot_name, ground_opt)
 
-        add_light_to_stage()
+        add_sphere_light_to_stage()
 
         # print("Assets root path: ", get_assets_root_path())
         need_to_add_articulation = False

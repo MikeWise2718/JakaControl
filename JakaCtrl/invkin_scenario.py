@@ -19,10 +19,10 @@ from omni.isaac.core.world import World
 
 from omni.isaac.core.utils.numpy.rotations import euler_angles_to_quats, rot_matrices_to_quats
 from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
-from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulation
+from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulationAPI_location_if_needed
 
 
-from .senut import add_light_to_stage
+from .senut import add_sphere_light_to_stage
 from .senut import adjust_joint_values, set_stiffness_for_joints, set_damping_for_joints
 from .scenario_base import ScenarioBase
 
@@ -77,7 +77,7 @@ class InvkinScenario(ScenarioBase):
         self._ground_opt = ground_opt
         self._stage = get_current_stage()
 
-        add_light_to_stage()
+        add_sphere_light_to_stage()
 
         world = World.instance()
         if self._ground_opt == "default":
@@ -107,7 +107,7 @@ class InvkinScenario(ScenarioBase):
         add_reference_to_stage(self._robcfg.robot_usd_file_path, self._robcfg.robot_prim_path)
         apply_convex_decomposition_to_mesh_and_children(self._stage, self._robcfg.robot_prim_path)
         apply_diable_gravity_to_rigid_bodies(stage, self._robcfg.robot_prim_path)
-        adjust_articulation(stage, self._robcfg.robot_prim_path)
+        adjust_articulationAPI_location_if_needed(stage, self._robcfg.robot_prim_path)
 
         self._articulation = Articulation(self._robcfg.artpath)
         world.scene.add(self._articulation)
