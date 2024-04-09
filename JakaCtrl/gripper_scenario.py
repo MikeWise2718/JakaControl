@@ -20,7 +20,7 @@ from omni.isaac.core.objects import GroundPlane
 from omni.isaac.core.utils.types import ArticulationAction
 from omni.isaac.core.world import World
 
-from .senut import add_light_to_stage, deg_euler_to_quat, deg_euler_to_quatd, deg_euler_to_quatf
+from .senut import add_sphere_light_to_stage, deg_euler_to_quat, deg_euler_to_quatd, deg_euler_to_quatf
 from .senut import find_prim_by_name, find_prims_by_name, GetXformOps
 from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
 
@@ -94,7 +94,7 @@ class GripperScenario(ScenarioBase):
         self._stage = get_current_stage()
 
 
-        add_light_to_stage()
+        add_sphere_light_to_stage()
 
         self._robot_name = robot_name
         self._ground_opt = ground_opt

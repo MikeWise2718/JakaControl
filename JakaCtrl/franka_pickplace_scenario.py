@@ -15,7 +15,7 @@ from .universal_robots.omni.isaac.universal_robots.controllers import PickPlaceC
 
 from omni.isaac.core.world import World
 
-from .senut import add_light_to_stage
+from .senut import add_sphere_light_to_stage
 from .scenario_base import ScenarioBase
 
 from omni.asimov.manipulators.grippers.surface_gripper import SurfaceGripper
@@ -52,7 +52,7 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
 
     def load_scenario(self, robot_name, ground_opt):
         super().load_scenario(robot_name, ground_opt)
-        self._robcfg = self.get_robcfg(robot_name, ground_opt)
+        self._robcfg = self.create_robot_config(robot_name, ground_opt)
 
 
 
@@ -61,7 +61,7 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
         self._robot_name = robot_name
         self._ground_opt = ground_opt
 
-        add_light_to_stage()
+        add_sphere_light_to_stage()
 
        # print("Assets root path: ", get_assets_root_path())
         need_to_add_articulation = False

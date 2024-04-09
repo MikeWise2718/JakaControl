@@ -3,26 +3,34 @@ import numpy as np
 import lula
 import copy
 
+import carb
+import carb.settings
 from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelper
 from .matman import MatMan
 from pxr import Usd, UsdGeom, UsdShade, Gf
-from typing import Tuple, List
+from typing import List
 import omni
 import omni.ui as ui
 from omni.kit.widget.viewport import ViewportWidget
 
+from omni.isaac.core.articulations import Articulation
+
 from omni.isaac.core.utils.stage import get_current_stage
+from omni.isaac.motion_generation import RmpFlow, ArticulationMotionPolicy
+from omni.isaac.core.utils.rotations import euler_angles_to_quat
 
-from omni.isaac.core.prims import XFormPrim
 
-from .scenario_robot_configs import get_robot_config, init_configs
+from .scenario_robot_configs import create_and_populate_robot_config, init_configs
 
 from .senut import find_prims_by_name
+from .senut import add_cam
 from .senut import build_material_dict, apply_material_to_prim_and_children
 from .senut import apply_matdict_to_prim_and_children
 from .senut import set_stiffness_for_joints, set_damping_for_joints
 
-import carb.settings
+from omni.isaac.core.utils.stage import add_reference_to_stage
+from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
+from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulationAPI_location_if_needed
 
 
 class ScenarioBase:
@@ -75,7 +83,8 @@ class ScenarioBase:
 
     @staticmethod
     def get_robot_desc(robot_name):
-        robcfg = get_robot_config(robot_name, skiplula=True)
+        # this is ugly - please change me
+        robcfg = create_and_populate_robot_config(robot_name, skiplula=True)
         return robcfg.desc
 
     @staticmethod
@@ -108,8 +117,15 @@ class ScenarioBase:
         return rv
 
 
-    def get_robcfg(self, robot_name, ground_opt):
-        robcfg = get_robot_config(robot_name)
+    def get_robot_config(self, robidx):
+        if robidx==0:
+            return self._robcfg
+        if robidx==1:
+            return self._robcfg1
+        return None
+
+    def create_robot_config(self, robot_name, robot_root_path, ground_opt):
+        robcfg = create_and_populate_robot_config(robot_name, robot_root_path)
         robcfg.ground_opt = ground_opt
 
         if robcfg.rdf_path=="" or robcfg.urdf_path=="":
@@ -153,6 +169,20 @@ class ScenarioBase:
         self.camlist[cam_name]["display_name"] = cam_display_name
         self.camlist[cam_name]["usdpath"] = campath
 
+    def add_camera_to_robot(self,robot_name,robot_id,robot_prim_path):
+        campath = None
+        if robot_name in ["jaka-minicobo-1a","minicobo-dual-sucker"]:
+            camera_root = f"{robot_prim_path}/dummy_tcp"
+            campath = add_cam(robot_name, camera_root)
+        return campath
+
+    def add_cameras_to_robots(self):
+        for idx in range(self._nrobots):
+            rcfg = self.get_robot_config(idx)
+            if rcfg.camera_root != "":
+                _, campath = add_cam(rcfg.robot_name, rcfg.camera_root)
+                self.add_camera_to_camlist(rcfg.robot_id, rcfg.robot_name, campath)
+
     def check_alarm_status(self, rcfg):
         art = rcfg._articulation
         pos = art.get_joint_positions()
@@ -168,11 +198,16 @@ class ScenarioBase:
                 rcfg.dof_alarm[j] = False
         return nalarm
 
+    def register_robot_articulations(self):
+        for idx in range(0,self._nrobots):
+            rcfg = self.get_robot_config(idx)
+            self.register_articulation(rcfg._articulation, rcfg)
 
     def register_articulation(self, articulation, rcfg=None):
         # this has to happen in post_load_scenario - some initialization must be happening before this
         # probably as a result of articuation being added to the world.scene
         # self._articulation = articulation
+        # TODO: once everthing uses register_robot_articulations we can get rid of the articulation parameters
         if rcfg is None:
             rcfg = self._robcfg
 
@@ -208,6 +243,99 @@ class ScenarioBase:
         self.check_alarm_status(rcfg)
         print("senut.register_articulation")
 
+    def setup_robot_for_pose_movement(self, gprim, rcfg, pos, rot):
+        pos = Gf.Vec3d(list(pos))
+        rot = list(rot)
+        rcfg.tranop = gprim.AddTranslateOp()
+        rcfg.zrotop = gprim.AddRotateZOp()
+        rcfg.yrotop = gprim.AddRotateYOp()
+        rcfg.xrotop = gprim.AddRotateXOp()
+        rcfg.tranop.Set(pos)
+        rcfg.zrotop.Set(rot[2])
+        rcfg.yrotop.Set(rot[1])
+        rcfg.xrotop.Set(rot[0])
+        rcfg.start_robot_pos = pos
+        rcfg.start_robot_rot = rot
+        rcfg.robot_rotvek = np.array(rot)*np.pi/180
+
+    def load_robot_into_scene(self, ridx, pos, rot):
+        stage = self._stage
+        rcfg = self.get_robot_config(ridx)
+
+        roborg = UsdGeom.Xform.Define(stage, rcfg.root_usdpath)
+        self.setup_robot_for_pose_movement(roborg, rcfg, pos, rot)
+
+        add_reference_to_stage(rcfg.robot_usd_file_path, rcfg.robot_prim_path)
+        apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg.robot_prim_path)
+        apply_diable_gravity_to_rigid_bodies(stage, rcfg.robot_prim_path)
+
+        adjust_articulationAPI_location_if_needed(stage, rcfg.robot_prim_path)
+        rcfg._articulation = Articulation(rcfg.artpath,f"mico-{ridx}")
+
+        return rcfg._articulation
+
+    def teleport_robots_to_zeropos(self):
+        for i in range(self._nrobots):
+            rcfg = self.get_robot_config(i)
+            if rcfg is not None:
+                rcfg._articulation.set_joint_positions(rcfg.dof_zero_pos)
+
+    def make_rmpflow(self, rob_idx, oblist = []):
+        rcfg = self.get_robot_config(rob_idx)
+        rmpflow = RmpFlow(
+            robot_description_path = rcfg.rdf_path,
+            urdf_path = rcfg.urdf_path,
+            rmpflow_config_path = rcfg.rmp_config_path,
+            end_effector_frame_name = rcfg.eeframe_name,
+            maximum_substep_size = rcfg.max_step_size
+        )
+        quat = euler_angles_to_quat(rcfg.robot_rotvek)
+        rmpflow.set_robot_base_pose(rcfg.start_robot_pos, quat)
+
+        for ob in oblist:
+            rmpflow.add_obstacle(ob)
+
+        self.set_stiffness_and_damping_for_all_joints(rcfg)
+
+        rmpflow.set_ignore_state_updates(True)
+        rmpflow.visualize_collision_spheres()
+        articulation_rmpflow = ArticulationMotionPolicy(rcfg._articulation,rmpflow)
+        rcfg.rmpflow = rmpflow
+        rcfg.articulation_rmpflow = articulation_rmpflow
+        return rmpflow, articulation_rmpflow
+
+    def make_robot_mpflows(self, oblist = []):
+        for i in range(self._nrobots):
+            self.make_rmpflow(i, oblist)
+
+    def reset_robot_rmpflow(self, rob_idx):
+        rcfg = self.get_robot_config(rob_idx)
+        # rcfg.rmpflow.reset()
+        rcfg.rmpflow.visualize_collision_spheres()
+        rcfg.rmpflow.visualize_end_effector_position()
+
+    def reset_robot_rmpflows(self):
+        for i in range(self._nrobots):
+            self.reset_robot_rmpflow(i)
+
+    def forward_rmpflow_step_for_robot(self, rob_idx, step_size):
+        rcfg = self.get_robot_config(rob_idx)
+        action = rcfg.articulation_rmpflow.get_next_articulation_action(step_size)
+        rcfg._articulation.apply_action(action)
+
+    def forward_rmpflow_step_for_robots(self, step_size):
+        for i in range(self._nrobots):
+            self.forward_rmpflow_step_for_robot(i, step_size)
+
+    def rmpflow_update_world_for_all(self):
+        for i in range(self._nrobots):
+            rcfg = self.get_robot_config(i)
+            rcfg.rmpflow.update_world()
+
+    def set_end_effector_target_for_robot(self, rob_idx, ee_targ_pos, ee_targ_ori):
+        rcfg = self.get_robot_config(rob_idx)
+        rcfg.rmpflow.set_end_effector_target(ee_targ_pos, ee_targ_ori)
+
     def load_scenario(self, robot_name="default", ground_opt="default"):
         self._matman = MatMan(get_current_stage())
 
@@ -225,7 +353,6 @@ class ScenarioBase:
 
     def update_scenario(self):
         pass
-
 
     targXformTop = None
     def visualize_rmp_target(self):
@@ -249,7 +376,6 @@ class ScenarioBase:
            if self._show_rmp_target:
                self.visualize_rmp_target()
 
-
     def restore_robot_skins(self):
         if hasattr(self, "_robcfg"):
             if hasattr(self._robcfg, "orimat"):
@@ -261,7 +387,6 @@ class ScenarioBase:
                 matdict = self._robcfg1.orimat
                 nchg = apply_matdict_to_prim_and_children(self._stage, matdict, self._robcfg1.robot_prim_path)
                 print(f"restore_robot_skins - {nchg} materials restored for {self._robcfg1.robot_prim_path}")
-
 
     def realize_robot_skin(self, skinopt):
         match skinopt:
@@ -398,10 +523,7 @@ class ScenarioBase:
                     material = self._matman.GetMaterial("Blue_Glass")
                     UsdShade.MaterialBindingAPI(gprim).Bind(material)
                 elif opt == "Invisible":
-                    # lula = Usd.GetPrimAtPath("lula")
-                    # lula.GetVisibilityAttr().Set(False)
                     gprim.MakeInvisible()
-                    # UsdGeom.Imageable(prim).MakeInvisible()
             except:
                 pass
 
@@ -435,28 +557,8 @@ class ScenarioBase:
                         # We can also switch to a different camera if we know the path to one that exists
                         viewport_api.camera_path = cam["usdpath"]
 
-
-        # from functools import partial
-        # ui.Workspace.set_show_window_fn(wintitle, partial(ui.Workspace.show_window, wintitle))
-
-        # # Add a Menu Item for the window
-        # editor_menu = omni.kit.ui.get_editor_menu()
-        # if editor_menu:
-        #     self._menu = editor_menu.add_item(
-        #         "CamViews", ui.Workspace.show_window, toggle=True, value=True
-        #     )
         self.camviews = camviews
         return wintitle
-
-    def get_robot_config(self, i):
-        if i == 0:
-            if hasattr(self, "_robcfg"):
-                return self._robcfg
-        elif i == 1:
-            if hasattr(self, "_robcfg1"):
-                return self._robcfg1
-        else:
-            return None
 
     def set_stiffness_and_damping_for_all_joints(self, rcfg):
         if rcfg.stiffness>0:
@@ -466,15 +568,14 @@ class ScenarioBase:
             active_joints = rcfg.lulaHelper.get_active_joints()
             set_damping_for_joints(active_joints, rcfg.damping)
 
-
     def ensure_orimat(self):
+        rc = self.get_robot_config(0)
         if hasattr(self, "_robcfg"):
             if not hasattr(self._robcfg, "orimat"):
                 self._robcfg.orimat = build_material_dict(self._stage, self._robcfg.robot_prim_path)
         if hasattr(self, "_robcfg1"):
             if not hasattr(self._robcfg1, "orimat"):
                 self._robcfg1.orimat = build_material_dict(self._stage, self._robcfg1.robot_prim_path)
-
 
     def joint_check_robot(self,rcfg):
         degs = 180/np.pi
@@ -495,7 +596,6 @@ class ScenarioBase:
             pct = 100*(jpos - llim)/denom
             if pct<10 or 90>pct:
                 clr = "green"
-
 
     def joint_check(self):
         self.ensure_orimat()
