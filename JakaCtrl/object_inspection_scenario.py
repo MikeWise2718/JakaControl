@@ -43,11 +43,46 @@ class ObjectInspectionScenario(ScenarioBase):
         self._nrobots = 2
         pass
 
+    def calc_oi_robot_pos(self, cen=[0, 0, 0.85], radius=0.35):
+        ang_rads = np.pi
+        pos = cen + radius*np.array([np.cos(ang_rads), np.sin(ang_rads), 0])
+        pos = Gf.Vec3d(list(pos))
+        return pos
+
+
+    def set_robot_pose(self, gprim, rcfg, pos, rot):
+        rcfg.tranop = gprim.AddTranslateOp()
+        rcfg.zrotop = gprim.AddRotateZOp()
+        rcfg.yrotop = gprim.AddRotateYOp()
+        rcfg.xrotop = gprim.AddRotateXOp()
+        rcfg.tranop.Set(pos)
+        rcfg.zrotop.Set(rot[2])
+        rcfg.yrotop.Set(rot[1])
+        rcfg.xrotop.Set(rot[0])
+        rcfg.start_robot_pos = pos
+        rcfg.start_robot_rot = rot
+        rcfg.robot_rotvek = np.array(rot)*np.pi/180
+
+    def setup_robot(self, ridx, cen, rad, rot):
+        stage = self._stage
+        rcfg = self.get_robot_config(ridx)
+        pos = self.calc_oi_robot_pos(cen=cen, radius=rad)
+
+        roborg = UsdGeom.Xform.Define(stage, rcfg.root_usdpath)
+        self.set_robot_pose(roborg, rcfg, pos, rot)
+
+        add_reference_to_stage(rcfg.robot_usd_file_path, rcfg.robot_prim_path)
+        apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg.robot_prim_path)
+        apply_diable_gravity_to_rigid_bodies(stage, rcfg.robot_prim_path)
+        adjust_articulation(stage, rcfg.robot_prim_path)
+        rcfg._articulation = Articulation(rcfg.artpath,f"mico-{ridx}")
+        return rcfg._articulation
+
     def load_scenario(self, robot_name, ground_opt):
         super().load_scenario(robot_name, ground_opt)
         # self.get_robot_config(robot_name, ground_opt)
-        self._robcfg = self.get_robcfg(robot_name, ground_opt)
-        self._robcfg1 = self.get_robcfg(robot_name, ground_opt)
+        self._robcfg = self.create_robot_config(robot_name,"/World/roborg", ground_opt)
+        self._robcfg1 = self.create_robot_config(robot_name,"/World/roborg1", ground_opt)
 
         self._robot_name = robot_name
         self._ground_opt = ground_opt
@@ -72,35 +107,12 @@ class ObjectInspectionScenario(ScenarioBase):
         self._start_robot_rot = [0, 0, 0]
 
         # Robot 0
-        cen, rad = [-0.08, 0, 0.77], 0
-        xang, yang, zang = 0, -150, 0
-        pos, rot = self.calc_oi_robot_pose(cen=cen, radius=rad, xang=xang, yang=yang, zang=zang)
-
-        roborg = UsdGeom.Xform.Define(stage,"/World/roborg")
-        self.set_oi_robot_pose(roborg, self._robcfg, pos, rot)
-
-        add_reference_to_stage(self._robcfg.robot_usd_file_path, self._robcfg.robot_prim_path)
-        apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg.robot_prim_path)
-        apply_diable_gravity_to_rigid_bodies(stage, self._robcfg.robot_prim_path)
-        adjust_articulation(stage, self._robcfg.robot_prim_path)
-        self._articulation = Articulation(self._robcfg.artpath,"mico-0")
+        (cen, rad, rot) = ([-0.08, 0, 0.77], 0, [0, -150, 0])
+        self._articulation = self.setup_robot(0, cen, rad, rot)
 
         # Robot 1
-        cen1, rad1 = [0.14, 0, 0.77], 0
-        xang1, yang1, zang1 = 0, 150, 0
-        pos1, rot1 = self.calc_oi_robot_pose(cen=cen1, radius=rad1, xang=xang1, yang=yang1, zang=zang1)
-
-        roborg1 = UsdGeom.Xform.Define(stage,"/World/roborg1")
-        self.set_oi_robot_pose(roborg1, self._robcfg1, pos1, rot1)
-
-        self._robcfg1.artpath = self._robcfg1.artpath.replace("roborg", "roborg1")
-        self._robcfg1.robot_prim_path = self._robcfg1.robot_prim_path.replace("roborg", "roborg1")
-
-        add_reference_to_stage(self._robcfg1.robot_usd_file_path, self._robcfg1.robot_prim_path)
-        apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg1.robot_prim_path)
-        apply_diable_gravity_to_rigid_bodies(stage, self._robcfg1.robot_prim_path)
-        adjust_articulation(stage, self._robcfg1.robot_prim_path)
-        self._articulation1 = Articulation(self._robcfg1.artpath,"mico-1")
+        (cen1, rad1, rot1) = ([0.14, 0, 0.77], 0, [0, 150, 0])
+        self._articulation1 = self.setup_robot(1, cen1, rad1, rot1)
 
         world.scene.add(self._articulation)
         world.scene.add(self._articulation1)
@@ -191,25 +203,8 @@ class ObjectInspectionScenario(ScenarioBase):
         self._articulation_rmpflow = ArticulationMotionPolicy(self._articulation,self._rmpflow)
         self._articulation_rmpflow1 = ArticulationMotionPolicy(self._articulation1,self._rmpflow1)
 
-    def calc_oi_robot_pose(self, cen=[0, 0, 0.85], radius=0.35, xang=0, yang=130, zang=0):
-        ang_rads = np.pi
-        pos = cen + radius*np.array([np.cos(ang_rads), np.sin(ang_rads), 0])
-        pos = Gf.Vec3d(list(pos))
-        rot = [xang, yang, zang]
-        return pos, rot
 
-    def set_oi_robot_pose(self, gprim, rcfg, pos, rot):
-        rcfg.tranop = gprim.AddTranslateOp()
-        rcfg.zrotop = gprim.AddRotateZOp()
-        rcfg.yrotop = gprim.AddRotateYOp()
-        rcfg.xrotop = gprim.AddRotateXOp()
-        rcfg.tranop.Set(pos)
-        rcfg.zrotop.Set(rot[2])
-        rcfg.yrotop.Set(rot[1])
-        rcfg.xrotop.Set(rot[0])
-        rcfg.start_robot_pos = pos
-        rcfg.start_robot_rot = rot
-        rcfg.robot_rotvek = np.array(rot)*np.pi/180
+
 
     def reset_scenario(self):
         self._rmpflow.visualize_collision_spheres()

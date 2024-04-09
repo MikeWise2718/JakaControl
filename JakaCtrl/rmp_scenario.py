@@ -58,7 +58,7 @@ class RMPflowScenario(ScenarioBase):
 
         # self.get_robot_config(robot_name, ground_opt)
 
-        self._robcfg = self.get_robcfg(robot_name, ground_opt)
+        self._robcfg = self.create_robot_config(robot_name, ground_opt)
 
         self.tot_damping_factor = 1.0
         self.tot_stiffness_factor = 1.0

@@ -64,7 +64,7 @@ class InvkinScenario(ScenarioBase):
     def load_scenario(self, robot_name, ground_opt):
         super().load_scenario(robot_name, ground_opt)
 
-        self._robcfg = self.get_robcfg(robot_name, ground_opt)
+        self._robcfg = self.create_robot_config(robot_name, ground_opt)
 
 
         #  self.get_robot_config(robot_name, ground_opt)

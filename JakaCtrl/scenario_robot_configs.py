@@ -18,7 +18,7 @@ class robcfg:
     def __init__(self):
         pass
 
-def get_robot_config(robot_name, skiplula=False):
+def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/roborg", skiplula=False):
     global robcfg
 
     assets_root_dir = get_assets_root_path()
@@ -217,7 +217,8 @@ def get_robot_config(robot_name, skiplula=False):
             desc = "Jaka Minicobo with a dual sucker gripper (old)"
 
         case "jaka-minicobo-1a":
-            robot_prim_path = "/World/roborg/minicobo_v1_4"
+            # robot_prim_path = "/World/roborg/minicobo_v1_4"
+            robot_prim_path = f"{robot_root_usdpath}/minicobo_v1_4"
             artpath = f"{robot_prim_path}/world"
             # robot_usd_file_path = f"{jakacontrol_extension_dir}/usd/jaka_v14_1.usda"
             robot_usd_file_path = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka/minicobo/minicobo_v14_1a/minicobo_v14_1a.usd"
@@ -241,7 +242,8 @@ def get_robot_config(robot_name, skiplula=False):
             desc = "Jaka Minicobo with a dual sucker gripper"
 
         case "minicobo-dual-sucker":
-            robot_prim_path = "/World/roborg/minicobo_v1_4"
+            # robot_prim_path = "/World/roborg/minicobo_v1_4"
+            robot_prim_path = f"{robot_root_usdpath}/minicobo_v1_4"
             artpath = f"{robot_prim_path}/world"
             # robot_usd_file_path = f"{jakacontrol_extension_dir}/usd/jaka_v14_1.usda"
             robot_usd_file_path = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka/minicobo/minicobo_dual_sucker/minicobo_dual_sucker.usda"
@@ -478,6 +480,8 @@ def get_robot_config(robot_name, skiplula=False):
     rc.model = model
     rc.grippername = grippername
     rc.desc = desc
+
+    rc.root_usdpath = robot_root_usdpath
 
     if not skiplula:
         try:

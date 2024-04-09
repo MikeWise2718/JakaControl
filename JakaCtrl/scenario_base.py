@@ -15,7 +15,7 @@ from omni.isaac.core.utils.stage import get_current_stage
 
 from omni.isaac.core.prims import XFormPrim
 
-from .scenario_robot_configs import get_robot_config, init_configs
+from .scenario_robot_configs import create_and_populate_robot_config, init_configs
 
 from .senut import find_prims_by_name
 from .senut import build_material_dict, apply_material_to_prim_and_children
@@ -75,7 +75,8 @@ class ScenarioBase:
 
     @staticmethod
     def get_robot_desc(robot_name):
-        robcfg = get_robot_config(robot_name, skiplula=True)
+        # this is ugly - please change me
+        robcfg = create_and_populate_robot_config(robot_name, skiplula=True)
         return robcfg.desc
 
     @staticmethod
@@ -108,8 +109,15 @@ class ScenarioBase:
         return rv
 
 
-    def get_robcfg(self, robot_name, ground_opt):
-        robcfg = get_robot_config(robot_name)
+    def get_robot_config(self, robidx):
+        if robidx==0:
+            return self._robcfg
+        if robidx==1:
+            return self._robcfg1
+        return None
+
+    def create_robot_config(self, robot_name, robot_root_path, ground_opt):
+        robcfg = create_and_populate_robot_config(robot_name, robot_root_path)
         robcfg.ground_opt = ground_opt
 
         if robcfg.rdf_path=="" or robcfg.urdf_path=="":
@@ -448,15 +456,15 @@ class ScenarioBase:
         self.camviews = camviews
         return wintitle
 
-    def get_robot_config(self, i):
-        if i == 0:
-            if hasattr(self, "_robcfg"):
-                return self._robcfg
-        elif i == 1:
-            if hasattr(self, "_robcfg1"):
-                return self._robcfg1
-        else:
-            return None
+    # def get_robot_config(self, i):
+    #     if i == 0:
+    #         if hasattr(self, "_robcfg"):
+    #             return self._robcfg
+    #     elif i == 1:
+    #         if hasattr(self, "_robcfg1"):
+    #             return self._robcfg1
+    #     else:
+    #         return None
 
     def set_stiffness_and_damping_for_all_joints(self, rcfg):
         if rcfg.stiffness>0:
@@ -468,6 +476,7 @@ class ScenarioBase:
 
 
     def ensure_orimat(self):
+        rc = self.get_robot_config(0)
         if hasattr(self, "_robcfg"):
             if not hasattr(self._robcfg, "orimat"):
                 self._robcfg.orimat = build_material_dict(self._stage, self._robcfg.robot_prim_path)
