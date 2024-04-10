@@ -3,20 +3,16 @@ from pxr import Usd, UsdGeom, Gf
 
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.core.utils.stage import add_reference_to_stage
-from omni.isaac.core.utils.stage import get_current_stage
 from omni.isaac.core.objects.cuboid import FixedCuboid
-from omni.isaac.core.objects import GroundPlane
 from omni.isaac.core.prims import XFormPrim
+
+from omni.isaac.core.utils.stage import get_current_stage
 from omni.isaac.core.world import World
 
 from omni.isaac.core.utils.extensions import get_extension_path_from_name
-
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
 
-from .senut import add_dome_light_to_stage
-from .senut import apply_material_to_prim_and_children
-
-# from .senut import add_camera_to_robot
+from .senut import apply_material_to_prim_and_children, GetXformOps, GetXformOpsFromPath
 
 from .scenario_base import ScenarioBase
 
@@ -30,8 +26,12 @@ from .scenario_base import ScenarioBase
 #
 
 class ObjectInspectionScenario(ScenarioBase):
+
     _running_scenario = False
     _colorScheme = "transparent"
+    rotate_target0 = False
+    rotate_target1 = False
+    target_rot_speed = 2*2*np.pi/10 # 10 seconds for a full rotation
 
     def __init__(self):
         super().__init__()
@@ -40,53 +40,41 @@ class ObjectInspectionScenario(ScenarioBase):
         self._nrobots = 2
         pass
 
-    def load_scenario(self, robot_name, ground_opt):
+    def load_scenario(self, robot_name, ground_opt, light_opt="dome_light"):
         super().load_scenario(robot_name, ground_opt)
-        # self.get_robot_config(robot_name, ground_opt)
-        self._robcfg = self.create_robot_config(robot_name,"/World/roborg0", ground_opt)
-        self._robcfg1 = self.create_robot_config(robot_name,"/World/roborg1", ground_opt)
 
-        self._robot_name = robot_name
-        self._ground_opt = ground_opt
+        self.create_robot_config(robot_name,"/World/roborg0")
+        self.create_robot_config(robot_name,"/World/roborg1")
 
-        add_dome_light_to_stage()
+        self.add_light(light_opt)
+        self.add_ground(ground_opt)
 
-        world = World.instance()
-        if self._ground_opt == "default":
-            self._ground=world.scene.add_default_ground_plane(z_position=-1.02)
+        # Robots
+        (pos0, rot0) = ([-0.08, 0, 0.77], [0, -150, 0])
+        self.load_robot_into_scene(0, pos0, rot0)
 
-        elif self._ground_opt == "groundplane":
-            self._ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.5, 0.5, 0.5]),position=[0,0,-1.03313])
-            world.scene.add(self._ground)
+        (pos1, rot1) = ([0.14, 0, 0.77], [0, 150, 0])
+        self.load_robot_into_scene(1, pos1, rot1)
 
-        elif self._ground_opt == "groundplane-blue":
-            self._ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]),position=[0,0,-1.03313])
-            world.scene.add(self._ground)
-
-        stage = get_current_stage()
-
-        self._start_robot_pos = Gf.Vec3d([0, 0, 0])
-        self._start_robot_rot = [0, 0, 0]
-
-        # Robot 0
-        (cen, rad, rot) = ([-0.08, 0, 0.77], 0, [0, -150, 0])
-        self._articulation = self.load_robot_into_scene(0, cen, rot)
-
-        # Robot 1
-        (cen1, rad1, rot1) = ([0.14, 0, 0.77], 0, [0, 150, 0])
-        self._articulation1 = self.load_robot_into_scene(1, cen1, rot1)
-
-        world.scene.add(self._articulation)
-        world.scene.add(self._articulation1)
+        self.add_cameras_to_robots()
 
         # tagets
         quat = euler_angles_to_quat([-np.pi/2,0,0])
-        self._target0 = XFormPrim("/World/target0", scale=[.04,.04,.04], position=[-0.15, 0.00, 0.02], orientation=quat)
-        add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", "/World/target0")
+        t0path = "/World/target0"
+        self._target0 = XFormPrim(t0path, scale=[.04,.04,.04], position=[-0.15, 0.00, 0.02], orientation=quat)
+        (self.targ0top,_,_,_) = GetXformOpsFromPath(t0path)
+        add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", t0path)
 
         quat = euler_angles_to_quat([-np.pi/2,0,0])
-        self._target1 = XFormPrim("/World/target1", scale=[.04,.04,.04], position=[0.15, 0.00, 0.02], orientation=quat)
-        add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", "/World/target1")
+        t1path = "/World/target1"
+        self._target1 = XFormPrim(t1path, scale=[.04,.04,.04], position=[0.15, 0.00, 0.02], orientation=quat)
+        (self.targ1top,_,_,_) = GetXformOpsFromPath(t1path)
+        add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", t1path)
+
+
+
+        # obstacles
+        self._obstacle = FixedCuboid("/World/obstacle",size=.05,position=np.array([0.4, 0.0, 1.65]),color=np.array([0.,0.,1.]))
 
         # cage
         jakacontrol_extension_path = get_extension_path_from_name("JakaControl")
@@ -98,30 +86,37 @@ class ObjectInspectionScenario(ScenarioBase):
         if self._colorScheme == "default":
             self._cage.set_color([0.5, 0.5, 0.5, 1.0])
         elif self._colorScheme == "transparent":
-            apply_material_to_prim_and_children(stage, self._matman, "Steel_Blued", cagepath)
-
-        self._world = world
+            apply_material_to_prim_and_children(self._stage, self._matman, "Steel_Blued", cagepath)
 
     def setup_scenario(self):
         self.register_robot_articulations()
-
         self.teleport_robots_to_zeropos()
 
-        self._obstacle = FixedCuboid("/World/obstacle",size=.05,position=np.array([0.4, 0.0, 1.65]),color=np.array([0.,0.,1.]))
-
         self.make_robot_mpflows([self._obstacle])
-
-        self.add_cameras_to_robots()
 
         self._running_scenario = True
 
     def reset_scenario(self):
         self.reset_robot_rmpflows()
 
+    def rotate_target(self, target, top, cen, radius):
+        # pos, ori = target.get_world_pose()
+        cen = np.array(cen)
+        ang = self.global_time*self.target_rot_speed
+        (xp,yp,zp) = cen
+        # newpos = np.array([radius*np.cos(ang), radius*np.sin(ang), zp])
+        newpos = Gf.Vec3d([xp+radius*np.cos(ang), yp+radius*np.sin(ang), zp])
+        top.Set(newpos)
+
     def physics_step(self, step_size):
         self.global_time += step_size
 
         self.rmpflow_update_world_for_all()
+
+        if self.rotate_target0:
+            self.rotate_target(self._target0, self.targ0top, [-0.3, 0.00, 0.02], 0.15)
+        if self.rotate_target1:
+            self.rotate_target(self._target1, self.targ1top,  [+0.3, 0.00, 0.02], 0.15)
 
         target0_position, target0_orientation = self._target0.get_world_pose()
         target1_position, target1_orientation = self._target1.get_world_pose()
@@ -141,8 +136,16 @@ class ObjectInspectionScenario(ScenarioBase):
         if action_name in self.base_actions:
             rv = super().scenario_action(action_name, action_args)
             return rv
+        match action_name:
+            case "RotateTarget0":
+                self.rotate_target0 = not self.rotate_target0
+            case "RotateTarget1":
+                self.rotate_target1 = not self.rotate_target1
+            case _:
+                print(f"Action {action_name} not implemented")
+                return False
 
     def get_scenario_actions(self):
         self.base_actions = super().get_scenario_actions()
-        combo  = self.base_actions + []
+        combo  = self.base_actions + ["RotateTarget0", "RotateTarget1"]
         return combo

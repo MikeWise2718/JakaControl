@@ -96,6 +96,7 @@ class UIBuilder:
         try:
             save_setting("p_robot_name", self._robot_name)
             save_setting("p_ground_opt", self._ground_opt)
+            save_setting("p_robskin_opt", self._robskin_opt)
             save_setting("p_scenario_name", self._scenario_name)
             save_setting("p_mode", self._mode)
             save_setting("p_choice", self._choice)
@@ -108,6 +109,7 @@ class UIBuilder:
         print("LoadSettings")
         self._robot_name = get_setting("p_robot_name", self._robot_name)
         self._ground_opt = get_setting("p_ground_opt", self._ground_opt)
+        self._robskin_opt = get_setting("p_robskin_opt", self._robskin_opt)
 
         self._scenario_name = get_setting("p_scenario_name", self._scenario_name)
         self._actions = ScenarioBase.get_scenario_actions(self._scenario_name)
@@ -377,12 +379,12 @@ class UIBuilder:
 
     cfg_lab_dict = {}
     config_line_list = []
-    def _load_one_param(self, robcfg,  param_name, clr):
+    def _load_one_param(self, rcfg,  param_name, clr):
         pname = param_name
-        if hasattr(robcfg, pname):
-            val = getattr(robcfg, pname)
+        if hasattr(rcfg, pname):
+            val = getattr(rcfg, pname)
         else:
-            val = f"_robcfg.{param_name} not found in self._cur_scenario._robcfg"
+            val = f"{param_name} not found in robcfg"
 
         l1txt = f"{param_name}"
         l2txt = f"{val}"
@@ -605,6 +607,8 @@ class UIBuilder:
         create_new_stage()
 
         self._cur_scenario.load_scenario(self._robot_name, self._ground_opt)
+
+        self._cur_scenario.realize_robot_skin(self._robskin_opt)
 
         self._actions = self._cur_scenario.get_scenario_actions()
         if len(self._actions) > 0:

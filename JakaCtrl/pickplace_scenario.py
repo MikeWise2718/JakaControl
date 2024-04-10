@@ -8,7 +8,6 @@ from omni.isaac.core.utils.stage import add_reference_to_stage,  get_current_sta
 import omni.timeline
 
 from omni.isaac.core.articulations import Articulation
-from omni.isaac.core.objects.cuboid import DynamicCuboid, VisualCuboid
 from omni.isaac.core.objects import cuboid, sphere, capsule
 from omni.isaac.core.objects import GroundPlane
 # from .franka.controllers import PickPlaceController as franka_PickPlaceController
@@ -21,7 +20,6 @@ from omni.isaac.franka import Franka
 from omni.isaac.motion_generation import ArticulationMotionPolicy
 from omni.isaac.motion_generation import ArticulationKinematicsSolver
 
-from omni.isaac.core.world import World
 
 from .senut import add_sphere_light_to_stage
 from .senut import adjust_joint_values, set_stiffness_for_joints, set_damping_for_joints
@@ -68,7 +66,7 @@ class PickAndPlaceScenario(ScenarioBase):
     def load_scenario(self, robot_name, ground_opt):
         super().load_scenario(robot_name, ground_opt)
 
-        self._robcfg = self.create_robot_config(robot_name, "/world/roborg", ground_opt)
+        self._robcfg = self.create_robot_config(robot_name, "/World/roborg", ground_opt)
 
         # self.get_robot_config(robot_name, ground_opt)
 

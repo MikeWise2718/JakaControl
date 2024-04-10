@@ -19,6 +19,8 @@ from omni.isaac.core.utils.stage import get_current_stage
 from omni.isaac.motion_generation import RmpFlow, ArticulationMotionPolicy
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
 
+from omni.isaac.core.world import World
+from omni.isaac.core.objects import GroundPlane
 
 from .scenario_robot_configs import create_and_populate_robot_config, init_configs
 
@@ -31,16 +33,20 @@ from .senut import set_stiffness_for_joints, set_damping_for_joints
 from omni.isaac.core.utils.stage import add_reference_to_stage
 from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
 from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulationAPI_location_if_needed
+from .senut import add_sphere_light_to_stage, add_dome_light_to_stage
 
 
 class ScenarioBase:
     rmpactive = True
     global_time = 0
+    _nrobots = 0
+    _rcfg_list = []
 
     def __init__(self):
         self._scenario_name = "empty scenario"
         self._secnario_desc = "description from ScenarioBase class"
         self._nrobots = 0
+        self._rcfg_list = []
         self._stage = get_current_stage()
         self.camlist = {}
         self.rmpactive = True
@@ -118,15 +124,16 @@ class ScenarioBase:
 
 
     def get_robot_config(self, robidx):
-        if robidx==0:
-            return self._robcfg
-        if robidx==1:
-            return self._robcfg1
+        if robidx<len(self._rcfg_list):
+            return self._rcfg_list[robidx]
+        else:
+            carb.log_warn(f"get_robot_config - index {robidx} out of range")
         return None
 
-    def create_robot_config(self, robot_name, robot_root_path, ground_opt):
+    def create_robot_config(self, robot_name, robot_root_path, ground_opt=""):
         robcfg = create_and_populate_robot_config(robot_name, robot_root_path)
-        robcfg.ground_opt = ground_opt
+        robcfg.listidx = len(self._rcfg_list)
+        self._rcfg_list.append(robcfg)
 
         if robcfg.rdf_path=="" or robcfg.urdf_path=="":
             msg = f"Robot {robot_name} rdf_path or urdf_path not specified"
@@ -160,6 +167,28 @@ class ScenarioBase:
             carb.log_error(msg)
             print(msg)
         return robcfg
+
+    def add_light(self,light_opt):
+        match light_opt:
+            case "default" | "sphere_light":
+                add_sphere_light_to_stage()
+            case "dome_light":
+                add_dome_light_to_stage()
+
+    def add_ground(self,ground_opt):
+        self._ground_opt = ground_opt
+        world = World.instance()
+
+        if self._ground_opt == "default":
+            self._ground=world.scene.add_default_ground_plane(z_position=-1.02)
+
+        elif self._ground_opt == "groundplane":
+            self._ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.5, 0.5, 0.5]),position=[0,0,-1.03313])
+            world.scene.add(self._ground)
+
+        elif self._ground_opt == "groundplane-blue":
+            self._ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]),position=[0,0,-1.03313])
+            world.scene.add(self._ground)
 
     camlist = {}
 
@@ -209,7 +238,8 @@ class ScenarioBase:
         # self._articulation = articulation
         # TODO: once everthing uses register_robot_articulations we can get rid of the articulation parameters
         if rcfg is None:
-            rcfg = self._robcfg
+            rcfg = self.get_robot_config(0)
+
 
         art = articulation
         rcfg._articulation = art
@@ -217,10 +247,10 @@ class ScenarioBase:
         rcfg.dof_types = art._prim_view._dof_types
         rcfg.dof_names = art._prim_view._dof_names
 
-        rcfg.lower_dof_lim = self._articulation.dof_properties["lower"]
-        rcfg.upper_dof_lim = self._articulation.dof_properties["upper"]
-        rcfg.njoints = self._articulation.num_dof
-        rcfg.dof_zero_pos = np.zeros(self._robcfg.njoints)
+        rcfg.lower_dof_lim = art.dof_properties["lower"]
+        rcfg.upper_dof_lim = art.dof_properties["upper"]
+        rcfg.njoints = art.num_dof
+        rcfg.dof_zero_pos = np.zeros(rcfg.njoints)
 
         pos = art.get_joint_positions()
         props = art.dof_properties
@@ -258,7 +288,7 @@ class ScenarioBase:
         rcfg.start_robot_rot = rot
         rcfg.robot_rotvek = np.array(rot)*np.pi/180
 
-    def load_robot_into_scene(self, ridx, pos, rot):
+    def load_robot_into_scene(self, ridx, pos=[0,0,0], rot=[0,0,0]):
         stage = self._stage
         rcfg = self.get_robot_config(ridx)
 
@@ -266,11 +296,14 @@ class ScenarioBase:
         self.setup_robot_for_pose_movement(roborg, rcfg, pos, rot)
 
         add_reference_to_stage(rcfg.robot_usd_file_path, rcfg.robot_prim_path)
-        apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg.robot_prim_path)
+        apply_convex_decomposition_to_mesh_and_children(stage, rcfg.robot_prim_path)
         apply_diable_gravity_to_rigid_bodies(stage, rcfg.robot_prim_path)
 
         adjust_articulationAPI_location_if_needed(stage, rcfg.robot_prim_path)
         rcfg._articulation = Articulation(rcfg.artpath,f"mico-{ridx}")
+
+        world = World.instance()
+        world.scene.add(rcfg._articulation)
 
         return rcfg._articulation
 
@@ -377,16 +410,11 @@ class ScenarioBase:
                self.visualize_rmp_target()
 
     def restore_robot_skins(self):
-        if hasattr(self, "_robcfg"):
-            if hasattr(self._robcfg, "orimat"):
-                matdict = self._robcfg.orimat
-                nchg = apply_matdict_to_prim_and_children(self._stage, matdict, self._robcfg.robot_prim_path)
-                print(f"restore_robot_skins - {nchg} materials restored for {self._robcfg.robot_prim_path}")
-        if hasattr(self, "_robcfg1"):
-            if hasattr(self._robcfg1, "orimat"):
-                matdict = self._robcfg1.orimat
-                nchg = apply_matdict_to_prim_and_children(self._stage, matdict, self._robcfg1.robot_prim_path)
-                print(f"restore_robot_skins - {nchg} materials restored for {self._robcfg1.robot_prim_path}")
+        for rcfg in self._rcfg_list:
+            if hasattr(rcfg, "orimat"):
+                matdict = rcfg.orimat
+                nchg = apply_matdict_to_prim_and_children(self._stage, matdict, rcfg.robot_prim_path)
+                print(f"restore_robot_skins - {nchg} materials restored for {rcfg.robot_prim_path}")
 
     def realize_robot_skin(self, skinopt):
         match skinopt:
@@ -424,11 +452,9 @@ class ScenarioBase:
 
         didone = False
         self.ensure_orimat()
-        if hasattr(self, "_robcfg"):
-            apply_material_to_prim_and_children(self._stage, self._matman, mat1, self._robcfg.robot_prim_path)
-            didone = True
-        if hasattr(self, "_robcfg1"):
-            apply_material_to_prim_and_children(self._stage, self._matman, mat2, self._robcfg1.robot_prim_path)
+        for i,rcfg in enumerate(self._rcfg_list):
+            mat = mat1 if i%2==0 else mat2
+            apply_material_to_prim_and_children(self._stage, self._matman, mat, rcfg.robot_prim_path)
             didone = True
         if not didone:
             carb.log_warn("realize_robot_skin - no robot config found")
@@ -570,12 +596,9 @@ class ScenarioBase:
 
     def ensure_orimat(self):
         rc = self.get_robot_config(0)
-        if hasattr(self, "_robcfg"):
-            if not hasattr(self._robcfg, "orimat"):
-                self._robcfg.orimat = build_material_dict(self._stage, self._robcfg.robot_prim_path)
-        if hasattr(self, "_robcfg1"):
-            if not hasattr(self._robcfg1, "orimat"):
-                self._robcfg1.orimat = build_material_dict(self._stage, self._robcfg1.robot_prim_path)
+        for rcfg in self._rcfg_list:
+            if not hasattr(rcfg, "orimat"):
+                rcfg.orimat = build_material_dict(self._stage, rcfg.robot_prim_path)
 
     def joint_check_robot(self,rcfg):
         degs = 180/np.pi
@@ -599,10 +622,8 @@ class ScenarioBase:
 
     def joint_check(self):
         self.ensure_orimat()
-        if hasattr(self, "_robcfg"):
-            self.joint_check_robot(self._robcfg)
-        if hasattr(self, "_robcfg1"):
-            self.joint_check_robot(self._robcfg1)
+        for rcfg in self._rcfg_list:
+            self.joint_check_robot(rcfg)
 
     def scenario_action(self, action_name, action_args):
         match action_name:
