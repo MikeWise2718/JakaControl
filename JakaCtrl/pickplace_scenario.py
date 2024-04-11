@@ -1,6 +1,7 @@
 import numpy as np
 
 from pxr import UsdPhysics, Usd, UsdGeom, Gf, Sdf
+from omni.isaac.core.world import World
 
 import carb
 

@@ -29,6 +29,7 @@ from .pickplace_scenario import PickAndPlaceScenario
 from .franka_pickplace_scenario import FrankaPickAndPlaceScenario
 from .sinusoid_scenario import SinusoidJointScenario
 from .object_inspection_scenario import ObjectInspectionScenario
+from .cage_rmpflow_scenario import CageRmpflowScenario
 from .gripper_scenario import GripperScenario
 
 from .senut import get_setting, save_setting
@@ -586,12 +587,14 @@ class UIBuilder:
             self._cur_scenario = RMPflowScenario()
         elif scenario_name == "object-inspection":
             self._cur_scenario = ObjectInspectionScenario()
+        elif scenario_name == "cage-rmpflow":
+            self._cur_scenario = CageRmpflowScenario()
         elif scenario_name == "inverse-kinematics":
             self._cur_scenario = InvkinScenario()
         elif scenario_name == "gripper":
             self._cur_scenario = GripperScenario()
         else:
-            raise ValueError(f"Unknown scenario name {scenario_name}")
+            self._cur_scenario = SinusoidJointScenario()
 
     def _on_init(self):
         # self._articulation = None

@@ -55,14 +55,13 @@ class ScenarioBase:
 
     @staticmethod
     def get_scenario_names():
-        rv = [ "inverse-kinematics","gripper","rmpflow","object-inspection",
-            "sinusoid-joint","franka-pick-and-place","pick-and-place"]
+        rv = [ "inverse-kinematics","gripper","rmpflow","object-inspection","cage-rmpflow",
+             "sinusoid-joint","franka-pick-and-place","pick-and-place"]
         return rv
 
     @staticmethod
     def get_default_scenario():
-        rv = [ "inverse-kinematics","gripper","rmpflow","object-inspection",
-            "sinusoid-joint","franka-pick-and-place","pick-and-place"]
+        rv = "cage-rmpflow"
         return rv
 
     @staticmethod
@@ -72,6 +71,8 @@ class ScenarioBase:
                 rv = "Move robot through its joints in a sinusoid - from Nvidia example."
             case "object-inspection":
                 rv = "Two Jaka Minicobo robots - Object Inspection Scenario"
+            case "cage-rmpflow":
+                rv = "Two Jaka Minicobo robots - Cage RMPflow Scenario"
             case "franka-pick-and-place":
                 rv = "Franka Pick and Place"
             case "pick-and-place":
@@ -99,6 +100,8 @@ class ScenarioBase:
             case "sinusoid-joint":
                 rv = ["franka", "ur10e", "ur5e", "ur3e", "jaka-minicobo-0"]
             case "object-inspection":
+                rv = ["minicobo-dual-high","minicobo-rg2-high","jaka-minicobo-1a","minicobo-dual-sucker","rs007n"]
+            case "cage-rmpflow":
                 rv = ["minicobo-dual-high","minicobo-rg2-high","jaka-minicobo-1a","minicobo-dual-sucker","rs007n"]
             case "franka-pick-and-place":
                 rv = ["franka", "fancy_franka","rs007n", "ur10-suction-short"]
