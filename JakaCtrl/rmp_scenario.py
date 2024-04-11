@@ -58,7 +58,9 @@ class RMPflowScenario(ScenarioBase):
 
         # self.get_robot_config(robot_name, ground_opt)
 
-        self._robcfg = self.create_robot_config(robot_name, ground_opt)
+        self._robcfg = self.create_robot_config(robot_name, "/World/roborg", ground_opt)
+
+        # self._robcfg = self.create_robot_config(robot_name, ground_opt)
 
         self.tot_damping_factor = 1.0
         self.tot_stiffness_factor = 1.0
@@ -72,19 +74,8 @@ class RMPflowScenario(ScenarioBase):
         self._obstacle_start_pos = np.array([0.4, 0.0, 0.65])
         self._obstacle_start_rot = euler_angles_to_quats([0, np.pi, 0])
 
-        add_sphere_light_to_stage()
-
-        world = World.instance()
-        if self._ground_opt == "default":
-            world.scene.add_default_ground_plane()
-
-        elif self._ground_opt == "groundplane":
-            ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.5, 0.5, 0.5]))
-            world.scene.add(ground)
-
-        elif self._ground_opt == "groundplane-blue":
-            ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]))
-            world.scene.add(ground)
+        self.add_light("sphere_light")
+        self.add_ground(ground_opt)
 
 
         self._start_robot_pos = Gf.Vec3d([0, 0, 0])
@@ -112,13 +103,14 @@ class RMPflowScenario(ScenarioBase):
 
 
 
-        # Setup Robot ARm
+        # Setup Robot Arm
         add_reference_to_stage(self._robcfg.robot_usd_file_path, self._robcfg.robot_prim_path)
         apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg.robot_prim_path)
         apply_diable_gravity_to_rigid_bodies(stage, self._robcfg.robot_prim_path)
         adjust_articulationAPI_location_if_needed(stage, self._robcfg.robot_prim_path)
 
         self._articulation = Articulation(self._robcfg.artpath)
+        world = World.instance()
         world.scene.add(self._articulation)
 
 

@@ -25,7 +25,7 @@ from .scenario_base import ScenarioBase
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 #
 
-class ObjectInspectionScenario(ScenarioBase):
+class CageRmpflowScenario(ScenarioBase):
 
     _running_scenario = False
     _colorScheme = "transparent"
@@ -35,7 +35,7 @@ class ObjectInspectionScenario(ScenarioBase):
 
     def __init__(self):
         super().__init__()
-        self._scenario_name = "object-inspection"
+        self._scenario_name = "cage-rmpflow"
         self._scenario_description = ScenarioBase.get_scenario_desc(self._scenario_name)
         self._nrobots = 2
         pass
