@@ -96,6 +96,17 @@ def find_prim_by_name( prim_name: str) -> Usd.Prim:
             pass
     return None
 
+def get_link_paths(dof_paths):
+    # runs out in isaac sim each joint is a child of its parent
+    # so given a joint path, this finds the link path
+    
+    link_paths = []
+    for jpath in dof_paths:
+        lastslash = jpath.rfind("/") # how nice python has rfind
+        link_path = jpath[:lastslash]
+        link_paths.append(link_path)
+    return link_paths
+
 def set_stiffness_for_joint(joint_name, stiffness):
     stage = get_current_stage()
     # prim = find_prim_by_name(joint_name)

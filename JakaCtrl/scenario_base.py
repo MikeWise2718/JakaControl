@@ -34,6 +34,7 @@ from omni.isaac.core.utils.stage import add_reference_to_stage
 from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
 from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulationAPI_location_if_needed
 from .senut import add_sphere_light_to_stage, add_dome_light_to_stage
+from .senut import get_link_paths
 
 
 class ScenarioBase:
@@ -41,6 +42,7 @@ class ScenarioBase:
     global_time = 0
     _nrobots = 0
     _rcfg_list = []
+    _show_joints_close_to_limits = False
 
     def __init__(self):
         self._scenario_name = "empty scenario"
@@ -235,6 +237,19 @@ class ScenarioBase:
             rcfg = self.get_robot_config(idx)
             self.register_articulation(rcfg._articulation, rcfg)
 
+    def show_joints_close_to_limits(self):
+        if not self._show_joints_close_to_limits:
+            return
+        for idx in range(0,self._nrobots):
+            rcfg = self.get_robot_config(idx)
+            nalarm = self.check_alarm_status(rcfg)
+            if nalarm>0:
+                for j,jn in enumerate(rcfg.dof_names):
+                    if rcfg.dof_alarm[j]:
+                        print(f"Joint {jn} is close to limit for {rcfg.robot_name} {rcfg.robot_id}")
+
+
+
     def register_articulation(self, articulation, rcfg=None):
         # this has to happen in post_load_scenario - some initialization must be happening before this
         # probably as a result of articuation being added to the world.scene
@@ -242,7 +257,7 @@ class ScenarioBase:
         # TODO: once everthing uses register_robot_articulations we can get rid of the articulation parameters
         if rcfg is None:
             rcfg = self.get_robot_config(0)
-        print(f"senut.register_articulation for {rcfg.robot_name} {rcfg.robot_id}")
+        # print(f"senut.register_articulation for {rcfg.robot_name} {rcfg.robot_id}")
 
 
         art = articulation
@@ -250,6 +265,7 @@ class ScenarioBase:
         rcfg.dof_paths = art._prim_view._dof_paths[0] # why is this a list while the following ones are not?
         rcfg.dof_types = art._prim_view._dof_types
         rcfg.dof_names = art._prim_view._dof_names
+        rcfg.link_paths = get_link_paths(rcfg.dof_paths)
 
         rcfg.lower_dof_lim = art.dof_properties["lower"]
         rcfg.upper_dof_lim = art.dof_properties["upper"]
@@ -258,10 +274,10 @@ class ScenarioBase:
 
         pos = art.get_joint_positions()
         props = art.dof_properties
-        stiffs = props["stiffness"]
-        print(f"stiffs for {rcfg.robot_name} {rcfg.robot_id} - {stiffs}")
-        damps = props["damping"]
-        print(f"damps for {rcfg.robot_name} {rcfg.robot_id} - {damps}")
+        # stiffs = props["stiffness"]
+        # print(f"stiffs for {rcfg.robot_name} {rcfg.robot_id} - {stiffs}")
+        # damps = props["damping"]
+        # print(f"damps for {rcfg.robot_name} {rcfg.robot_id} - {damps}")
         rcfg.dof_alarm_llim = np.zeros(rcfg.njoints)
         rcfg.dof_alarm_ulim = np.zeros(rcfg.njoints)
         rcfg.orig_dof_pos =  copy.deepcopy(pos)
@@ -277,7 +293,7 @@ class ScenarioBase:
             rcfg.dof_alarm_llim[j] = llim + lower_alarm_gap*(ulim-llim)
             rcfg.dof_alarm_ulim[j] = ulim - upper_alarm_gap*(ulim-llim)
         self.check_alarm_status(rcfg)
-        print("senut.register_articulation")
+        # print("done senut.register_articulation")
 
     def setup_robot_for_pose_movement(self, gprim, rcfg, pos, rot):
         pos = Gf.Vec3d(list(pos))
@@ -599,14 +615,12 @@ class ScenarioBase:
         return wintitle
 
     def set_stiffness_and_damping_for_all_joints(self, rcfg):
-        print(f"set_stiffness_and_damping_for_all_joints - {rcfg.robot_name} - {rcfg.robot_id}")
+        # print(f"set_stiffness_and_damping_for_all_joints - {rcfg.robot_name} - {rcfg.robot_id}")
         if rcfg.stiffness>0:
-            print(f"    setting stiffness - {rcfg.robot_name} stiffness:{rcfg.stiffness}")
-            # active_joints = rcfg.lulaHelper.get_active_joints()
+            # print(f"    setting stiffness - {rcfg.robot_name} stiffness:{rcfg.stiffness}")
             set_stiffness_for_joints(rcfg.dof_paths, rcfg.stiffness)
         if rcfg.damping>0:
-            print(f"    setting damping - {rcfg.robot_name} damping:{rcfg.damping}")
-            # active_joints = rcfg.lulaHelper.get_active_joints()
+            # print(f"    setting damping - {rcfg.robot_name} damping:{rcfg.damping}")
             set_damping_for_joints(rcfg.dof_paths, rcfg.damping)
 
     def ensure_orimat(self):
@@ -639,6 +653,17 @@ class ScenarioBase:
         self.ensure_orimat()
         for rcfg in self._rcfg_list:
             self.joint_check_robot(rcfg)
+
+    def add_spheres_to_joints(self, ribx=0):
+        rcfg = self.get_robot_config(ribx)
+        for j,jp in enumerate(rcfg.dof_paths):
+            print(f"adding sphere to joint {j} {rcfg.dof_names[j]}")
+            sphpath = f"{jp}/joint_sphere"
+            prim = UsdGeom.Sphere.Define(self._stage, sphpath)
+            sz = 0.01
+            prim.AddScaleOp().Set(Gf.Vec3f(sz,sz,sz))
+            prim.GetDisplayColorAttr().Set([(1, 1, 0)])
+
 
     def scenario_action(self, action_name, action_args):
         match action_name:
