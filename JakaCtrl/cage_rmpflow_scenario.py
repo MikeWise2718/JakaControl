@@ -90,6 +90,7 @@ class CageRmpflowScenario(ScenarioBase):
 
     def setup_scenario(self):
         self.register_robot_articulations()
+        self.adjust_stiffness_and_damping_for_robots()
         self.teleport_robots_to_zeropos()
 
         self.make_robot_mpflows([self._obstacle])

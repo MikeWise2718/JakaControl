@@ -64,10 +64,15 @@ class InvkinScenario(ScenarioBase):
     def load_scenario(self, robot_name, ground_opt):
         super().load_scenario(robot_name, ground_opt)
 
-        self._robcfg = self.create_robot_config(robot_name, ground_opt)
+        # self._robcfg = self.create_robot_config(robot_name, ground_opt)
 
+        self.add_light("sphere_light")
+        self.add_ground(ground_opt)
 
-        #  self.get_robot_config(robot_name, ground_opt)
+        self.create_robot_config(robot_name,"/World/roborg", ground_opt)
+        self._robcfg = self.get_robot_config()
+        self.load_robot_into_scene()
+
         self.phystep = 0
         self.ikerrs = 0
         self.tot_damping_factor = 1.0
@@ -77,19 +82,9 @@ class InvkinScenario(ScenarioBase):
         self._ground_opt = ground_opt
         self._stage = get_current_stage()
 
-        add_sphere_light_to_stage()
+        self.add_light("sphere_light")
+        self.add_ground(ground_opt)
 
-        world = World.instance()
-        if self._ground_opt == "default":
-            world.scene.add_default_ground_plane()
-
-        elif self._ground_opt == "groundplane":
-            ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.5, 0.5, 0.5]))
-            world.scene.add(ground)
-
-        elif self._ground_opt == "groundplane-blue":
-            ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]))
-            world.scene.add(ground)
 
         self._start_robot_pos = Gf.Vec3d([0, 0, 0])
         self._start_robot_rot = [0, 0, 0]
@@ -97,33 +92,18 @@ class InvkinScenario(ScenarioBase):
             self._start_robot_pos = Gf.Vec3d([0, 0, 0.4])
             self._start_robot_rot = [180, 0, 0]
 
-        stage = get_current_stage()
-        roborg = UsdGeom.Xform.Define(stage, "/World/roborg")
-        roborg.AddTranslateOp().Set(self._start_robot_pos)
-        roborg.AddRotateXOp().Set(self._start_robot_rot[0])
-
-
-        # Setup Robot Arm
-        add_reference_to_stage(self._robcfg.robot_usd_file_path, self._robcfg.robot_prim_path)
-        apply_convex_decomposition_to_mesh_and_children(self._stage, self._robcfg.robot_prim_path)
-        apply_diable_gravity_to_rigid_bodies(stage, self._robcfg.robot_prim_path)
-        adjust_articulationAPI_location_if_needed(stage, self._robcfg.robot_prim_path)
-
-        self._articulation = Articulation(self._robcfg.artpath)
-        world.scene.add(self._articulation)
-
         add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", "/World/target")
         self._target = XFormPrim("/World/target", scale=[.04,.04,.04])
 
-        self._world = world
+        # self._world = world
 
     def post_load_scenario(self):
         print("InvKin post_load_scenario")
 
-        self.register_articulation(self._articulation) # this has to happen in post_load_scenario
+        self.register_robot_articulations()
+        self.teleport_robots_to_zeropos()
 
-        # teleport robot to zeros
-        self._articulation.set_joint_positions(self._robcfg.dof_zero_pos)
+
 
         # RMPflow config files for supported robots are stored in the motion_generation extension under "/motion_policy_configs"
 
@@ -133,11 +113,6 @@ class InvkinScenario(ScenarioBase):
         )
         self.lulaHelper = LulaInterfaceHelper(self._kinematics_solver._robot_description)
 
-        # if self._robot_name in ["jaka-minicobo-0","jaka-minicobo-1","minicobo-rg2-high"]:
-        #     # self.set_stiffness_for_all_joints(10000000.0 / 200) # 1e8 or 10 million seems too high
-        #     # self.set_damping_for_all_joints(100000.0 / 20) # 1e5 or 100 thousand seems too high
-        #     self.set_stiffness_for_all_joints(400.0) # 1e8 or 10 million seems too high
-        #     self.set_damping_for_all_joints(40) # 1e5 or 100 thousand seems too high
 
         if self._robcfg.stiffness>0:
             self.set_stiffness_for_all_joints(self._robcfg.stiffness) # 1e8 or 10 million seems too high
@@ -145,29 +120,26 @@ class InvkinScenario(ScenarioBase):
         if self._robcfg.damping>0:
             self.set_damping_for_all_joints(self._robcfg.damping) # 1e5 or 100 thousand seems too high
 
+        self._articulation = self._robcfg._articulation
+
         end_effector_name = self._robcfg.eeframe_name
         self._articulation_kinematics_solver = ArticulationKinematicsSolver(self._articulation,self._kinematics_solver, end_effector_name)
         ee_position,ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
         self._ee_pos = ee_position
         self._ee_rot = ee_rot_mat
 
-
-
         print("Valid frame names at which to compute kinematics:", self._kinematics_solver.get_all_frame_names())
 
 
     def reset_scenario(self):
         # self._target.set_world_pose(np.array([0.2,0.2,0.6]),euler_angles_to_quats([0,np.pi,0]))
-        self._articulation.set_joint_positions(self._robcfg.dof_zero_pos)
+        self.teleport_robots_to_zeropos()
+
         ee_position,ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
         self._ee_pos = ee_position
         self._ee_rot = ee_rot_mat
 
         self._target.set_world_pose(self._ee_pos, rot_matrices_to_quats(self._ee_rot))
-        # if self._show_collision_bounds:
-        #     self._rmpflow.reset()
-        #     self._rmpflow.visualize_collision_spheres()
-        #     self._rmpflow.visualize_end_effector_position()
 
     phystep = 0
     ikerrs = 0

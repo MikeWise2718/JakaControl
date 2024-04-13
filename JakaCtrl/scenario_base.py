@@ -55,8 +55,8 @@ class ScenarioBase:
 
     @staticmethod
     def get_scenario_names():
-        rv = [ "inverse-kinematics","gripper","rmpflow","object-inspection","cage-rmpflow",
-             "sinusoid-joint","franka-pick-and-place","pick-and-place"]
+        rv = [ "sinusoid-joint","inverse-kinematics","rmpflow","gripper","object-inspection","cage-rmpflow",
+             "franka-pick-and-place","pick-and-place"]
         return rv
 
     @staticmethod
@@ -126,7 +126,7 @@ class ScenarioBase:
         return rv
 
 
-    def get_robot_config(self, robidx):
+    def get_robot_config(self, robidx=0):
         if robidx<len(self._rcfg_list):
             return self._rcfg_list[robidx]
         else:
@@ -242,11 +242,12 @@ class ScenarioBase:
         # TODO: once everthing uses register_robot_articulations we can get rid of the articulation parameters
         if rcfg is None:
             rcfg = self.get_robot_config(0)
+        print(f"senut.register_articulation for {rcfg.robot_name} {rcfg.robot_id}")
 
 
         art = articulation
         rcfg._articulation = art
-        rcfg.dof_paths = art._prim_view._dof_paths
+        rcfg.dof_paths = art._prim_view._dof_paths[0] # why is this a list while the following ones are not?
         rcfg.dof_types = art._prim_view._dof_types
         rcfg.dof_names = art._prim_view._dof_names
 
@@ -258,7 +259,9 @@ class ScenarioBase:
         pos = art.get_joint_positions()
         props = art.dof_properties
         stiffs = props["stiffness"]
+        print(f"stiffs for {rcfg.robot_name} {rcfg.robot_id} - {stiffs}")
         damps = props["damping"]
+        print(f"damps for {rcfg.robot_name} {rcfg.robot_id} - {damps}")
         rcfg.dof_alarm_llim = np.zeros(rcfg.njoints)
         rcfg.dof_alarm_ulim = np.zeros(rcfg.njoints)
         rcfg.orig_dof_pos =  copy.deepcopy(pos)
@@ -291,7 +294,7 @@ class ScenarioBase:
         rcfg.start_robot_rot = rot
         rcfg.robot_rotvek = np.array(rot)*np.pi/180
 
-    def load_robot_into_scene(self, ridx, pos=[0,0,0], rot=[0,0,0]):
+    def load_robot_into_scene(self, ridx=0, pos=[0,0,0], rot=[0,0,0]):
         stage = self._stage
         rcfg = self.get_robot_config(ridx)
 
@@ -331,7 +334,6 @@ class ScenarioBase:
         for ob in oblist:
             rmpflow.add_obstacle(ob)
 
-        self.set_stiffness_and_damping_for_all_joints(rcfg)
 
         rmpflow.set_ignore_state_updates(True)
         rmpflow.visualize_collision_spheres()
@@ -339,6 +341,11 @@ class ScenarioBase:
         rcfg.rmpflow = rmpflow
         rcfg.articulation_rmpflow = articulation_rmpflow
         return rmpflow, articulation_rmpflow
+
+    def adjust_stiffness_and_damping_for_robots(self):
+        for idx in range(self._nrobots):
+            rcfg = self.get_robot_config(idx)
+            self.set_stiffness_and_damping_for_all_joints(rcfg)
 
     def make_robot_mpflows(self, oblist = []):
         for i in range(self._nrobots):
@@ -458,6 +465,8 @@ class ScenarioBase:
         for i,rcfg in enumerate(self._rcfg_list):
             mat = mat1 if i%2==0 else mat2
             apply_material_to_prim_and_children(self._stage, self._matman, mat, rcfg.robot_prim_path)
+            rcfg = self.get_robot_config(i)
+            rcfg.robmatskin = mat
             didone = True
         if not didone:
             carb.log_warn("realize_robot_skin - no robot config found")
@@ -590,12 +599,15 @@ class ScenarioBase:
         return wintitle
 
     def set_stiffness_and_damping_for_all_joints(self, rcfg):
+        print(f"set_stiffness_and_damping_for_all_joints - {rcfg.robot_name} - {rcfg.robot_id}")
         if rcfg.stiffness>0:
-            active_joints = rcfg.lulaHelper.get_active_joints()
-            set_stiffness_for_joints(active_joints, rcfg.stiffness)
+            print(f"    setting stiffness - {rcfg.robot_name} stiffness:{rcfg.stiffness}")
+            # active_joints = rcfg.lulaHelper.get_active_joints()
+            set_stiffness_for_joints(rcfg.dof_paths, rcfg.stiffness)
         if rcfg.damping>0:
-            active_joints = rcfg.lulaHelper.get_active_joints()
-            set_damping_for_joints(active_joints, rcfg.damping)
+            print(f"    setting damping - {rcfg.robot_name} damping:{rcfg.damping}")
+            # active_joints = rcfg.lulaHelper.get_active_joints()
+            set_damping_for_joints(rcfg.dof_paths, rcfg.damping)
 
     def ensure_orimat(self):
         rc = self.get_robot_config(0)

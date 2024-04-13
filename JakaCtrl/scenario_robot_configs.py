@@ -459,14 +459,16 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
 
     rc = robcfg()
     rc.robot_name = robot_name
-    rc.robot_id = get_robot_id(robot_name)
+    if not skiplula:
+        # we don't want to useup an id if we are skipping lula
+        rc.robot_id = get_robot_id(robot_name)
     rc.robot_prim_path = robot_prim_path
     rc.eeframe_name = eeframe_name
     rc.max_step_size = max_step_size
     rc.stiffness = stiffness
     rc.damping = damping
     rc.mopo_robot_name = mopo_robot_name
-    rc.material = "default"
+    rc.robmatskin = "default"
 
     rc.mg_extension_dir = mg_extension_dir
     rc.rmp_config_dir = rmp_config_dir
@@ -505,7 +507,7 @@ def get_robot_id(robot_name):
     global ids
     i = 0
     while True:
-        robid = f"robot_name_{i}"
+        robid = f"robot_{i}"
         if robid not in ids:
             ids[robid] = True
             return robid

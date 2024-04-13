@@ -65,7 +65,7 @@ class SinusoidJointScenario(ScenarioBase):
         self.add_ground(ground_opt)
 
         self.create_robot_config(robot_name,"/World/roborg", ground_opt)
-        self.load_robot_into_scene(0 )
+        self.load_robot_into_scene()
 
         # mode specific initialization
         self._cuboid = FixedCuboid(

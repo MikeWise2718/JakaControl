@@ -71,8 +71,6 @@ class ObjectInspectionScenario(ScenarioBase):
         (self.targ1top,_,_,_) = GetXformOpsFromPath(t1path)
         add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", t1path)
 
-
-
         # obstacles
         self._obstacle = FixedCuboid("/World/obstacle",size=.05,position=np.array([0.4, 0.0, 1.65]),color=np.array([0.,0.,1.]))
 
@@ -90,6 +88,7 @@ class ObjectInspectionScenario(ScenarioBase):
 
     def setup_scenario(self):
         self.register_robot_articulations()
+        self.adjust_stiffness_and_damping_for_robots()
         self.teleport_robots_to_zeropos()
 
         self.make_robot_mpflows([self._obstacle])
