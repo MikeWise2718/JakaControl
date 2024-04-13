@@ -238,16 +238,24 @@ class ScenarioBase:
             self.register_articulation(rcfg._articulation, rcfg)
 
     def show_joints_close_to_limits(self):
-        if not self._show_joints_close_to_limits:
-            return
         for idx in range(0,self._nrobots):
             rcfg = self.get_robot_config(idx)
+            if not rcfg.show_joints_close_to_limits:
+                continue
             nalarm = self.check_alarm_status(rcfg)
+            alamat = "Red_Glass"
             if nalarm>0:
                 for j,jn in enumerate(rcfg.dof_names):
                     if rcfg.dof_alarm[j]:
-                        print(f"Joint {jn} is close to limit for {rcfg.robot_name} {rcfg.robot_id}")
+                        link_path = rcfg.link_paths[j]
+                        print(f"Joint {jn} is close to limit for {rcfg.robot_name} {rcfg.robot_id} link_path:{link_path}")
+                        apply_material_to_prim_and_children(self._stage, self._matman, alamat, link_path)
 
+
+            # if hasattr(rcfg, "orimat"):
+            #     matdict = rcfg.orimat
+            #     nchg = apply_matdict_to_prim_and_children(self._stage, matdict, rcfg.robot_prim_path)
+            #     print(f"restore_robot_skins - {nchg} materials restored for {rcfg.robot_prim_path}")
 
 
     def register_articulation(self, articulation, rcfg=None):
@@ -271,6 +279,7 @@ class ScenarioBase:
         rcfg.upper_dof_lim = art.dof_properties["upper"]
         rcfg.njoints = art.num_dof
         rcfg.dof_zero_pos = np.zeros(rcfg.njoints)
+        rcfg.show_joints_close_to_limits = False
 
         pos = art.get_joint_positions()
         props = art.dof_properties

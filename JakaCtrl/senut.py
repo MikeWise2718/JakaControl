@@ -99,7 +99,7 @@ def find_prim_by_name( prim_name: str) -> Usd.Prim:
 def get_link_paths(dof_paths):
     # runs out in isaac sim each joint is a child of its parent
     # so given a joint path, this finds the link path
-    
+
     link_paths = []
     for jpath in dof_paths:
         lastslash = jpath.rfind("/") # how nice python has rfind
@@ -267,6 +267,7 @@ def apply_material_to_prim_and_children_recur(stage, material, prim, level):
     for child_prim in children:
         nhit += apply_material_to_prim_and_children_recur(stage, material, child_prim, level+1)
     return nhit
+
 
 def apply_material_to_prim_and_children(stage, matman, matname, primname):
     material = matman.GetMaterial(matname)

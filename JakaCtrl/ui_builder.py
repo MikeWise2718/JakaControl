@@ -483,7 +483,12 @@ class UIBuilder:
 
     def add_spheres_to_joints(self, x, y, b, m, rbix=0):
         self._cur_scenario.add_spheres_to_joints(rbix)
-        self._cur_scenario._show_joints_close_to_limits = True
+
+    def show_joint_limit_warnings(self, x, y, b, m, rbix=0):
+        rc = self.get_robot_config(rbix)
+        rc.show_joints_close_to_limits = not rc.show_joints_close_to_limits
+        print(f"show_joint_limit_warnings {rc.robot_id} - {rc.show_joints_close_to_limits}")
+
 
     def _change_joint_inc(self, x, y, b, m):
         if b == 0:
@@ -492,8 +497,8 @@ class UIBuilder:
             self.joint_inc_step *= 0.5
         self._joint_inc_btn.text = f"Joint inc: {self.joint_inc_step}"
 
-    def _change_joint_stiffness(self, x, y, b, m, jidx=-1):
-        rc = self.get_robot_config(jidx)
+    def _change_joint_stiffness(self, x, y, b, m, rbix=-1):
+        rc = self.get_robot_config(rbix)
         if b == 0:
             rc.stiffness *= 1.125
         else:
@@ -501,8 +506,8 @@ class UIBuilder:
         set_stiffness_for_joints(rc.dof_paths, rc.stiffness)
         self._adjust_stiffness_btn.text = f"Stiffness: {rc.stiffness:.2f}"
 
-    def _change_joint_damping(self, x, y, b, m, jidx=-1):
-        rc = self.get_robot_config(jidx)
+    def _change_joint_damping(self, x, y, b, m, rbix=-1):
+        rc = self.get_robot_config(rbix)
         if b == 0:
             rc.damping *= 1.125
         else:
@@ -536,14 +541,14 @@ class UIBuilder:
                         style={'background_color': self.dkgreen}
                 )
                 self._joint_inc_btn.enabled = True
-                ajs_fn = lambda x,y,b,m: self._change_joint_stiffness(x,y,b,m, jidx=robot_idx)
+                ajs_fn = lambda x,y,b,m: self._change_joint_stiffness(x,y,b,m, ridx=robot_idx)
                 self._adjust_stiffness_btn = Button(
 #                         f"Stiffness:{rc.stiffness}", mouse_pressed_fn=self._change_joint_stiffness,
                         f"Stiffness:{rc.stiffness:.2f}", mouse_pressed_fn=ajs_fn,
                         style={'background_color': self.dkcyan}
                 )
                 self._adjust_stiffness_btn.enabled = True
-                ajd_fn = lambda x,y,b,m: self._change_joint_damping(x,y,b,m, jidx=robot_idx)
+                ajd_fn = lambda x,y,b,m: self._change_joint_damping(x,y,b,m, ridx=robot_idx)
                 self._adjust_damping_btn = Button(
                         f"Damping:{rc.damping:.2f}", mouse_pressed_fn=ajd_fn,
                         style={'background_color': self.dkcyan}
@@ -551,6 +556,11 @@ class UIBuilder:
                 self._adjust_damping_btn.enabled = True
                 self._add_spheres_to_joints_btn = Button(
                         f"Add Sphers to Joints", mouse_pressed_fn=self.add_spheres_to_joints,
+                        style={'background_color': self.dkpurple}
+                )
+                self._add_spheres_to_joints_btn.enabled = True
+                self._show_joint_limit_warnings_btn = Button(
+                        f"Show Joint Limit Warnings", mouse_pressed_fn=self.show_joint_limit_warnings,
                         style={'background_color': self.dkpurple}
                 )
                 self._add_spheres_to_joints_btn.enabled = True
@@ -621,8 +631,7 @@ class UIBuilder:
         if hasattr(self, "joint_ui_dict"):
             for (robot_idx,j,_) in self.joint_ui_dict:
                 self.refresh_robot_joint_values(robot_idx, j)
-        if self._cur_scenario._show_joints_close_to_limits:
-            self._cur_scenario.show_joints_close_to_limits()
+        self._cur_scenario.show_joints_close_to_limits()
 
     def pick_scenario(self, scenario_name):
         if scenario_name == "sinusoid-joint":
