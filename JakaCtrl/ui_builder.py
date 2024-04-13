@@ -412,7 +412,6 @@ class UIBuilder:
         str = "\n".join(self.config_line_list)
         omni.kit.clipboard.copy(str)
 
-
     def get_robot_config(self, index=0):
         return self._cur_scenario.get_robot_config(index)
 
@@ -434,7 +433,6 @@ class UIBuilder:
                             style={'background_color': self.dkblue}
                     )
                     butt.enabled = True
-
 
         bl = self.btblue
         gn = self.btgreen
@@ -486,9 +484,8 @@ class UIBuilder:
 
     def show_joint_limit_warnings(self, x, y, b, m, rbix=0):
         rc = self.get_robot_config(rbix)
-        rc.show_joints_close_to_limits = not rc.show_joints_close_to_limits
+        self._cur_scenario.toggle_show_joints_close_to_limits(rbix)
         print(f"show_joint_limit_warnings {rc.robot_id} - {rc.show_joints_close_to_limits}")
-
 
     def _change_joint_inc(self, x, y, b, m):
         if b == 0:
