@@ -243,11 +243,12 @@ class ScenarioBase:
         if rcfg.show_joints_close_to_limits:
             rcfg.alarmskin = "Red_Glass"
             if rcfg.robmatskin=="default":
-                self.ensure_orimat(rcfg)
+                self.ensure_orimat()
             elif rcfg.robmatskin=="Red_Glass":
                 rcfg.alarmskin = "Blue_Glass"
             self.check_alarm_status(rcfg)
             rcfg.dof_alarm_last = copy.deepcopy(rcfg.dof_alarm)
+        return rcfg.show_joints_close_to_limits
 
 
     def show_joints_close_to_limits(self):
@@ -261,13 +262,16 @@ class ScenarioBase:
                     if rcfg.dof_alarm[j] != rcfg.dof_alarm_last[j]:
                         link_path = rcfg.link_paths[j]
                         if rcfg.dof_alarm[j]:
+                            print(f"alarm - changing {link_path} to {rcfg.alarmskin}")
                             # print(f"Joint {jn} is close to limit for {rcfg.robot_name} {rcfg.robot_id} link_path:{link_path}")
                             apply_material_to_prim_and_children(self._stage, self._matman, rcfg.alarmskin, link_path)
                         else:
                             # print(f"Joint {jn} is not close to limit for {rcfg.robot_name} {rcfg.robot_id} link_path:{link_path}")
                             if rcfg.robmatskin == "default":
-                                apply_matdict_to_prim_and_children(self._stage, rcfg.orimat, "default", link_path)
+                                print(f"alarm over - changing {link_path} to rcfg.orimat")
+                                apply_matdict_to_prim_and_children(self._stage, rcfg.orimat, link_path)
                             else:
+                                print(f"alarm over - changing {link_path} to {rcfg.robmatskin}")
                                 apply_material_to_prim_and_children(self._stage, self._matman, rcfg.robmatskin, link_path)
                 rcfg.dof_alarm_last = copy.deepcopy(rcfg.dof_alarm)
 
@@ -650,7 +654,6 @@ class ScenarioBase:
             set_damping_for_joints(rcfg.dof_paths, rcfg.damping)
 
     def ensure_orimat(self):
-        rc = self.get_robot_config(0)
         for rcfg in self._rcfg_list:
             if not hasattr(rcfg, "orimat"):
                 rcfg.orimat = build_material_dict(self._stage, rcfg.robot_prim_path)

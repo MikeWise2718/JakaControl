@@ -85,13 +85,6 @@ class InvkinScenario(ScenarioBase):
         self.add_light("sphere_light")
         self.add_ground(ground_opt)
 
-
-        self._start_robot_pos = Gf.Vec3d([0, 0, 0])
-        self._start_robot_rot = [0, 0, 0]
-        if self._robot_name == "ur10-suction-short":
-            self._start_robot_pos = Gf.Vec3d([0, 0, 0.4])
-            self._start_robot_rot = [180, 0, 0]
-
         add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", "/World/target")
         self._target = XFormPrim("/World/target", scale=[.04,.04,.04])
 
@@ -103,39 +96,30 @@ class InvkinScenario(ScenarioBase):
         self.register_robot_articulations()
         self.teleport_robots_to_zeropos()
 
-
-
         # RMPflow config files for supported robots are stored in the motion_generation extension under "/motion_policy_configs"
 
-        self._kinematics_solver = LulaKinematicsSolver(
+        rcfg = self.get_robot_config()
+        rcfg._kinematics_solver = LulaKinematicsSolver(
             robot_description_path = self._robcfg.rdf_path,
             urdf_path = self._robcfg.urdf_path
         )
-        self.lulaHelper = LulaInterfaceHelper(self._kinematics_solver._robot_description)
 
-
-        if self._robcfg.stiffness>0:
-            self.set_stiffness_for_all_joints(self._robcfg.stiffness) # 1e8 or 10 million seems too high
-
-        if self._robcfg.damping>0:
-            self.set_damping_for_all_joints(self._robcfg.damping) # 1e5 or 100 thousand seems too high
-
-        self._articulation = self._robcfg._articulation
 
         end_effector_name = self._robcfg.eeframe_name
-        self._articulation_kinematics_solver = ArticulationKinematicsSolver(self._articulation,self._kinematics_solver, end_effector_name)
-        ee_position,ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
+        rcfg._articulation_kinematics_solver = ArticulationKinematicsSolver(rcfg._articulation,rcfg._kinematics_solver, end_effector_name)
+        ee_position,ee_rot_mat = rcfg._articulation_kinematics_solver.compute_end_effector_pose()
         self._ee_pos = ee_position
         self._ee_rot = ee_rot_mat
 
-        print("Valid frame names at which to compute kinematics:", self._kinematics_solver.get_all_frame_names())
+        print("Valid frame names at which to compute kinematics:", rcfg._kinematics_solver.get_all_frame_names())
 
 
     def reset_scenario(self):
-        # self._target.set_world_pose(np.array([0.2,0.2,0.6]),euler_angles_to_quats([0,np.pi,0]))
         self.teleport_robots_to_zeropos()
 
-        ee_position,ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
+        rcfg = self.get_robot_config()
+
+        ee_position,ee_rot_mat = rcfg._articulation_kinematics_solver.compute_end_effector_pose()
         self._ee_pos = ee_position
         self._ee_rot = ee_rot_mat
 
@@ -147,23 +131,26 @@ class InvkinScenario(ScenarioBase):
     msggap = 1
     last_msg_time = 0
     def physics_step(self, step_size):
+        rcfg = self.get_robot_config()
 
         if self.ik_solving_active:
             target_position, target_orientation = self._target.get_world_pose()
 
             #Track any movements of the robot base
-            robot_base_translation,robot_base_orientation = self._articulation.get_world_pose()
-            self._kinematics_solver.set_robot_base_pose(robot_base_translation,robot_base_orientation)
+            robot_base_translation,robot_base_orientation = rcfg._articulation.get_world_pose()
+            rcfg._kinematics_solver.set_robot_base_pose(robot_base_translation,robot_base_orientation)
 
-            action, success = self._articulation_kinematics_solver.compute_inverse_kinematics(target_position, target_orientation)
+            action, success = rcfg._articulation_kinematics_solver.compute_inverse_kinematics(target_position, target_orientation)
 
             if success:
-                self._articulation.apply_action(action)
+                # print(f"step:{self.phystep}")
+                # print(f"action:{action}")
+                rcfg._articulation.apply_action(action)
                 pass
             else:
                 msg =f"IK did not converge to a solution.  No action is being taken - phystep: {self.phystep} ikerrs: {self.ikerrs}"
                 if self.ikerrs == 0:
-                    action, success = self._articulation_kinematics_solver.compute_inverse_kinematics(target_position, target_orientation)
+                    action, success = rcfg._articulation_kinematics_solver.compute_inverse_kinematics(target_position, target_orientation)
                     carb.log_info(msg)
                 self.ikerrs += 1
                 curtime = time.time()
@@ -174,10 +161,9 @@ class InvkinScenario(ScenarioBase):
                     print(msg)
         self.phystep += 1
 
-        ee_position,ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
+        ee_position,ee_rot_mat = rcfg._articulation_kinematics_solver.compute_end_effector_pose()
         self._ee_pos = ee_position
         self._ee_rot = ee_rot_mat
-
 
     def teardown_scenario(self):
         pass
@@ -187,27 +173,6 @@ class InvkinScenario(ScenarioBase):
             return
         self.physics_step(step)
 
-
-    def set_stiffness_for_all_joints(self, stiffness):
-        active_joints = self.lulaHelper.get_active_joints()
-        set_stiffness_for_joints(active_joints, stiffness)
-
-    def set_damping_for_all_joints(self, damping):
-        active_joints = self.lulaHelper.get_active_joints()
-        set_damping_for_joints(active_joints, damping)
-
-    def adjust_stiffness_for_all_joints(self,fak):
-        active_joints = self.lulaHelper.get_active_joints()
-        # print(f"active_joints:{active_joints} fak:{fak:.2f} tot_stiffness:{self.tot_stiffness_factor:.4e}")
-        adjust_joint_values(active_joints,"stiffness",fak)
-        self.tot_stiffness_factor = self.tot_stiffness_factor * fak
-
-    def adjust_damping_for_all_joints(self,fak):
-        active_joints = self.lulaHelper.get_active_joints()
-        # print(f"active_joints:{active_joints} fak:{fak:.2f} tot_damping:{self.tot_damping_factor:.4e}")
-        adjust_joint_values(active_joints,"damping",fak)
-        self.tot_damping_factor = self.tot_damping_factor * fak
-
     def scenario_action(self, actionname, mouse_button=0 ):
         print("InvkinScenario action:",actionname, "   mouse_button:",mouse_button)
         if actionname == "Toggle IkSolving":
@@ -215,19 +180,9 @@ class InvkinScenario(ScenarioBase):
         elif actionname == "Move Target to EE":
             # self._target.set_world_pose(np.array([0.0,-0.006,0.7668]),euler_angles_to_quats([0,0,0]))
             self._target.set_world_pose(self._ee_pos, rot_matrices_to_quats(self._ee_rot))
-        elif actionname == "Adjust Stiffness - All Joints":
-            if mouse_button>0:
-                self.adjust_stiffness_for_all_joints(1.1)
-            else:
-                self.adjust_stiffness_for_all_joints(1/1.1)
-        elif actionname == "Adjust Damping - All Joints":
-            if mouse_button>0:
-                self.adjust_damping_for_all_joints(1.1)
-            else:
-                self.adjust_damping_for_all_joints(1/1.1)
         else:
             print(f"Unknown actionname: {actionname}")
 
     def get_scenario_actions(self):
-        rv = ["Move Target to EE","Adjust Stiffness - All Joints","Adjust Damping - All Joints","Toggle IkSolving" ]
+        rv = ["Move Target to EE","Toggle IkSolving" ]
         return rv

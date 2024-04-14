@@ -337,7 +337,7 @@ class GripperScenario(ScenarioBase):
         # Set camera to a nearby pose and looking directly at the Gripper cone
         self.cone_start_pose = dc.Transform([0, 0, 0.301], [0, 0, 0, 1])
         set_camera_view(
-            eye=[4.00, 4.00, 4.00], target=self.cone_start_pose.p, camera_prim_path="/OmniverseKit_Persp"
+            eye=[20.00, 20.00, 20.00], target=self.cone_start_pose.p, camera_prim_path="/OmniverseKit_Persp"
         )
 
         # self._physx_subs = _physx.get_physx_interface().subscribe_physics_step_events(self._on_simulation_step)
@@ -364,6 +364,9 @@ class GripperScenario(ScenarioBase):
             world.scene.add(ground)
 
         self._object = self._cuboid
+
+
+
         print("load_scenario done - self._object", self._object)
 
     def createRigidBody(self, bodyType, boxActorPath, mass, scale, position, rotation, color):
@@ -429,6 +432,11 @@ class GripperScenario(ScenarioBase):
     def post_load_scenario(self):
         # self._articulation = articulation
         # self._object = object_prim
+        set_camera_view(
+            eye=[2.00, 2.00, 2.00], target=self.cone_start_pose.p, camera_prim_path="/OmniverseKit_Persp"
+        )
+
+
         print("setup_scenario - self._object", self._object)
 
     laststat = "None"
@@ -439,7 +447,6 @@ class GripperScenario(ScenarioBase):
             self.laststat = newstat
             if newstat == "Closed":
                 nhit = apply_material_to_prim_and_children(self._stage, self._matman, self.mat_closed, self.gripperActorPath)
-
             else:
                 nhit = apply_material_to_prim_and_children(self._stage, self._matman, self.mat_open, self.gripperActorPath)
 

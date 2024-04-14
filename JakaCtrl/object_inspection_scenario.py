@@ -11,6 +11,7 @@ from omni.isaac.core.world import World
 
 from omni.isaac.core.utils.extensions import get_extension_path_from_name
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
+from omni.isaac.core.utils.viewports import set_camera_view
 
 from .senut import apply_material_to_prim_and_children, GetXformOps, GetXformOpsFromPath
 
@@ -92,6 +93,8 @@ class ObjectInspectionScenario(ScenarioBase):
         self.teleport_robots_to_zeropos()
 
         self.make_robot_mpflows([self._obstacle])
+
+        set_camera_view(eye=[0.0, 2.5, 1.0], target=[0,0,0], camera_prim_path="/OmniverseKit_Persp")
 
         self._running_scenario = True
 
