@@ -21,6 +21,8 @@ from omni.isaac.ui.element_wrappers import CollapsableFrame, StateButton
 from omni.isaac.ui.element_wrappers.core_connectors import LoadButton, ResetButton
 from omni.isaac.ui.ui_utils import get_style
 from omni.usd import StageEventType
+from .senut import set_stiffness_for_joints, set_damping_for_joints
+
 
 from .scenario_base import ScenarioBase
 from .invkin_scenario import InvkinScenario
@@ -60,7 +62,7 @@ class UIBuilder:
     _mode = "none"
     _choices = ["choice 1","choice 2"]
     _choice = "choice 1"
-    _actions = ["--none--"]
+    _action_list = ["--none--"]
     _action = "--none--"
     _colprims = None
     _colvis_opts = ["Invisible", "Red", "RedGlass", "Glass"]
@@ -75,6 +77,7 @@ class UIBuilder:
                      "Clear Glass","Tinted Glass 85","Tinted Glass 75","Tinted Glass",
                      "Red Glass","Green Glass","Blue Glass", "Red/Green Glass", "Red/Blue Glass", "Green/Blue Glass"]
     _robskin_opt = "Default"
+    _last_created_robot_name = ""
 
     def __init__(self):
         # Frames are sub-windows that can contain multiple UI elements
@@ -113,9 +116,9 @@ class UIBuilder:
         self._robskin_opt = get_setting("p_robskin_opt", self._robskin_opt)
 
         self._scenario_name = get_setting("p_scenario_name", self._scenario_name)
-        self._actions = ScenarioBase.get_scenario_actions(self._scenario_name)
+        self._action_list = ScenarioBase.get_scenario_actions(self._scenario_name)
         action = get_setting("p_action", self._action)
-        self._action = action if action in self._actions else self._actions[0]
+        self._action = action if action in self._action_list else self._action_list[0]
 
         self._mode = get_setting("p_mode", self._mode)
         self._choice = get_setting("p_choice", self._choice)
@@ -270,14 +273,8 @@ class UIBuilder:
         scenario_actions_frame = CollapsableFrame("Scenario Actions", collapsed=False)
 
         with scenario_actions_frame:
-            with ui.VStack(style=get_style(), spacing=5, height=0):
-                for action in self._actions:
-                    def do_action(action):
-                        return lambda: self._do_action(action, "")
-                    self._collider_vis_btn = Button(
-                        action, clicked_fn=do_action(action),
-                        style={'background_color': self.dkred}
-                    )
+            self._action_vstack = ui.VStack(style=get_style(), spacing=5, height=0)
+            self.load_action_vstack()
 
 
         rob_appearance_frame = CollapsableFrame("Robot Appearance", collapsed=False)
@@ -314,9 +311,6 @@ class UIBuilder:
                         self._robskin_opt, mouse_pressed_fn=self._change_robskin_opt,
                         style={'background_color': self.dkred}
                     )
-
-
-
 
         world_controls_frame = CollapsableFrame("World Controls", collapsed=False)
 
@@ -362,21 +356,44 @@ class UIBuilder:
                 self._show_robot_config_btn.enabled = True
                 # self.wrapped_ui_elements.append(self._show_robot_config_btn)
 
-        robot_joints_frame = CollapsableFrame("Robot DOF Joints")
+        robot_joints_frame = CollapsableFrame("Robot DOF Joints 0")
 
         with robot_joints_frame:
             self.rob_joints_vstack = ui.VStack(style=get_style(), spacing=5, height=0)
             with self.rob_joints_vstack:
                 self._show_robot_joint_btn = Button(
-                        "Show Robot DOF Joints", clicked_fn=self._show_robot_joint_values,
+                        "Show Robot DOF Joints 0", clicked_fn=self._show_joint_values_for_robot,
                         style={'background_color': self.dkblue}
                 )
                 self._show_robot_joint_btn.enabled = True
+
+        robot_joints_frame1 = CollapsableFrame("Robot DOF Joints 1")
+
+        with robot_joints_frame1:
+            self.rob_joints_vstack1 = ui.VStack(style=get_style(), spacing=5, height=0)
+            with self.rob_joints_vstack1:
+                sjv_fn = lambda: self._show_joint_values_for_robot(1,self.rob_joints_vstack1)
+                self._show_robot_joint_btn1 = Button(
+                        "Show Robot DOF Joints 1", clicked_fn=sjv_fn,
+                        style={'background_color': self.dkblue}
+                )
+                self._show_robot_joint_btn1.enabled = True
 
 
     ######################################################################################
     # Functions Below This Point Support The Provided Example And Can Be Deleted/Replaced
     ######################################################################################
+
+    def load_action_vstack(self):
+        self._action_vstack.clear()
+        with self._action_vstack:
+            for action in self._action_list:
+                def do_action(action):
+                    return lambda: self._do_action(action, "")
+                self._collider_vis_btn = Button(
+                    action, clicked_fn=do_action(action),
+                    style={'background_color': self.dkred}
+                )
 
     cfg_lab_dict = {}
     config_line_list = []
@@ -417,7 +434,9 @@ class UIBuilder:
         return self._cur_scenario.get_robot_config(index)
 
     def _show_robot_config(self, index=0):
-        print("_show_robot_config")
+        print(f"_show_robot_config {index}")
+        rc = self.get_robot_config(index)
+        print(f"  rc {rc.robot_name} {rc.robot_id} {rc.robmatskin}")
         self.rob_config_vstack.clear()
         self.cfg_lab_dict = {}
         self.config_line_list = []
@@ -432,13 +451,6 @@ class UIBuilder:
                             style={'background_color': self.dkblue}
                     )
                     butt.enabled = True
-                self._copy_clipboard_btn = Button(
-                        "Copy to Clipboard", clicked_fn=self._copy_to_clipboard,
-                        style={'background_color': self.dkblue}
-                )
-                self._copy_clipboard_btn.enabled = True
-
-        rc = self.get_robot_config(index)
 
         bl = self.btblue
         gn = self.btgreen
@@ -478,71 +490,163 @@ class UIBuilder:
         jidx = int(joint_idx)
         jidxlist = [jidx]
         pos = art.get_joint_positions()
-        newjpos = pos[jidx] + inc*np.pi/180
+        rinc = self.joint_inc_step if inc>0 else -self.joint_inc_step
+        newjpos = pos[jidx] + rinc*np.pi/180
         art.set_joint_positions(joint_indices=jidxlist, positions=[newjpos])
         self.refresh_robot_joint_values(robot_idx, joint_idx)
 
-        print(f"_rot_robot_joint robot_idx:{robot_idx} joint_idx {joint_idx} ({jname}) by {inc} degrees")
+        print(f"_rot_robot_joint robot_idx:{robot_idx} joint_idx {joint_idx} ({jname}) by {rinc} degrees")
 
-    def _show_robot_joint_values(self, robot_idx=0):
-        print("_show_robot_joints")
-        self.rob_joints_vstack.clear()
+    def add_spheres_to_joints(self, x, y, b, m, ridx=0):
+        self._cur_scenario.add_spheres_to_joints(ridx)
+
+    def show_joint_limit_warnings(self, x, y, b, m, ridx=0):
+        rc = self.get_robot_config(ridx)
+        stat = self._cur_scenario.toggle_show_joints_close_to_limits(ridx)
+        onoff = "On" if stat else "Off"
+        txt = f"Joint Limit Warnings for {ridx} - {onoff}"
+        butts =  self.joint_ui_dict.get((ridx, -1, "joint-option-buttons"))
+        if butts is not None:
+            butt1 = butts[0]
+            butt1.text = txt
+        else:
+            print(f"show_joint_limit_warnings - no button found for robot {ridx}")
+        # self._show_joint_limit_warnings_btn.text = txt
+        print(f"{txt} - {rc.robot_id} - {rc.show_joints_close_to_limits}")
+
+    def _change_joint_inc(self, x, y, b, m):
+        if b == 0:
+            self.joint_inc_step *= 2
+        else:
+            self.joint_inc_step *= 0.5
+        self._joint_inc_btn.text = f"Joint inc: {self.joint_inc_step}"
+
+    def _change_joint_stiffness(self, x, y, b, m, ridx=-1):
+        rc = self.get_robot_config(ridx)
+        if b == 0:
+            rc.stiffness *= 1.125
+        else:
+            rc.stiffness /= 1.125
+        set_stiffness_for_joints(rc.dof_paths, rc.stiffness)
+        self._adjust_stiffness_btn.text = f"Stiffness: {rc.stiffness:.2f}"
+
+    def _change_joint_damping(self, x, y, b, m, ridx=-1):
+        rc = self.get_robot_config(ridx)
+        if b == 0:
+            rc.damping *= 1.125
+        else:
+            rc.damping /= 1.125
+        set_damping_for_joints(rc.dof_paths, rc.damping)
+        self._adjust_damping_btn.text = f"Damping: {rc.damping:.2f}"
+
+    joint_ui_dict = {}
+    def clear_ui_dict_of_robot(self, robot_idx):
+        print(f"clear_ui_dict_of_robot {robot_idx} nkeys {len(self.joint_ui_dict)} ")
+        kez = list(self.joint_ui_dict.keys())
+        for k in kez:
+            (k_ridx, _, _) = k
+            if k_ridx == robot_idx:
+                del self.joint_ui_dict[k]
+        print(f"clear_ui_dict_of_robot - done -  {robot_idx} nkeys {len(self.joint_ui_dict)} ")
+
+    def _show_joint_values_for_robot(self, robot_idx=0, robvstack=None):
+        if robvstack is None:
+            robvstack = self.rob_joints_vstack
+        robvstack.clear()
+        print(f"_show_joint_values_for_robot {robot_idx}")
+        rc = self.get_robot_config(robot_idx)
+        if rc is None:
+            msg = f"Robot {robot_idx} not found - probably not initialized with \"Create\" yet"
+            print(msg)
+            carb.log_warn(msg)
+            robvstack.add_child(ui.Label(msg, style={'color': self.btred}))
+            return
+        print(f"  rc {rc.robot_name} {rc.robot_id} {rc.robmatskin}")
         self.rob_config_stack = ui.VStack(style=get_style(), spacing=5, height=0)
-        self.joint_ui_dict = {}
-        self.config_line_list = []
+        self.clear_ui_dict_of_robot(robot_idx)
+        self.joint_inc_step = 5
         nrobots = self._cur_scenario._nrobots
-        with self.rob_joints_vstack:
+        with robvstack:
             with ui.HStack(style=get_style(), spacing=5, height=0):
-                for i in range(nrobots):
-                    def show_robot_config(i):
-                        return lambda: self._show_robot_joint_values(i)
+                for ridx in range(nrobots):
+                    def show_joints_for_robot(i):
+                        return lambda: self._show_joint_values_for_robot(i,robvstack)
                     butt = Button(
-                            f"Show Robot Joints {i}", clicked_fn=show_robot_config(i),
+                            f"Show Joints of Robot {ridx}", clicked_fn=show_joints_for_robot(ridx),
                             style={'background_color': self.dkblue}
                     )
                     butt.enabled = True
-                self._copy_clipboard_btn = Button(
-                        "Copy to Clipboard", clicked_fn=self._copy_to_clipboard,
-                        style={'background_color': self.dkblue}
+            with ui.HStack(style=get_style(), spacing=5, height=0):
+                sjw_fn = lambda x,y,b,m: self.show_joint_limit_warnings(x,y,b,m, ridx=robot_idx)
+                onoff = "On" if rc.show_joints_close_to_limits else "Off"
+                butt1 = self._show_joint_limit_warnings_btn = Button(
+                        f"Joint Limit Warnings for {robot_idx} - {onoff}", mouse_pressed_fn=sjw_fn,
+                        style={'background_color': self.dkpurple}
                 )
-                self._copy_clipboard_btn.enabled = True
+                self._show_joint_limit_warnings_btn.enabled = True
+                butt2 = self._add_spheres_to_joints_btn = Button(
+                        f"Add Spheres to Joints of {robot_idx}", mouse_pressed_fn=self.add_spheres_to_joints,
+                        style={'background_color': self.dkpurple}
+                )
+                self._add_spheres_to_joints_btn.enabled = True
+                self._joint_inc_btn = Button(
+                        f"Joint inc:{self.joint_inc_step}", mouse_pressed_fn=self._change_joint_inc,
+                        style={'background_color': self.dkgreen}
+                )
+                self._joint_inc_btn.enabled = True
+                ajs_fn = lambda x,y,b,m: self._change_joint_stiffness(x,y,b,m, ridx=robot_idx)
+                butt3 = self._adjust_stiffness_btn = Button(
+#                         f"Stiffness:{rc.stiffness}", mouse_pressed_fn=self._change_joint_stiffness,
+                        f"Stiffness:{rc.stiffness:.2f}", mouse_pressed_fn=ajs_fn,
+                        style={'background_color': self.dkcyan}
+                )
+                self._adjust_stiffness_btn.enabled = True
+                ajd_fn = lambda x,y,b,m: self._change_joint_damping(x,y,b,m, ridx=robot_idx)
+                butt4 = self._adjust_damping_btn = Button(
+                        f"Damping:{rc.damping:.2f}", mouse_pressed_fn=ajd_fn,
+                        style={'background_color': self.dkcyan}
+                )
+                self._adjust_damping_btn.enabled = True
+                self.joint_ui_dict[(robot_idx,-1,"joint-option-buttons")] = (butt1,butt2,butt3,butt4)
 
-        rc = self.get_robot_config(robot_idx)
+
         hstack = ui.HStack(style=get_style(), spacing=5, height=0)
         with hstack:
-            ui.Label(f"Robot {rc.robot_name} - {robot_idx}", style={'color': self.btwhite}, width=120)
+            ui.Label(f"idx:{robot_idx} - {rc.robot_name} - {rc.robot_id} - {rc.robmatskin}", style={'color': self.btwhite}, width=120)
             labtime = ui.Label("", style={'color': self.btwhite}, width=120)
-        self.rob_joints_vstack.add_child(hstack)
-        if not hasattr(rc, "_articulation"):
-            carb.log_warn(f"Robot {robot_idx} has no articulation - probably not initialized yet")
-            return
-        self.joint_inc_step = 5
+        robvstack.add_child(hstack)
+        # if not hasattr(rc, "_articulation"):
+        #     carb.log_warn(f"Robot {robot_idx} has no articulation - probably not initialized yet")
+        #     return
         for j,jn in enumerate(rc.dof_names):
             self.config_line_list.append(f"{jn}")
             hstack = ui.HStack(style=get_style(), spacing=5, height=0)
             def rot_joint(j,jn,inc):
-                rinc = self.joint_inc_step*inc
-                return lambda: self._rot_robot_joint(robot_idx,j,jn,rinc)
+                return lambda: self._rot_robot_joint(robot_idx,j,jn,inc)
             with hstack:
                 labstyle = {'color': self.btwhite}
                 btnstyle = {'background_color': self.dkgreen}
                 lab1 = ui.Label("", style=labstyle, width=120)
                 lab2 = ui.Label("", style=labstyle, width=120)
                 lab3 = ui.Label("", style=labstyle, width=120)
-                but1 = ui.Button("", clicked_fn=rot_joint(j,jn,1), style=btnstyle)
+                but1 = ui.Button("", clicked_fn=rot_joint(j,jn,+1), style=btnstyle)
                 but2 = ui.Button("", clicked_fn=rot_joint(j,jn,-1), style=btnstyle)
                 lab4 = ui.Label("", style=labstyle, width=120)
             self.joint_ui_dict[(robot_idx,j,jn)] = (labtime, lab1, lab2, lab3, but1, but2, lab4)
-            self.rob_joints_vstack.add_child(hstack)
+            robvstack.add_child(hstack)
             self.refresh_robot_joint_values(robot_idx, j)
-        print("done _show_robot_joints")
+        print("done _show_joint_values_for_robot")
 
     def refresh_robot_joint_values(self, robot_idx, joint_idx):
         rc = self.get_robot_config(robot_idx)
-        self._cur_scenario.check_alarm_status(rc)
-        txttime = f"Secs: {self._cur_scenario.global_time:.3f}"
         j = joint_idx
         jn = rc.dof_names[j]
+        uientry = self.joint_ui_dict.get((robot_idx,j,jn))
+        if uientry is None:
+            print(f"refresh_robot_joint_values - no entry for robot {robot_idx} joint {j} {jn}")
+            return
+        self._cur_scenario.check_alarm_status(rc)
+        txttime = f"Secs: {self._cur_scenario.global_time:.3f}"
         art = rc._articulation
         pos = art.get_joint_positions()
         props = art.dof_properties
@@ -558,7 +662,7 @@ class UIBuilder:
         txt2 = f"{llim:.1f} to {ulim:.1f}"
         txt3 = f" cur: {jpos:.1f}  ({lmb:.1f}%)"
         txt4 = f"{jtyp}  --  stiff-damp: {stiff:8.1f} {damp:8.1f}"
-        uientry = self.joint_ui_dict[(robot_idx,j,jn)]
+
         clr = self.btred if rc.dof_alarm[j] else self.btwhite
         alarmstyle={'color': clr}
         (labtime, lab1, lab2, lab3, but1, but2, lab4) = uientry
@@ -574,7 +678,9 @@ class UIBuilder:
     def refresh_open_robot_joint_values(self):
         if hasattr(self, "joint_ui_dict"):
             for (robot_idx,j,_) in self.joint_ui_dict:
-                self.refresh_robot_joint_values(robot_idx, j)
+                if j>=0:
+                    self.refresh_robot_joint_values(robot_idx, j)
+        self._cur_scenario.realize_joint_alarms()
 
     def pick_scenario(self, scenario_name):
         if scenario_name == "sinusoid-joint":
@@ -613,12 +719,14 @@ class UIBuilder:
 
         self._cur_scenario.realize_robot_skin(self._robskin_opt)
 
-        self._actions = self._cur_scenario.get_scenario_actions()
-        if len(self._actions) > 0:
-            self._action = self._actions[0]
+        self._action_list = self._cur_scenario.get_scenario_actions()
+        if len(self._action_list) > 0:
+            self._action = self._action_list[0]
         else:
             self._action = ""
         self._actionsel_btn.text = self._action
+        self._last_created_robot_name = self._robot_name
+        self.load_action_vstack()
 
     def get_next_val_safe(self, lst, val, inc=1):
         try:
@@ -636,7 +744,7 @@ class UIBuilder:
         self._cur_scenario.scenario_action(action, actionparm)
 
     def _change_action(self, x, y, b, m):
-        self._action = self.get_next_val_safe(self._actions, self._action, self.binc[b])
+        self._action = self.get_next_val_safe(self._action_list, self._action, self.binc[b])
         self._actionsel_btn.text = self._action
 
     def _change_choice(self):
@@ -657,6 +765,9 @@ class UIBuilder:
             robot_name = self.get_next_val_safe(self._robot_names, robot_name, binc)
             if ScenarioBase.can_handle_robot(scenario_name, robot_name):
                 # print(f"Found valid robot name {robot_name} for scenario {scenario_name}")
+                # if ScenarioBase.can_handle_robot(scenario_name, self._last_created_robot_name):
+                    # print(f"Overrode robot name {robot_name} with {self._last_created_robot_name}")
+                #     robot_name = self._last_created_robot_name
                 break
             iter += 1
             if iter > maxiters:
@@ -717,7 +828,6 @@ class UIBuilder:
 
     def _exec_action(self, x, y, b, m):
         self._cur_scenario.scenario_action(self._action, b)
-
 
     def _setup_post_load(self):
         """

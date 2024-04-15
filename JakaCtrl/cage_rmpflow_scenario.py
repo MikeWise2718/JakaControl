@@ -11,6 +11,7 @@ from omni.isaac.core.world import World
 
 from omni.isaac.core.utils.extensions import get_extension_path_from_name
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
+from omni.isaac.core.utils.viewports import set_camera_view
 
 from .senut import apply_material_to_prim_and_children, GetXformOps, GetXformOpsFromPath
 
@@ -32,6 +33,8 @@ class CageRmpflowScenario(ScenarioBase):
     rotate_target0 = False
     rotate_target1 = False
     target_rot_speed = 2*np.pi/10 # 10 seconds for a full rotation
+
+
 
     def __init__(self):
         super().__init__()
@@ -90,41 +93,45 @@ class CageRmpflowScenario(ScenarioBase):
 
     def setup_scenario(self):
         self.register_robot_articulations()
+        self.adjust_stiffness_and_damping_for_robots()
         self.teleport_robots_to_zeropos()
 
         self.make_robot_mpflows([self._obstacle])
+
+        set_camera_view(eye=[0.0, 2.5, 1.0], target=[0,0,0], camera_prim_path="/OmniverseKit_Persp")
 
         self._running_scenario = True
 
     def reset_scenario(self):
         self.reset_robot_rmpflows()
 
-    def rotate_target(self, target, top, cen, radius):
+    gang = 0
+    def rotate_target(self, target, top, cen, radius, step_size):
         # pos, ori = target.get_world_pose()
         cen = np.array(cen)
-        ang = self.global_time*self.target_rot_speed
         (xp,yp,zp) = cen
         # newpos = np.array([radius*np.cos(ang), radius*np.sin(ang), zp])
-        newpos = Gf.Vec3d([xp+radius*np.cos(ang), yp+radius*np.sin(ang), zp])
+        self.gang += self.target_rot_speed*step_size
+        newpos = Gf.Vec3d([xp+radius*np.cos(self.gang), yp+radius*np.sin(self.gang), zp])
         top.Set(newpos)
 
     def physics_step(self, step_size):
         self.global_time += step_size
 
-        self.rmpflow_update_world_for_all()
+        if self.rmpactive:
+            self.rmpflow_update_world_for_all()
 
         if self.rotate_target0:
-            self.rotate_target(self._target0, self.targ0top, [-0.3, 0.00, 0.02], 0.15)
+            self.rotate_target(self._target0, self.targ0top, [-0.3, 0.00, 0.02], 0.15, step_size)
         if self.rotate_target1:
-            self.rotate_target(self._target1, self.targ1top,  [+0.3, 0.00, 0.02], 0.15)
+            self.rotate_target(self._target1, self.targ1top,  [+0.3, 0.00, 0.02], 0.15, step_size)
 
         target0_position, target0_orientation = self._target0.get_world_pose()
         target1_position, target1_orientation = self._target1.get_world_pose()
 
-        self.set_end_effector_target_for_robot(0, target0_position, target0_orientation)
-        self.set_end_effector_target_for_robot(1, target1_position, target1_orientation)
-
         if self.rmpactive:
+            self.set_end_effector_target_for_robot(0, target0_position, target0_orientation)
+            self.set_end_effector_target_for_robot(1, target1_position, target1_orientation)
             self.forward_rmpflow_step_for_robots(step_size)
 
     def update_scenario(self, step: float):
@@ -141,11 +148,18 @@ class CageRmpflowScenario(ScenarioBase):
                 self.rotate_target0 = not self.rotate_target0
             case "RotateTarget1":
                 self.rotate_target1 = not self.rotate_target1
+            case "FasterTargetSpeed":
+                self.target_rot_speed *= 2
+            case "SlowerTargetSpeed":
+                self.target_rot_speed /= 2
+            case "ReverseTargetSpeed":
+                self.target_rot_speed *= -1
             case _:
                 print(f"Action {action_name} not implemented")
                 return False
 
     def get_scenario_actions(self):
         self.base_actions = super().get_scenario_actions()
-        combo  = self.base_actions + ["RotateTarget0", "RotateTarget1"]
+        combo  = self.base_actions + ["RotateTarget0", "RotateTarget1",
+                                      "FasterTargetSpeed","SlowerTargetSpeed","ReverseTargetSpeed"]
         return combo

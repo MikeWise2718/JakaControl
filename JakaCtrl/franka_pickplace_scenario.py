@@ -265,6 +265,7 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
                 self._rmpflow.visualize_collision_spheres()
                 self._rmpflow.visualize_end_effector_position()
                 self.realize_rmptarg_vis(self._show_rmp_target_opt)
+                self.realize_collider_vis_opt(self._show_collision_bounds)
 
 
             gripper.set_joint_positions(gripper.joint_opened_positions)

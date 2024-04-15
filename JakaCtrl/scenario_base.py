@@ -34,6 +34,7 @@ from omni.isaac.core.utils.stage import add_reference_to_stage
 from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
 from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulationAPI_location_if_needed
 from .senut import add_sphere_light_to_stage, add_dome_light_to_stage
+from .senut import get_link_paths
 
 
 class ScenarioBase:
@@ -41,6 +42,13 @@ class ScenarioBase:
     global_time = 0
     _nrobots = 0
     _rcfg_list = []
+    _show_joints_close_to_limits = False
+
+    _show_rmp_target = False
+    _show_rmp_target_opt = "invisible" # don't delete
+    _show_collision_bounds = False
+    _show_collision_bounds_opt = "invisible" # don't delete
+    _show_endeffector_box = False
 
     def __init__(self):
         self._scenario_name = "empty scenario"
@@ -55,8 +63,8 @@ class ScenarioBase:
 
     @staticmethod
     def get_scenario_names():
-        rv = [ "inverse-kinematics","gripper","rmpflow","object-inspection","cage-rmpflow",
-             "sinusoid-joint","franka-pick-and-place","pick-and-place"]
+        rv = [ "sinusoid-joint","inverse-kinematics","rmpflow","gripper","object-inspection","cage-rmpflow",
+             "franka-pick-and-place","pick-and-place"]
         return rv
 
     @staticmethod
@@ -126,7 +134,7 @@ class ScenarioBase:
         return rv
 
 
-    def get_robot_config(self, robidx):
+    def get_robot_config(self, robidx=0):
         if robidx<len(self._rcfg_list):
             return self._rcfg_list[robidx]
         else:
@@ -235,6 +243,59 @@ class ScenarioBase:
             rcfg = self.get_robot_config(idx)
             self.register_articulation(rcfg._articulation, rcfg)
 
+    def toggle_show_joints_close_to_limits(self, ridx):
+        rcfg = self.get_robot_config(ridx)
+        rcfg.show_joints_close_to_limits = not rcfg.show_joints_close_to_limits
+        # print(f"toggle_show_joints_close_to_limits on {rcfg.robot_name} {rcfg.robot_id} - {rcfg.show_joints_close_to_limits}")
+        if rcfg.show_joints_close_to_limits:
+            self.assign_alarm_skin(ridx)
+            self.check_alarm_status(rcfg)
+            rcfg.dof_alarm_last = copy.deepcopy(rcfg.dof_alarm)
+            self.realize_joint_alarms(force=True)
+        else:
+            if rcfg.robmatskin == "default":
+                # print("Reverting to original materials (default)")
+                apply_matdict_to_prim_and_children(self._stage, rcfg.orimat, rcfg.robot_prim_path)
+            else:
+                 #print(f"Reverting to {rcfg.robmatskin}")
+                apply_material_to_prim_and_children(self._stage, self._matman, rcfg.robmatskin, rcfg.robot_prim_path)
+        # print("toggle_show_joints_close_to_limits done")
+        return rcfg.show_joints_close_to_limits
+
+    def assign_alarm_skin(self, ridx):
+        rcfg = self.get_robot_config(ridx)
+        if rcfg.robmatskin=="Red_Glass":
+            rcfg.alarmskin = "Blue_Glass"
+        else:
+            rcfg.alarmskin = "Red_Glass"
+
+    def realize_joint_alarms(self,force=False):
+         #print(f"realize_joint_alarms force:{force}")
+        for ridx in range(0,self._nrobots):
+            rcfg = self.get_robot_config(ridx)
+            if rcfg.show_joints_close_to_limits:
+                self.assign_alarm_skin(ridx)
+                self.check_alarm_status(rcfg)
+                for j, jn in enumerate(rcfg.dof_names):
+                    if force or (rcfg.dof_alarm[j] != rcfg.dof_alarm_last[j]):
+                        link_path = rcfg.link_paths[j]
+                        joint_in_alarm = rcfg.dof_alarm[j]
+                        if joint_in_alarm:
+                            # print(f"   changing {link_path} to {rcfg.alarmskin} - inalarm:{joint_in_alarm}")
+                            # print(f"Joint {jn} is close to limit for {rcfg.robot_name} {rcfg.robot_id} link_path:{link_path}")
+                            apply_material_to_prim_and_children(self._stage, self._matman, rcfg.alarmskin, link_path)
+                        else:
+                            # print(f"Joint {jn} is not close to limit for {rcfg.robot_name} {rcfg.robot_id} link_path:{link_path}")
+                            if rcfg.robmatskin == "default":
+                                # print(f"   changing {link_path} to rcfg.orimat - inalarm:{joint_in_alarm}")
+                                apply_matdict_to_prim_and_children(self._stage, rcfg.orimat, link_path)
+                            else:
+                                # print(f"   changing {link_path} to {rcfg.robmatskin} - inalarm:{joint_in_alarm}")
+                                apply_material_to_prim_and_children(self._stage, self._matman, rcfg.robmatskin, link_path)
+                rcfg.dof_alarm_last = copy.deepcopy(rcfg.dof_alarm)
+        # print("realize_joint_alarms done")
+
+
     def register_articulation(self, articulation, rcfg=None):
         # this has to happen in post_load_scenario - some initialization must be happening before this
         # probably as a result of articuation being added to the world.scene
@@ -242,23 +303,27 @@ class ScenarioBase:
         # TODO: once everthing uses register_robot_articulations we can get rid of the articulation parameters
         if rcfg is None:
             rcfg = self.get_robot_config(0)
-
+        # print(f"senut.register_articulation for {rcfg.robot_name} {rcfg.robot_id}")
 
         art = articulation
         rcfg._articulation = art
-        rcfg.dof_paths = art._prim_view._dof_paths
+        rcfg.dof_paths = art._prim_view._dof_paths[0] # why is this a list while the following ones are not?
         rcfg.dof_types = art._prim_view._dof_types
         rcfg.dof_names = art._prim_view._dof_names
+        rcfg.link_paths = get_link_paths(rcfg.dof_paths)
 
         rcfg.lower_dof_lim = art.dof_properties["lower"]
         rcfg.upper_dof_lim = art.dof_properties["upper"]
         rcfg.njoints = art.num_dof
         rcfg.dof_zero_pos = np.zeros(rcfg.njoints)
+        rcfg.show_joints_close_to_limits = False
 
         pos = art.get_joint_positions()
         props = art.dof_properties
-        stiffs = props["stiffness"]
-        damps = props["damping"]
+        # stiffs = props["stiffness"]
+        # print(f"stiffs for {rcfg.robot_name} {rcfg.robot_id} - {stiffs}")
+        # damps = props["damping"]
+        # print(f"damps for {rcfg.robot_name} {rcfg.robot_id} - {damps}")
         rcfg.dof_alarm_llim = np.zeros(rcfg.njoints)
         rcfg.dof_alarm_ulim = np.zeros(rcfg.njoints)
         rcfg.orig_dof_pos =  copy.deepcopy(pos)
@@ -274,7 +339,7 @@ class ScenarioBase:
             rcfg.dof_alarm_llim[j] = llim + lower_alarm_gap*(ulim-llim)
             rcfg.dof_alarm_ulim[j] = ulim - upper_alarm_gap*(ulim-llim)
         self.check_alarm_status(rcfg)
-        print("senut.register_articulation")
+        # print("done senut.register_articulation")
 
     def setup_robot_for_pose_movement(self, gprim, rcfg, pos, rot):
         pos = Gf.Vec3d(list(pos))
@@ -291,7 +356,7 @@ class ScenarioBase:
         rcfg.start_robot_rot = rot
         rcfg.robot_rotvek = np.array(rot)*np.pi/180
 
-    def load_robot_into_scene(self, ridx, pos=[0,0,0], rot=[0,0,0]):
+    def load_robot_into_scene(self, ridx=0, pos=[0,0,0], rot=[0,0,0]):
         stage = self._stage
         rcfg = self.get_robot_config(ridx)
 
@@ -331,14 +396,19 @@ class ScenarioBase:
         for ob in oblist:
             rmpflow.add_obstacle(ob)
 
-        self.set_stiffness_and_damping_for_all_joints(rcfg)
-
         rmpflow.set_ignore_state_updates(True)
-        rmpflow.visualize_collision_spheres()
+
+        if self._show_collision_bounds:
+            rmpflow.visualize_collision_spheres()
         articulation_rmpflow = ArticulationMotionPolicy(rcfg._articulation,rmpflow)
         rcfg.rmpflow = rmpflow
         rcfg.articulation_rmpflow = articulation_rmpflow
         return rmpflow, articulation_rmpflow
+
+    def adjust_stiffness_and_damping_for_robots(self):
+        for idx in range(self._nrobots):
+            rcfg = self.get_robot_config(idx)
+            self.set_stiffness_and_damping_for_all_joints(rcfg)
 
     def make_robot_mpflows(self, oblist = []):
         for i in range(self._nrobots):
@@ -347,8 +417,10 @@ class ScenarioBase:
     def reset_robot_rmpflow(self, rob_idx):
         rcfg = self.get_robot_config(rob_idx)
         # rcfg.rmpflow.reset()
-        rcfg.rmpflow.visualize_collision_spheres()
-        rcfg.rmpflow.visualize_end_effector_position()
+        if self._show_collision_bounds:
+            rcfg.rmpflow.visualize_collision_spheres()
+        if self._show_endeffector_box:
+            rcfg.rmpflow.visualize_end_effector_position()
 
     def reset_robot_rmpflows(self):
         for i in range(self._nrobots):
@@ -407,7 +479,7 @@ class ScenarioBase:
 
     def realize_rmptarg_vis(self, opt):
         if hasattr(self, "_show_rmp_target" ):
-           self._show_rmp_target = opt != "invisible"
+           self._show_rmp_target = opt.lower() != "invisible"
            self._show_rmp_target_opt = opt
            if self._show_rmp_target:
                self.visualize_rmp_target()
@@ -458,6 +530,8 @@ class ScenarioBase:
         for i,rcfg in enumerate(self._rcfg_list):
             mat = mat1 if i%2==0 else mat2
             apply_material_to_prim_and_children(self._stage, self._matman, mat, rcfg.robot_prim_path)
+            rcfg = self.get_robot_config(i)
+            rcfg.robmatskin = mat
             didone = True
         if not didone:
             carb.log_warn("realize_robot_skin - no robot config found")
@@ -490,33 +564,35 @@ class ScenarioBase:
                 pass
 
     def realize_collider_vis_opt(self, opt):
-        stage = get_current_stage()
-        if self._matman is None:
-            self._matman = MatMan(stage)
+        pass
+    # Broken, does not work for multiple robots as written
+        # stage = get_current_stage()
+        # if self._matman is None:
+        #     self._matman = MatMan(stage)
 
-        if self._colprims is None:
-            self._colprims: List[Usd.Prim] = find_prims_by_name("collision_sphere")
-        print(f"realize_collider_vis_opt:{opt} nspheres:{len(self._colprims)}")
-        nfliped = 0
-        nexcept = 0
-        for prim in self._colprims:
-            gprim = UsdGeom.Gprim(prim)
-            try:
-                if opt == "Red":
-                    gprim.MakeVisible()
-                    material = self._matman.GetMaterial("red")
-                    UsdShade.MaterialBindingAPI(gprim).Bind(material)
-                elif opt == "Glass":
-                    gprim.MakeVisible()
-                    material = self._matman.GetMaterial("Clear_Glass")
-                    UsdShade.MaterialBindingAPI(gprim).Bind(material)
-                elif opt == "Invisible":
-                    gprim.MakeInvisible()
-                nfliped += 1
-            except:
-                nexcept += 1
-                pass
-        print(f"Realize_collider_vis_opt changed:{nfliped} exceptions:{nexcept}")
+        # if self._colprims is None:
+        #     self._colprims: List[Usd.Prim] = find_prims_by_name("collision_sphere")
+        # print(f"realize_collider_vis_opt:{opt} nspheres:{len(self._colprims)}")
+        # nfliped = 0
+        # nexcept = 0
+        # for prim in self._colprims:
+        #     gprim = UsdGeom.Gprim(prim)
+        #     try:
+        #         if opt == "Red":
+        #             gprim.MakeVisible()
+        #             material = self._matman.GetMaterial("red")
+        #             UsdShade.MaterialBindingAPI(gprim).Bind(material)
+        #         elif opt == "Glass":
+        #             gprim.MakeVisible()
+        #             material = self._matman.GetMaterial("Clear_Glass")
+        #             UsdShade.MaterialBindingAPI(gprim).Bind(material)
+        #         else:
+        #             gprim.MakeInvisible()
+        #         nfliped += 1
+        #     except:
+        #         nexcept += 1
+        #         pass
+        # print(f"Realize_collider_vis_opt changed:{nfliped} exceptions:{nexcept}")
 
     def realize_rotate_opt(self, opt):
         if hasattr(self, "_rotate" ):
@@ -590,15 +666,15 @@ class ScenarioBase:
         return wintitle
 
     def set_stiffness_and_damping_for_all_joints(self, rcfg):
+        # print(f"set_stiffness_and_damping_for_all_joints - {rcfg.robot_name} - {rcfg.robot_id}")
         if rcfg.stiffness>0:
-            active_joints = rcfg.lulaHelper.get_active_joints()
-            set_stiffness_for_joints(active_joints, rcfg.stiffness)
+            # print(f"    setting stiffness - {rcfg.robot_name} stiffness:{rcfg.stiffness}")
+            set_stiffness_for_joints(rcfg.dof_paths, rcfg.stiffness)
         if rcfg.damping>0:
-            active_joints = rcfg.lulaHelper.get_active_joints()
-            set_damping_for_joints(active_joints, rcfg.damping)
+            # print(f"    setting damping - {rcfg.robot_name} damping:{rcfg.damping}")
+            set_damping_for_joints(rcfg.dof_paths, rcfg.damping)
 
     def ensure_orimat(self):
-        rc = self.get_robot_config(0)
         for rcfg in self._rcfg_list:
             if not hasattr(rcfg, "orimat"):
                 rcfg.orimat = build_material_dict(self._stage, rcfg.robot_prim_path)
@@ -627,6 +703,17 @@ class ScenarioBase:
         self.ensure_orimat()
         for rcfg in self._rcfg_list:
             self.joint_check_robot(rcfg)
+
+    def add_spheres_to_joints(self, ribx=0):
+        rcfg = self.get_robot_config(ribx)
+        for j,jp in enumerate(rcfg.dof_paths):
+            print(f"adding sphere to joint {j} {rcfg.dof_names[j]}")
+            sphpath = f"{jp}/joint_sphere"
+            prim = UsdGeom.Sphere.Define(self._stage, sphpath)
+            sz = 0.01
+            prim.AddScaleOp().Set(Gf.Vec3f(sz,sz,sz))
+            prim.GetDisplayColorAttr().Set([(1, 1, 0)])
+
 
     def scenario_action(self, action_name, action_args):
         match action_name:
