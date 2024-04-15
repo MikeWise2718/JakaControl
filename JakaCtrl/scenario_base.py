@@ -44,6 +44,12 @@ class ScenarioBase:
     _rcfg_list = []
     _show_joints_close_to_limits = False
 
+    _show_rmp_target = False
+    _show_rmp_target_opt = "invisible" # don't delete
+    _show_collision_bounds = False
+    _show_collision_bounds_opt = "invisible" # don't delete
+    _show_endeffector_box = False
+
     def __init__(self):
         self._scenario_name = "empty scenario"
         self._secnario_desc = "description from ScenarioBase class"
@@ -240,45 +246,54 @@ class ScenarioBase:
     def toggle_show_joints_close_to_limits(self, ridx):
         rcfg = self.get_robot_config(ridx)
         rcfg.show_joints_close_to_limits = not rcfg.show_joints_close_to_limits
+        # print(f"toggle_show_joints_close_to_limits on {rcfg.robot_name} {rcfg.robot_id} - {rcfg.show_joints_close_to_limits}")
         if rcfg.show_joints_close_to_limits:
-            rcfg.alarmskin = "Red_Glass"
-            if rcfg.robmatskin=="default":
-                self.ensure_orimat()
-            elif rcfg.robmatskin=="Red_Glass":
-                rcfg.alarmskin = "Blue_Glass"
+            self.assign_alarm_skin(ridx)
             self.check_alarm_status(rcfg)
             rcfg.dof_alarm_last = copy.deepcopy(rcfg.dof_alarm)
+            self.realize_joint_alarms(force=True)
+        else:
+            if rcfg.robmatskin == "default":
+                # print("Reverting to original materials (default)")
+                apply_matdict_to_prim_and_children(self._stage, rcfg.orimat, rcfg.robot_prim_path)
+            else:
+                 #print(f"Reverting to {rcfg.robmatskin}")
+                apply_material_to_prim_and_children(self._stage, self._matman, rcfg.robmatskin, rcfg.robot_prim_path)
+        # print("toggle_show_joints_close_to_limits done")
         return rcfg.show_joints_close_to_limits
 
+    def assign_alarm_skin(self, ridx):
+        rcfg = self.get_robot_config(ridx)
+        if rcfg.robmatskin=="Red_Glass":
+            rcfg.alarmskin = "Blue_Glass"
+        else:
+            rcfg.alarmskin = "Red_Glass"
 
-    def show_joints_close_to_limits(self):
-        for idx in range(0,self._nrobots):
-            rcfg = self.get_robot_config(idx)
-            if not rcfg.show_joints_close_to_limits:
-                continue
-            nalarm = self.check_alarm_status(rcfg)
-            if nalarm>0:
-                for j,jn in enumerate(rcfg.dof_names):
-                    if rcfg.dof_alarm[j] != rcfg.dof_alarm_last[j]:
+    def realize_joint_alarms(self,force=False):
+         #print(f"realize_joint_alarms force:{force}")
+        for ridx in range(0,self._nrobots):
+            rcfg = self.get_robot_config(ridx)
+            if rcfg.show_joints_close_to_limits:
+                self.assign_alarm_skin(ridx)
+                self.check_alarm_status(rcfg)
+                for j, jn in enumerate(rcfg.dof_names):
+                    if force or (rcfg.dof_alarm[j] != rcfg.dof_alarm_last[j]):
                         link_path = rcfg.link_paths[j]
-                        if rcfg.dof_alarm[j]:
-                            print(f"alarm - changing {link_path} to {rcfg.alarmskin}")
+                        joint_in_alarm = rcfg.dof_alarm[j]
+                        if joint_in_alarm:
+                            # print(f"   changing {link_path} to {rcfg.alarmskin} - inalarm:{joint_in_alarm}")
                             # print(f"Joint {jn} is close to limit for {rcfg.robot_name} {rcfg.robot_id} link_path:{link_path}")
                             apply_material_to_prim_and_children(self._stage, self._matman, rcfg.alarmskin, link_path)
                         else:
                             # print(f"Joint {jn} is not close to limit for {rcfg.robot_name} {rcfg.robot_id} link_path:{link_path}")
                             if rcfg.robmatskin == "default":
-                                print(f"alarm over - changing {link_path} to rcfg.orimat")
+                                # print(f"   changing {link_path} to rcfg.orimat - inalarm:{joint_in_alarm}")
                                 apply_matdict_to_prim_and_children(self._stage, rcfg.orimat, link_path)
                             else:
-                                print(f"alarm over - changing {link_path} to {rcfg.robmatskin}")
+                                # print(f"   changing {link_path} to {rcfg.robmatskin} - inalarm:{joint_in_alarm}")
                                 apply_material_to_prim_and_children(self._stage, self._matman, rcfg.robmatskin, link_path)
                 rcfg.dof_alarm_last = copy.deepcopy(rcfg.dof_alarm)
-
-            # if hasattr(rcfg, "orimat"):
-            #     matdict = rcfg.orimat
-            #     nchg = apply_matdict_to_prim_and_children(self._stage, matdict, rcfg.robot_prim_path)
-            #     print(f"restore_robot_skins - {nchg} materials restored for {rcfg.robot_prim_path}")
+        # print("realize_joint_alarms done")
 
 
     def register_articulation(self, articulation, rcfg=None):
@@ -382,7 +397,9 @@ class ScenarioBase:
             rmpflow.add_obstacle(ob)
 
         rmpflow.set_ignore_state_updates(True)
-        rmpflow.visualize_collision_spheres()
+
+        if self._show_collision_bounds:
+            rmpflow.visualize_collision_spheres()
         articulation_rmpflow = ArticulationMotionPolicy(rcfg._articulation,rmpflow)
         rcfg.rmpflow = rmpflow
         rcfg.articulation_rmpflow = articulation_rmpflow
@@ -400,8 +417,10 @@ class ScenarioBase:
     def reset_robot_rmpflow(self, rob_idx):
         rcfg = self.get_robot_config(rob_idx)
         # rcfg.rmpflow.reset()
-        rcfg.rmpflow.visualize_collision_spheres()
-        rcfg.rmpflow.visualize_end_effector_position()
+        if self._show_collision_bounds:
+            rcfg.rmpflow.visualize_collision_spheres()
+        if self._show_endeffector_box:
+            rcfg.rmpflow.visualize_end_effector_position()
 
     def reset_robot_rmpflows(self):
         for i in range(self._nrobots):
@@ -460,7 +479,7 @@ class ScenarioBase:
 
     def realize_rmptarg_vis(self, opt):
         if hasattr(self, "_show_rmp_target" ):
-           self._show_rmp_target = opt != "invisible"
+           self._show_rmp_target = opt.lower() != "invisible"
            self._show_rmp_target_opt = opt
            if self._show_rmp_target:
                self.visualize_rmp_target()
@@ -545,33 +564,35 @@ class ScenarioBase:
                 pass
 
     def realize_collider_vis_opt(self, opt):
-        stage = get_current_stage()
-        if self._matman is None:
-            self._matman = MatMan(stage)
+        pass
+    # Broken, does not work for multiple robots as written
+        # stage = get_current_stage()
+        # if self._matman is None:
+        #     self._matman = MatMan(stage)
 
-        if self._colprims is None:
-            self._colprims: List[Usd.Prim] = find_prims_by_name("collision_sphere")
-        print(f"realize_collider_vis_opt:{opt} nspheres:{len(self._colprims)}")
-        nfliped = 0
-        nexcept = 0
-        for prim in self._colprims:
-            gprim = UsdGeom.Gprim(prim)
-            try:
-                if opt == "Red":
-                    gprim.MakeVisible()
-                    material = self._matman.GetMaterial("red")
-                    UsdShade.MaterialBindingAPI(gprim).Bind(material)
-                elif opt == "Glass":
-                    gprim.MakeVisible()
-                    material = self._matman.GetMaterial("Clear_Glass")
-                    UsdShade.MaterialBindingAPI(gprim).Bind(material)
-                elif opt == "Invisible":
-                    gprim.MakeInvisible()
-                nfliped += 1
-            except:
-                nexcept += 1
-                pass
-        print(f"Realize_collider_vis_opt changed:{nfliped} exceptions:{nexcept}")
+        # if self._colprims is None:
+        #     self._colprims: List[Usd.Prim] = find_prims_by_name("collision_sphere")
+        # print(f"realize_collider_vis_opt:{opt} nspheres:{len(self._colprims)}")
+        # nfliped = 0
+        # nexcept = 0
+        # for prim in self._colprims:
+        #     gprim = UsdGeom.Gprim(prim)
+        #     try:
+        #         if opt == "Red":
+        #             gprim.MakeVisible()
+        #             material = self._matman.GetMaterial("red")
+        #             UsdShade.MaterialBindingAPI(gprim).Bind(material)
+        #         elif opt == "Glass":
+        #             gprim.MakeVisible()
+        #             material = self._matman.GetMaterial("Clear_Glass")
+        #             UsdShade.MaterialBindingAPI(gprim).Bind(material)
+        #         else:
+        #             gprim.MakeInvisible()
+        #         nfliped += 1
+        #     except:
+        #         nexcept += 1
+        #         pass
+        # print(f"Realize_collider_vis_opt changed:{nfliped} exceptions:{nexcept}")
 
     def realize_rotate_opt(self, opt):
         if hasattr(self, "_rotate" ):

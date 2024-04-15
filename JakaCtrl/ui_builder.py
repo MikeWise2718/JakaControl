@@ -275,14 +275,6 @@ class UIBuilder:
         with scenario_actions_frame:
             self._action_vstack = ui.VStack(style=get_style(), spacing=5, height=0)
             self.load_action_vstack()
-            # with self._action_vstack:
-            #     for action in self._action_list:
-            #         def do_action(action):
-            #             return lambda: self._do_action(action, "")
-            #         self._collider_vis_btn = Button(
-            #             action, clicked_fn=do_action(action),
-            #             style={'background_color': self.dkred}
-            #         )
 
 
         rob_appearance_frame = CollapsableFrame("Robot Appearance", collapsed=False)
@@ -375,17 +367,17 @@ class UIBuilder:
                 )
                 self._show_robot_joint_btn.enabled = True
 
-        # robot_joints_frame1 = CollapsableFrame("Robot DOF Joints 1")
+        robot_joints_frame1 = CollapsableFrame("Robot DOF Joints 1")
 
-        # with robot_joints_frame1:
-        #     self.rob_joints_vstack1 = ui.VStack(style=get_style(), spacing=5, height=0)
-        #     with self.rob_joints_vstack1:
-        #         sjv_fn = lambda: self._show_joint_values_for_robot(1,self.rob_joints_vstack1)
-        #         self._show_robot_joint_btn1 = Button(
-        #                 "Show Robot DOF Joints 1", clicked_fn=sjv_fn,
-        #                 style={'background_color': self.dkblue}
-        #         )
-        #         self._show_robot_joint_btn1.enabled = True
+        with robot_joints_frame1:
+            self.rob_joints_vstack1 = ui.VStack(style=get_style(), spacing=5, height=0)
+            with self.rob_joints_vstack1:
+                sjv_fn = lambda: self._show_joint_values_for_robot(1,self.rob_joints_vstack1)
+                self._show_robot_joint_btn1 = Button(
+                        "Show Robot DOF Joints 1", clicked_fn=sjv_fn,
+                        style={'background_color': self.dkblue}
+                )
+                self._show_robot_joint_btn1.enabled = True
 
 
     ######################################################################################
@@ -512,8 +504,14 @@ class UIBuilder:
         rc = self.get_robot_config(ridx)
         stat = self._cur_scenario.toggle_show_joints_close_to_limits(ridx)
         onoff = "On" if stat else "Off"
-        txt = f"Joint Limit Warnings {onoff}"
-        self._show_joint_limit_warnings_btn.text = txt
+        txt = f"Joint Limit Warnings for {ridx} - {onoff}"
+        butts =  self.joint_ui_dict.get((ridx, -1, "joint-option-buttons"))
+        if butts is not None:
+            butt1 = butts[0]
+            butt1.text = txt
+        else:
+            print(f"show_joint_limit_warnings - no button found for robot {ridx}")
+        # self._show_joint_limit_warnings_btn.text = txt
         print(f"{txt} - {rc.robot_id} - {rc.show_joints_close_to_limits}")
 
     def _change_joint_inc(self, x, y, b, m):
@@ -541,37 +539,53 @@ class UIBuilder:
         set_damping_for_joints(rc.dof_paths, rc.damping)
         self._adjust_damping_btn.text = f"Damping: {rc.damping:.2f}"
 
-    def _show_joint_values_for_robot(self, robot_idx=0,robvstack=None):
+    joint_ui_dict = {}
+    def clear_ui_dict_of_robot(self, robot_idx):
+        print(f"clear_ui_dict_of_robot {robot_idx} nkeys {len(self.joint_ui_dict)} ")
+        kez = list(self.joint_ui_dict.keys())
+        for k in kez:
+            (k_ridx, _, _) = k
+            if k_ridx == robot_idx:
+                del self.joint_ui_dict[k]
+        print(f"clear_ui_dict_of_robot - done -  {robot_idx} nkeys {len(self.joint_ui_dict)} ")
+
+    def _show_joint_values_for_robot(self, robot_idx=0, robvstack=None):
         if robvstack is None:
             robvstack = self.rob_joints_vstack
+        robvstack.clear()
         print(f"_show_joint_values_for_robot {robot_idx}")
         rc = self.get_robot_config(robot_idx)
+        if rc is None:
+            msg = f"Robot {robot_idx} not found - probably not initialized with \"Create\" yet"
+            print(msg)
+            carb.log_warn(msg)
+            robvstack.add_child(ui.Label(msg, style={'color': self.btred}))
+            return
         print(f"  rc {rc.robot_name} {rc.robot_id} {rc.robmatskin}")
-        robvstack.clear()
         self.rob_config_stack = ui.VStack(style=get_style(), spacing=5, height=0)
-        self.joint_ui_dict = {}
+        self.clear_ui_dict_of_robot(robot_idx)
         self.joint_inc_step = 5
         nrobots = self._cur_scenario._nrobots
         with robvstack:
             with ui.HStack(style=get_style(), spacing=5, height=0):
-                for i in range(nrobots):
+                for ridx in range(nrobots):
                     def show_joints_for_robot(i):
                         return lambda: self._show_joint_values_for_robot(i,robvstack)
                     butt = Button(
-                            f"Show Joints of Robot {i}", clicked_fn=show_joints_for_robot(i),
+                            f"Show Joints of Robot {ridx}", clicked_fn=show_joints_for_robot(ridx),
                             style={'background_color': self.dkblue}
                     )
                     butt.enabled = True
             with ui.HStack(style=get_style(), spacing=5, height=0):
                 sjw_fn = lambda x,y,b,m: self.show_joint_limit_warnings(x,y,b,m, ridx=robot_idx)
                 onoff = "On" if rc.show_joints_close_to_limits else "Off"
-                self._show_joint_limit_warnings_btn = Button(
-                        f"Joint Limit Warnings {onoff}", mouse_pressed_fn=sjw_fn,
+                butt1 = self._show_joint_limit_warnings_btn = Button(
+                        f"Joint Limit Warnings for {robot_idx} - {onoff}", mouse_pressed_fn=sjw_fn,
                         style={'background_color': self.dkpurple}
                 )
                 self._show_joint_limit_warnings_btn.enabled = True
-                self._add_spheres_to_joints_btn = Button(
-                        f"Add Sphers to Joints", mouse_pressed_fn=self.add_spheres_to_joints,
+                butt2 = self._add_spheres_to_joints_btn = Button(
+                        f"Add Spheres to Joints of {robot_idx}", mouse_pressed_fn=self.add_spheres_to_joints,
                         style={'background_color': self.dkpurple}
                 )
                 self._add_spheres_to_joints_btn.enabled = True
@@ -581,28 +595,29 @@ class UIBuilder:
                 )
                 self._joint_inc_btn.enabled = True
                 ajs_fn = lambda x,y,b,m: self._change_joint_stiffness(x,y,b,m, ridx=robot_idx)
-                self._adjust_stiffness_btn = Button(
+                butt3 = self._adjust_stiffness_btn = Button(
 #                         f"Stiffness:{rc.stiffness}", mouse_pressed_fn=self._change_joint_stiffness,
                         f"Stiffness:{rc.stiffness:.2f}", mouse_pressed_fn=ajs_fn,
                         style={'background_color': self.dkcyan}
                 )
                 self._adjust_stiffness_btn.enabled = True
                 ajd_fn = lambda x,y,b,m: self._change_joint_damping(x,y,b,m, ridx=robot_idx)
-                self._adjust_damping_btn = Button(
+                butt4 = self._adjust_damping_btn = Button(
                         f"Damping:{rc.damping:.2f}", mouse_pressed_fn=ajd_fn,
                         style={'background_color': self.dkcyan}
                 )
                 self._adjust_damping_btn.enabled = True
+                self.joint_ui_dict[(robot_idx,-1,"joint-option-buttons")] = (butt1,butt2,butt3,butt4)
 
 
         hstack = ui.HStack(style=get_style(), spacing=5, height=0)
         with hstack:
             ui.Label(f"idx:{robot_idx} - {rc.robot_name} - {rc.robot_id} - {rc.robmatskin}", style={'color': self.btwhite}, width=120)
             labtime = ui.Label("", style={'color': self.btwhite}, width=120)
-        self.rob_joints_vstack.add_child(hstack)
-        if not hasattr(rc, "_articulation"):
-            carb.log_warn(f"Robot {robot_idx} has no articulation - probably not initialized yet")
-            return
+        robvstack.add_child(hstack)
+        # if not hasattr(rc, "_articulation"):
+        #     carb.log_warn(f"Robot {robot_idx} has no articulation - probably not initialized yet")
+        #     return
         for j,jn in enumerate(rc.dof_names):
             self.config_line_list.append(f"{jn}")
             hstack = ui.HStack(style=get_style(), spacing=5, height=0)
@@ -618,16 +633,20 @@ class UIBuilder:
                 but2 = ui.Button("", clicked_fn=rot_joint(j,jn,-1), style=btnstyle)
                 lab4 = ui.Label("", style=labstyle, width=120)
             self.joint_ui_dict[(robot_idx,j,jn)] = (labtime, lab1, lab2, lab3, but1, but2, lab4)
-            self.rob_joints_vstack.add_child(hstack)
+            robvstack.add_child(hstack)
             self.refresh_robot_joint_values(robot_idx, j)
         print("done _show_joint_values_for_robot")
 
     def refresh_robot_joint_values(self, robot_idx, joint_idx):
         rc = self.get_robot_config(robot_idx)
-        self._cur_scenario.check_alarm_status(rc)
-        txttime = f"Secs: {self._cur_scenario.global_time:.3f}"
         j = joint_idx
         jn = rc.dof_names[j]
+        uientry = self.joint_ui_dict.get((robot_idx,j,jn))
+        if uientry is None:
+            print(f"refresh_robot_joint_values - no entry for robot {robot_idx} joint {j} {jn}")
+            return
+        self._cur_scenario.check_alarm_status(rc)
+        txttime = f"Secs: {self._cur_scenario.global_time:.3f}"
         art = rc._articulation
         pos = art.get_joint_positions()
         props = art.dof_properties
@@ -643,7 +662,7 @@ class UIBuilder:
         txt2 = f"{llim:.1f} to {ulim:.1f}"
         txt3 = f" cur: {jpos:.1f}  ({lmb:.1f}%)"
         txt4 = f"{jtyp}  --  stiff-damp: {stiff:8.1f} {damp:8.1f}"
-        uientry = self.joint_ui_dict[(robot_idx,j,jn)]
+
         clr = self.btred if rc.dof_alarm[j] else self.btwhite
         alarmstyle={'color': clr}
         (labtime, lab1, lab2, lab3, but1, but2, lab4) = uientry
@@ -659,8 +678,9 @@ class UIBuilder:
     def refresh_open_robot_joint_values(self):
         if hasattr(self, "joint_ui_dict"):
             for (robot_idx,j,_) in self.joint_ui_dict:
-                self.refresh_robot_joint_values(robot_idx, j)
-        self._cur_scenario.show_joints_close_to_limits()
+                if j>=0:
+                    self.refresh_robot_joint_values(robot_idx, j)
+        self._cur_scenario.realize_joint_alarms()
 
     def pick_scenario(self, scenario_name):
         if scenario_name == "sinusoid-joint":
@@ -808,7 +828,6 @@ class UIBuilder:
 
     def _exec_action(self, x, y, b, m):
         self._cur_scenario.scenario_action(self._action, b)
-
 
     def _setup_post_load(self):
         """

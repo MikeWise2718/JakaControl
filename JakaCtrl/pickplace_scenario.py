@@ -50,12 +50,16 @@ from .senut import calc_robot_circle_pose, interp, GetXformOps, GetXformOpsFromP
 class PickAndPlaceScenario(ScenarioBase):
     _running_scenario = False
     _rmpflow = None
-    _show_collision_bounds = True
     _gripper_type = "none"
     _controller = None
     _rotate = False
     _rotate_speed = 1
     _show_rmp_target = False
+    _show_rmp_target_opt = "invisible" # don't delete
+    _show_collision_bounds = False
+    _show_collision_bounds_opt = "invisible" # don't delete
+    _show_endeffector_box = False
+
 
     def __init__(self):
         super().__init__()
@@ -240,10 +244,14 @@ class PickAndPlaceScenario(ScenarioBase):
 
         self.add_controllers()
 
+        self._rmpflow = self._controller._cspace_controller.rmp_flow
+           # self._rmpflow.reset()
+
+        self.realize_rmptarg_vis(self._show_rmp_target_opt)
         if self._show_collision_bounds:
-            self._rmpflow = self._controller._cspace_controller.rmp_flow
-                # self._rmpflow.reset()
             self._rmpflow.visualize_collision_spheres()
+            self.realize_collider_vis_opt(self._show_collision_bounds_opt)
+        if self._show_endeffector_box:
             self._rmpflow.visualize_end_effector_position()
 
 
@@ -279,11 +287,15 @@ class PickAndPlaceScenario(ScenarioBase):
         if self._controller is not None:
             self._controller.reset()
 
-        if self._show_collision_bounds:
-            if self._rmpflow is not None:
-                self._rmpflow.reset()
+        if self._rmpflow is not None:
+            self._rmpflow.reset()
+            if self._show_collision_bounds:
                 self._rmpflow.visualize_collision_spheres()
+                self.realize_collider_vis_opt(self._show_collision_bounds_opt)
+            if self._show_endeffector_box:
                 self._rmpflow.visualize_end_effector_position()
+            self.realize_rmptarg_vis(self._show_rmp_target_opt)
+
 
         if gripper is not None:
             if self._gripper_type == "parallel":
@@ -532,7 +544,7 @@ class PickAndPlaceScenario(ScenarioBase):
     global_ang = 0
     def physics_step(self, step_size):
         npc = self.nphysstep_calls
-        print(f"physics_step {npc} start - time: {self.global_time:.4f} eeori: {self.grip_eeori} ")
+        # print(f"physics_step {npc} start - time: {self.global_time:.4f} eeori: {self.grip_eeori} ")
 
 
         if npc==0:
@@ -584,7 +596,7 @@ class PickAndPlaceScenario(ScenarioBase):
         self._ee_rot = ee_rot_mat
         # print(f"ee_pos:{ee_pos}")
 
-        print(f"physics_step {npc} rotate - time: {self.global_time:.4f} phase:{phase} eeori: {self.grip_eeori} ")
+        # print(f"physics_step {npc} rotate - time: {self.global_time:.4f} phase:{phase} eeori: {self.grip_eeori} ")
 
         self.global_time += step_size
         self.nphysstep_calls += 1
