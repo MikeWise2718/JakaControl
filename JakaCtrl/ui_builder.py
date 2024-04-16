@@ -27,6 +27,7 @@ from .senut import set_stiffness_for_joints, set_damping_for_joints
 from .scenario_base import ScenarioBase
 from .invkin_scenario import InvkinScenario
 from .rmp_scenario import RMPflowScenario
+from .rmp_new_scenario import RMPflowNewScenario
 from .pickplace_scenario import PickAndPlaceScenario
 from .franka_pickplace_scenario import FrankaPickAndPlaceScenario
 from .sinusoid_scenario import SinusoidJointScenario
@@ -387,11 +388,14 @@ class UIBuilder:
     def load_action_vstack(self):
         self._action_vstack.clear()
         with self._action_vstack:
+            self._action_list = self._cur_scenario.get_scenario_actions()
             for action in self._action_list:
                 def do_action(action):
-                    return lambda: self._do_action(action, "")
+                    return lambda x,y,b,m: self._do_action(action, x,y,b,m)
+                button_text = self._cur_scenario.get_action_button_text( action, None )
+                print(f"load_action_vstack {action} {button_text}")
                 self._collider_vis_btn = Button(
-                    action, clicked_fn=do_action(action),
+                    button_text, mouse_pressed_fn=do_action(action),
                     style={'background_color': self.dkred}
                 )
 
@@ -691,6 +695,8 @@ class UIBuilder:
             self._cur_scenario = FrankaPickAndPlaceScenario()
         elif scenario_name == "rmpflow":
             self._cur_scenario = RMPflowScenario()
+        elif scenario_name == "rmpflow-new":
+            self._cur_scenario = RMPflowNewScenario()
         elif scenario_name == "object-inspection":
             self._cur_scenario = ObjectInspectionScenario()
         elif scenario_name == "cage-rmpflow":
@@ -740,8 +746,9 @@ class UIBuilder:
 
     binc = [-1, 1]
 
-    def _do_action(self, action, actionparm):
-        self._cur_scenario.scenario_action(action, actionparm)
+    def _do_action(self, action, x,y,b,m):
+        argdict = {"m":m, "b":b, "x":x, "y":y}
+        self._cur_scenario.scenario_action(action, argdict)
 
     def _change_action(self, x, y, b, m):
         self._action = self.get_next_val_safe(self._action_list, self._action, self.binc[b])

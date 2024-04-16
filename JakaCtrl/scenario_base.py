@@ -63,7 +63,7 @@ class ScenarioBase:
 
     @staticmethod
     def get_scenario_names():
-        rv = [ "sinusoid-joint","inverse-kinematics","rmpflow","gripper","object-inspection","cage-rmpflow",
+        rv = [ "sinusoid-joint","inverse-kinematics","rmpflow","rmpflow-new","gripper","object-inspection","cage-rmpflow",
              "franka-pick-and-place","pick-and-place"]
         return rv
 
@@ -86,6 +86,8 @@ class ScenarioBase:
             case "pick-and-place":
                 rv = "Pick and Place Scenario - for testing pick and place controllers"
             case "rmpflow":
+                rv = "RMPflow - For testing robots with RMPFlow controllers"
+            case "rmpflow-new":
                 rv = "RMPflow - For testing robots with RMPFlow controllers"
             case "inverse-kinematics":
                 rv = "Inverse Kinematics - For testing robots with lula inverse kinematics controllers"
@@ -113,7 +115,7 @@ class ScenarioBase:
                 rv = ["minicobo-dual-high","minicobo-rg2-high","jaka-minicobo-1a","minicobo-dual-sucker","rs007n"]
             case "franka-pick-and-place":
                 rv = ["franka", "fancy_franka","rs007n", "ur10-suction-short"]
-            case "pick-and-place" | "rmpflow"  | "inverse-kinematics":
+            case "pick-and-place" | "rmpflow"  | "rmpflow-new"  | "inverse-kinematics":
                 rv = ["franka", "fancy_franka","rs007n", "ur10-suction-short",
                     "jaka-minicobo-0","jaka-minicobo-1","jaka-minicobo-1a", "minicobo-dual-sucker",  "jaka-minicobo-2",
                     "minicobo-rg2-high", "minicobo-suction-dual", "minicobo-suction", "minicobo-suction-high", "minicobo-dual-high"]
@@ -730,3 +732,15 @@ class ScenarioBase:
 
     def get_scenario_actions(self):
         return ["Camera Viewports","Joint Check"]
+
+    def get_action_button_text(self, action_name,action_args=None):
+        match action_name:
+            case _:
+                rv = action_name
+        return rv
+
+    def get_action_button_tooltip(self, action_name):
+        match action_name:
+            case _:
+                rv = f"Tooltip for {action_name}"
+        return rv
