@@ -6,11 +6,13 @@ from omni.isaac.core.utils.extensions import get_extension_path_from_name # why 
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
 
 from pxr import Sdf, UsdLux, UsdPhysics, Usd
+from omni.kit.widget.viewport import ViewportWidget
 
 from omni.isaac.core.utils.stage import get_current_stage
 
 from omni.isaac.core.prims import XFormPrim
 
+import omni
 import carb.settings
 from omni.isaac.sensor import Camera
 
@@ -386,22 +388,41 @@ def interp(x, x1, x2, y1, y2):
         return y1
     return y1 + (x-x1)*(y2-y1)/(x2-x1)
 
-def add_cam(robot_name, cam_root):
+def make_cam_view_window(camlst, wintitle="Cameras", wid=1280, heit=720):
+    # https://docs.omniverse.nvidia.com/kit/docs/omni.kit.viewport.docs/latest/overview.html
+    nrobcam = len(camlst)
+    camviews = omni.ui.Window(wintitle, width=wid, height=heit+20) # Add 20 for the title-bar
+
+    with camviews.frame:
+        if nrobcam==0:
+            omni.ui.Label("No Robot Cameras Found (camlst is empty)")
+        else:
+            with omni.ui.VStack():
+                vh = heit / nrobcam
+                for camname in camlst:
+                    cam = camlst[camname]
+                    viewport_widget = ViewportWidget(resolution = (wid, vh))
+
+                    # Control of the ViewportTexture happens through the object held in the viewport_api property
+                    viewport_api = viewport_widget.viewport_api
+
+                    # We can reduce the resolution of the render easily
+                    viewport_api.resolution = (wid, vh)
+
+                    # We can also switch to a different camera if we know the path to one that exists
+                    viewport_api.camera_path = cam["usdpath"]
+
+    return camviews
+
+
     #camera_ring_path = "/World/roborg/minicobo_v1_4/dummy_tcp/ring"
+def add_rob_cam(cam_root, ring_rot, mount_trans, point_quat, camname="camera"):
     stage = get_current_stage()
     camera_ring_path = f"{cam_root}/ring"
     camera_mount_path = f"{camera_ring_path}/mount"
     camera_point_path = f"{camera_mount_path}/point"
-    camera_prim_path = f"{camera_point_path}/camera"
-    if robot_name == "minicobo-dual-sucker":
-        ring_rot = Gf.Vec3f([0,0,-45])
-    else:
-        ring_rot = Gf.Vec3f([0,0,0])
+    camera_prim_path = f"{camera_point_path}/{camname}"
     ring_quat = deg_euler_to_quatf(ring_rot)
-    mount_trans = Gf.Vec3f([0.011,0.147,-0.011])
-
-
-    point_quat = Gf.Quatf(0.80383,Gf.Vec3f(-0.19581,-0.46288,-0.31822))
 
     ovcam = Camera(
         prim_path=camera_prim_path,
@@ -424,7 +445,6 @@ def add_cam(robot_name, cam_root):
     mksop.Set((0.005, 0.005, 0.005))
     spherePrim = UsdGeom.Sphere.Define(stage, markername + '/sphere')
     spherePrim.GetDisplayColorAttr().Set([(0, 0.6, 0.6)])
-
 
     # OpenCV camera matrix and width and height of the camera sensor, from the calibration file
     width, height = 1920, 1200
