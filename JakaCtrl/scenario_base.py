@@ -56,7 +56,7 @@ class ScenarioBase:
         self._nrobots = 0
         self._rcfg_list = []
         self._stage = get_current_stage()
-        self.camlist = {}
+        self.robcamlist = {}
         self.rmpactive = True
         init_configs()
         pass
@@ -203,13 +203,13 @@ class ScenarioBase:
             self._ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]),position=[0,0,-1.03313])
             world.scene.add(self._ground)
 
-    camlist = {}
+    robcamlist = {}
 
     def add_camera_to_camlist(self, cam_name, cam_display_name, campath):
-        self.camlist[cam_name] = {}
-        self.camlist[cam_name]["name"] = cam_name
-        self.camlist[cam_name]["display_name"] = cam_display_name
-        self.camlist[cam_name]["usdpath"] = campath
+        self.robcamlist[cam_name] = {}
+        self.robcamlist[cam_name]["name"] = cam_name
+        self.robcamlist[cam_name]["display_name"] = cam_display_name
+        self.robcamlist[cam_name]["usdpath"] = campath
 
     def add_camera_to_robot(self,robot_name,robot_id,robot_prim_path):
         campath = None
@@ -642,17 +642,17 @@ class ScenarioBase:
         wintitle = "Robot Cameras"
         wid = 1280
         heit = 720
-        ncam = len(self.camlist)
+        nrobcam = len(self.robcamlist)
         camviews = omni.ui.Window(wintitle, width=wid, height=heit+20) # Add 20 for the title-bar
 
         with camviews.frame:
-            if ncam==0:
-                ui.Label("No Cameras Found (camlist is empty)")
+            if nrobcam==0:
+                ui.Label("No Robot Cameras Found (robcamlist is empty)")
             else:
                 with ui.VStack():
-                    vh = heit / len(self.camlist)
-                    for camname in self.camlist:
-                        cam = self.camlist[camname]
+                    vh = heit / len(self.robcamlist)
+                    for camname in self.robcamlist:
+                        cam = self.robcamlist[camname]
                         viewport_widget = ViewportWidget(resolution = (wid, vh))
 
                         # Control of the ViewportTexture happens through the object held in the viewport_api property
@@ -716,22 +716,21 @@ class ScenarioBase:
             prim.AddScaleOp().Set(Gf.Vec3f(sz,sz,sz))
             prim.GetDisplayColorAttr().Set([(1, 1, 0)])
 
-
     def scenario_action(self, action_name, action_args):
         match action_name:
-            case "Camera Viewports":
-                if not hasattr(self, "camlist"):
+            case "Robot Cam Views":
+                if not hasattr(self, "robcamlist"):
                     return
-                if len(self.camlist)==0:
-                    carb.log_warn("No cameras found in camlist")
+                if len(self.robcamlist)==0:
+                    carb.log_warn("No cameras found in robcamlist")
                     return
                 self.wtit = self.make_camera_views()
                 # ui.Workspace.show_window(self.wtit,True)
-            case "Camera Viewports":
+            case "Joint Check":
                 self.joint_check()
 
     def get_scenario_actions(self):
-        return ["Camera Viewports","Joint Check"]
+        return ["Robot Cam Views","Joint Check"]
 
     def get_action_button_text(self, action_name,action_args=None):
         match action_name:
@@ -739,7 +738,7 @@ class ScenarioBase:
                 rv = action_name
         return rv
 
-    def get_action_button_tooltip(self, action_name):
+    def get_action_button_tooltip(self, action_name, action_args=None):
         match action_name:
             case _:
                 rv = f"Tooltip for {action_name}"

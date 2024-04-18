@@ -357,34 +357,61 @@ class UIBuilder:
                 self._show_robot_config_btn.enabled = True
                 # self.wrapped_ui_elements.append(self._show_robot_config_btn)
 
-        robot_joints_frame = CollapsableFrame("Robot DOF Joints 0")
+        self.build_ui_scenario_dependent()
 
-        with robot_joints_frame:
-            self.rob_joints_vstack = ui.VStack(style=get_style(), spacing=5, height=0)
-            with self.rob_joints_vstack:
-                self._show_robot_joint_btn = Button(
-                        "Show Robot DOF Joints 0", clicked_fn=self._show_joint_values_for_robot,
-                        style={'background_color': self.dkblue}
-                )
-                self._show_robot_joint_btn.enabled = True
+    robot_joints_frame = None
+    robot_joints_frame1 = None
+    rob_joints_vstack = None
+    rob_joints_vstack1 = None
 
-        robot_joints_frame1 = CollapsableFrame("Robot DOF Joints 1")
+    def build_ui_scenario_dependent(self):
 
-        with robot_joints_frame1:
-            self.rob_joints_vstack1 = ui.VStack(style=get_style(), spacing=5, height=0)
-            with self.rob_joints_vstack1:
-                sjv_fn = lambda: self._show_joint_values_for_robot(1,self.rob_joints_vstack1)
-                self._show_robot_joint_btn1 = Button(
-                        "Show Robot DOF Joints 1", clicked_fn=sjv_fn,
-                        style={'background_color': self.dkblue}
-                )
-                self._show_robot_joint_btn1.enabled = True
+        if self.robot_joints_frame is not None:
+            if self.rob_joints_vstack is not None:
+                self.rob_joints_vstack.clear()
+            self.clear_ui_dict_of_robot(0)
+        else:
+            self.robot_joints_frame = CollapsableFrame("Robot DOF Joints 0")
+
+        if self.robot_joints_frame1 is not None:
+            if self.rob_joints_vstack1 is not None:
+                self.rob_joints_vstack1.clear()
+            self.clear_ui_dict_of_robot(1)
+        else:
+            self.robot_joints_frame1 = CollapsableFrame("Robot DOF Joints 1")
+
+        if self._cur_scenario is None:
+            return
+
+        if self._cur_scenario._nrobots > 0:
+            with self.robot_joints_frame:
+                self.rob_joints_vstack = ui.VStack(style=get_style(), spacing=5, height=0)
+                with self.rob_joints_vstack:
+                    sjv_fn = lambda: self._show_joint_values_for_robot(0,self.rob_joints_vstack)
+                    self._show_robot_joint_btn = Button(
+                            "Show Robot DOF Joints 0", clicked_fn=sjv_fn,
+                            style={'background_color': self.dkblue}
+                    )
+                    self._show_robot_joint_btn.enabled = True
+
+
+        if self._cur_scenario._nrobots > 1:
+            with self.robot_joints_frame1:
+                self.rob_joints_vstack1 = ui.VStack(style=get_style(), spacing=5, height=0)
+                with self.rob_joints_vstack1:
+                    sjv_fn = lambda: self._show_joint_values_for_robot(1,self.rob_joints_vstack1)
+                    self._show_robot_joint_btn1 = Button(
+                            "Show Robot DOF Joints 1", clicked_fn=sjv_fn,
+                            style={'background_color': self.dkblue}
+                    )
+                    self._show_robot_joint_btn1.enabled = True
 
 
     ######################################################################################
     # Functions Below This Point Support The Provided Example And Can Be Deleted/Replaced
     ######################################################################################
 
+    custbuttdict = {}
     def load_action_vstack(self):
         self._action_vstack.clear()
         with self._action_vstack:
@@ -393,11 +420,14 @@ class UIBuilder:
                 def do_action(action):
                     return lambda x,y,b,m: self._do_action(action, x,y,b,m)
                 button_text = self._cur_scenario.get_action_button_text( action, None )
+                tool_tip = self._cur_scenario.get_action_button_tooltip( action, None )
                 print(f"load_action_vstack {action} {button_text}")
-                self._collider_vis_btn = Button(
+                butt = Button(
                     button_text, mouse_pressed_fn=do_action(action),
+                    tooltip = tool_tip,
                     style={'background_color': self.dkred}
                 )
+                self.custbuttdict["action"] = butt
 
     cfg_lab_dict = {}
     config_line_list = []
@@ -749,6 +779,9 @@ class UIBuilder:
     def _do_action(self, action, x,y,b,m):
         argdict = {"m":m, "b":b, "x":x, "y":y}
         self._cur_scenario.scenario_action(action, argdict)
+        butt = self.custbuttdict.get("action")
+        if butt is not None:
+            butt.text = self._cur_scenario.get_action_button_text( action, argdict )
 
     def _change_action(self, x, y, b, m):
         self._action = self.get_next_val_safe(self._action_list, self._action, self.binc[b])
@@ -863,7 +896,10 @@ class UIBuilder:
         self._scenario_state_btn.reset()
         self._scenario_state_btn.enabled = True
         self._reset_btn.enabled = True
+        print("ui_builder._setup_post_load almost done")
+        self.build_ui_scenario_dependent()
         print("ui_builder._setup_post_load done")
+
 
     def _reset_scenario(self):
         print("ui_builder._reset_scenario")
@@ -889,6 +925,8 @@ class UIBuilder:
         # UI management
         self._scenario_state_btn.reset()
         self._scenario_state_btn.enabled = True
+
+
 
     def _update_scenario(self, step: float):
         """This function is attached to the Run Scenario StateButton.

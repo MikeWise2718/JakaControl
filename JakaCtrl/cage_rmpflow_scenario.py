@@ -34,8 +34,6 @@ class CageRmpflowScenario(ScenarioBase):
     rotate_target1 = False
     target_rot_speed = 2*np.pi/10 # 10 seconds for a full rotation
 
-
-
     def __init__(self):
         super().__init__()
         self._scenario_name = "cage-rmpflow"
@@ -138,24 +136,6 @@ class CageRmpflowScenario(ScenarioBase):
             return
         self.physics_step(step)
 
-    def scenario_action(self, action_name, action_args):
-        if action_name in self.base_actions:
-            rv = super().scenario_action(action_name, action_args)
-            return rv
-        match action_name:
-            case "RotateTarget0":
-                self.rotate_target0 = not self.rotate_target0
-            case "RotateTarget1":
-                self.rotate_target1 = not self.rotate_target1
-            case "FasterTargetSpeed":
-                self.target_rot_speed *= 2
-            case "SlowerTargetSpeed":
-                self.target_rot_speed /= 2
-            case "ReverseTargetSpeed":
-                self.target_rot_speed *= -1
-            case _:
-                print(f"Action {action_name} not implemented")
-                return False
 
     def scenario_action(self, action_name, action_args):
         if action_name in self.base_actions:
@@ -166,12 +146,16 @@ class CageRmpflowScenario(ScenarioBase):
                 self.rotate_target0 = not self.rotate_target0
             case "RotateTarget1":
                 self.rotate_target1 = not self.rotate_target1
-            case "FasterTargetSpeed":
-                self.target_rot_speed *= 2
-            case "SlowerTargetSpeed":
-                self.target_rot_speed /= 2
-            case "ReverseTargetSpeed":
-                self.target_rot_speed *= -1
+            case "ChangeSpeed":
+                m = action_args.get("m",0)
+                b = action_args.get("b",0)
+                if m!=0:
+                    self.target_rot_speed *= -1
+                else:
+                    if b>0:
+                        self.target_rot_speed /= 2
+                    else:
+                        self.target_rot_speed *= 2
             case _:
                 print(f"Action {action_name} not implemented")
                 return False
@@ -185,19 +169,27 @@ class CageRmpflowScenario(ScenarioBase):
                 rv = "Rotate Target 0"
             case "RotateTarget1":
                 rv = "Rotate Target 1"
-            case "FasterTargetSpeed":
-                rv = "Double Target Speed"
-            case "SlowerTargetSpeed":
-                rv = "Half Target Speed"
-            case "ReverseTargetSpeed":
-                rv = "Reverse Target Direction"
+            case "ChangeSpeed":
+                rv = f"Change Speed {self.target_rot_speed:.1f}"
             case _:
-                print(f"Action {action_name} not implemented")
-                return False
+                rv = f"{action_name} TBD"
         return rv
+
+    def get_action_button_tooltip(self, action_name, action_args=None):
+        if action_name in self.base_actions:
+            rv = super().get_action_button_tooltip(action_name, action_args)
+            return rv
+        match action_name:
+            case "ChangeSpeed":
+                rv = f"L*2,R /2, Ctrl to reverse"
+            case _:
+                rv = f"No tooltip for action {action_name}"
+        return rv
+
 
     def get_scenario_actions(self):
         self.base_actions = super().get_scenario_actions()
         combo  = self.base_actions + ["RotateTarget0", "RotateTarget1",
-                                      "FasterTargetSpeed","SlowerTargetSpeed","ReverseTargetSpeed"]
+                                      "ChangeSpeed",
+                                      "Cage Cam Views"]
         return combo
