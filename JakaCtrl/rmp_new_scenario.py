@@ -38,14 +38,14 @@ from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulationAPI_
 #
 
 
-class RMPflowScenario(ScenarioBase):
+class RMPflowNewScenario(ScenarioBase):
     _running_scenario = False
     _colorScheme = ""
     _enable_obstacle = False
 
     def __init__(self):
         super().__init__()
-        self._scenario_name = "rmpflow"
+        self._scenario_name = "rmpflow-new"
         self._scenario_desc = ScenarioBase.get_scenario_desc(self._scenario_name)
         self._nrobots = 1
 
@@ -180,7 +180,6 @@ class RMPflowScenario(ScenarioBase):
             self.realize_collider_vis_opt(self._show_collision_bounds_opt)
         if self._show_endeffector_box:
             self._rmpflow.visualize_end_effector_position()
-
 
 
     def set_stiffness_for_all_joints(self, stiffness):

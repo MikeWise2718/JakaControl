@@ -51,10 +51,10 @@ class ObjectInspectionScenario(ScenarioBase):
         self.add_ground(ground_opt)
 
         # Robots
-        (pos0, rot0) = ([-0.08, 0, 0.77], [0, -150, 0])
+        (pos0, rot0) = ([0.14, 0, 0.77], [0, 150, 0])
         self.load_robot_into_scene(0, pos0, rot0)
 
-        (pos1, rot1) = ([0.14, 0, 0.77], [0, 150, 0])
+        (pos1, rot1) = ([-0.08, 0, 0.77], [0, -150, 0])
         self.load_robot_into_scene(1, pos1, rot1)
 
         self.add_cameras_to_robots()
@@ -62,13 +62,13 @@ class ObjectInspectionScenario(ScenarioBase):
         # tagets
         quat = euler_angles_to_quat([-np.pi/2,0,0])
         t0path = "/World/target0"
-        self._target0 = XFormPrim(t0path, scale=[.04,.04,.04], position=[-0.15, 0.00, 0.02], orientation=quat)
+        self._target0 = XFormPrim(t0path, scale=[.04,.04,.04], position=[0.15, 0.00, 0.02], orientation=quat)
         (self.targ0top,_,_,_) = GetXformOpsFromPath(t0path)
         add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", t0path)
 
         quat = euler_angles_to_quat([-np.pi/2,0,0])
         t1path = "/World/target1"
-        self._target1 = XFormPrim(t1path, scale=[.04,.04,.04], position=[0.15, 0.00, 0.02], orientation=quat)
+        self._target1 = XFormPrim(t1path, scale=[.04,.04,.04], position=[-0.15, 0.00, 0.02], orientation=quat)
         (self.targ1top,_,_,_) = GetXformOpsFromPath(t1path)
         add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", t1path)
 
@@ -118,9 +118,9 @@ class ObjectInspectionScenario(ScenarioBase):
             self.rmpflow_update_world_for_all()
 
         if self.rotate_target0:
-            self.rotate_target(self._target0, self.targ0top, [-0.3, 0.00, 0.02], 0.15, step_size)
+            self.rotate_target(self._target0, self.targ0top, [+0.3, 0.00, 0.02], 0.15, step_size)
         if self.rotate_target1:
-            self.rotate_target(self._target1, self.targ1top,  [+0.3, 0.00, 0.02], 0.15, step_size)
+            self.rotate_target(self._target1, self.targ1top,  [-0.3, 0.00, 0.02], 0.15, step_size)
 
         target0_position, target0_orientation = self._target0.get_world_pose()
         target1_position, target1_orientation = self._target1.get_world_pose()
@@ -145,18 +145,48 @@ class ObjectInspectionScenario(ScenarioBase):
                 self.rotate_target0 = not self.rotate_target0
             case "RotateTarget1":
                 self.rotate_target1 = not self.rotate_target1
-            case "FasterTargetSpeed":
-                self.target_rot_speed *= 2
-            case "SlowerTargetSpeed":
-                self.target_rot_speed /= 2
-            case "ReverseTargetSpeed":
-                self.target_rot_speed *= -1
+            case "ChangeSpeed":
+                m = action_args.get("m",0)
+                b = action_args.get("b",0)
+                if m!=0:
+                    self.target_rot_speed *= -1
+                else:
+                    if b>0:
+                        self.target_rot_speed /= 2
+                    else:
+                        self.target_rot_speed *= 2
             case _:
                 print(f"Action {action_name} not implemented")
                 return False
 
+    def get_action_button_text(self, action_name, action_args=None):
+        if action_name in self.base_actions:
+            rv = super().get_action_button_text(action_name, action_args)
+            return rv
+        match action_name:
+            case "RotateTarget0":
+                rv = "Rotate Target 0"
+            case "RotateTarget1":
+                rv = "Rotate Target 1"
+            case "ChangeSpeed":
+                rv = f"Change Speed {self.target_rot_speed:.1f}"
+            case _:
+                rv = f"{action_name} TBD"
+        return rv
+
+    def get_action_button_tooltip(self, action_name, action_args=None):
+        if action_name in self.base_actions:
+            rv = super().get_action_button_tooltip(action_name, action_args)
+            return rv
+        match action_name:
+            case "ChangeSpeed":
+                rv = f"L*2,R /2, Ctrl to reverse"
+            case _:
+                rv = f"No tooltip for action {action_name}"
+        return rv
+
     def get_scenario_actions(self):
         self.base_actions = super().get_scenario_actions()
         combo  = self.base_actions + ["RotateTarget0", "RotateTarget1",
-                                      "FasterTargetSpeed","SlowerTargetSpeed","ReverseTargetSpeed"]
+                                      "ChangeSpeed"]
         return combo

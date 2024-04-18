@@ -9,9 +9,6 @@ from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelp
 from .matman import MatMan
 from pxr import Usd, UsdGeom, UsdShade, Gf
 from typing import List
-import omni
-import omni.ui as ui
-from omni.kit.widget.viewport import ViewportWidget
 
 from omni.isaac.core.articulations import Articulation
 
@@ -25,7 +22,7 @@ from omni.isaac.core.objects import GroundPlane
 from .scenario_robot_configs import create_and_populate_robot_config, init_configs
 
 from .senut import find_prims_by_name
-from .senut import add_cam
+from .senut import add_rob_cam
 from .senut import build_material_dict, apply_material_to_prim_and_children
 from .senut import apply_matdict_to_prim_and_children
 from .senut import set_stiffness_for_joints, set_damping_for_joints
@@ -35,7 +32,7 @@ from .senut import apply_convex_decomposition_to_mesh_and_children, apply_materi
 from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulationAPI_location_if_needed
 from .senut import add_sphere_light_to_stage, add_dome_light_to_stage
 from .senut import get_link_paths
-
+from .senut import make_cam_view_window
 
 class ScenarioBase:
     rmpactive = True
@@ -49,6 +46,7 @@ class ScenarioBase:
     _show_collision_bounds = False
     _show_collision_bounds_opt = "invisible" # don't delete
     _show_endeffector_box = False
+    robcamviews = None
 
     def __init__(self):
         self._scenario_name = "empty scenario"
@@ -56,14 +54,14 @@ class ScenarioBase:
         self._nrobots = 0
         self._rcfg_list = []
         self._stage = get_current_stage()
-        self.camlist = {}
+        self.robcamlist = {}
         self.rmpactive = True
         init_configs()
         pass
 
     @staticmethod
     def get_scenario_names():
-        rv = [ "sinusoid-joint","inverse-kinematics","rmpflow","gripper","object-inspection","cage-rmpflow",
+        rv = [ "sinusoid-joint","inverse-kinematics","rmpflow","rmpflow-new","gripper","object-inspection","cage-rmpflow",
              "franka-pick-and-place","pick-and-place"]
         return rv
 
@@ -86,6 +84,8 @@ class ScenarioBase:
             case "pick-and-place":
                 rv = "Pick and Place Scenario - for testing pick and place controllers"
             case "rmpflow":
+                rv = "RMPflow - For testing robots with RMPFlow controllers"
+            case "rmpflow-new":
                 rv = "RMPflow - For testing robots with RMPFlow controllers"
             case "inverse-kinematics":
                 rv = "Inverse Kinematics - For testing robots with lula inverse kinematics controllers"
@@ -113,7 +113,7 @@ class ScenarioBase:
                 rv = ["minicobo-dual-high","minicobo-rg2-high","jaka-minicobo-1a","minicobo-dual-sucker","rs007n"]
             case "franka-pick-and-place":
                 rv = ["franka", "fancy_franka","rs007n", "ur10-suction-short"]
-            case "pick-and-place" | "rmpflow"  | "inverse-kinematics":
+            case "pick-and-place" | "rmpflow"  | "rmpflow-new"  | "inverse-kinematics":
                 rv = ["franka", "fancy_franka","rs007n", "ur10-suction-short",
                     "jaka-minicobo-0","jaka-minicobo-1","jaka-minicobo-1a", "minicobo-dual-sucker",  "jaka-minicobo-2",
                     "minicobo-rg2-high", "minicobo-suction-dual", "minicobo-suction", "minicobo-suction-high", "minicobo-dual-high"]
@@ -201,27 +201,36 @@ class ScenarioBase:
             self._ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]),position=[0,0,-1.03313])
             world.scene.add(self._ground)
 
-    camlist = {}
+    robcamlist = {}
 
-    def add_camera_to_camlist(self, cam_name, cam_display_name, campath):
-        self.camlist[cam_name] = {}
-        self.camlist[cam_name]["name"] = cam_name
-        self.camlist[cam_name]["display_name"] = cam_display_name
-        self.camlist[cam_name]["usdpath"] = campath
+    def add_camera_to_robcamlist(self, cam_name, cam_display_name, campath):
+        self.robcamlist[cam_name] = {}
+        self.robcamlist[cam_name]["name"] = cam_name
+        self.robcamlist[cam_name]["display_name"] = cam_display_name
+        self.robcamlist[cam_name]["usdpath"] = campath
 
-    def add_camera_to_robot(self,robot_name,robot_id,robot_prim_path):
-        campath = None
-        if robot_name in ["jaka-minicobo-1a","minicobo-dual-sucker"]:
-            camera_root = f"{robot_prim_path}/dummy_tcp"
-            campath = add_cam(robot_name, camera_root)
-        return campath
+    # def add_camera_to_robot(self,robot_name,robot_id,robot_prim_path):
+    #     campath = None
+    #     if robot_name in ["jaka-minicobo-1a","minicobo-dual-sucker"]:
+    #         camera_root = f"{robot_prim_path}/dummy_tcp"
+    #         campath = add_rob_cam(robot_name, camera_root)
+    #     return campath
 
     def add_cameras_to_robots(self):
         for idx in range(self._nrobots):
             rcfg = self.get_robot_config(idx)
             if rcfg.camera_root != "":
-                _, campath = add_cam(rcfg.robot_name, rcfg.camera_root)
-                self.add_camera_to_camlist(rcfg.robot_id, rcfg.robot_name, campath)
+                if rcfg.robot_name == "minicobo-dual-sucker":
+                    ring_rot = Gf.Vec3f([0,0,-45])
+                else:
+                    ring_rot = Gf.Vec3f([0,0,0])
+                mount_trans = Gf.Vec3f([0.011,0.147,-0.011])
+                point_quat = Gf.Quatf(0.80383,Gf.Vec3f(-0.19581,-0.46288,-0.31822))
+
+                camroot = rcfg.camera_root
+                camname = f"{rcfg.robot_id}_cam"
+                _, campath = add_rob_cam(camroot, ring_rot, mount_trans, point_quat, camname)
+                self.add_camera_to_robcamlist(rcfg.robot_id, rcfg.robot_name, campath)
 
     def check_alarm_status(self, rcfg):
         art = rcfg._articulation
@@ -632,38 +641,16 @@ class ScenarioBase:
             except:
                 pass
 
-    def make_camera_views(self):
-        # https://docs.omniverse.nvidia.com/kit/docs/omni.kit.viewport.docs/latest/overview.html
-        if hasattr(self, "camviews") and self.camviews is not None:
-            self.camviews.destroy()
-            self.camviews = None
+
+    def make_rob_camera_views(self):
+        if self.robcamviews is not None:
+            self.robcamviews.destroy()
+            self.robcamviews = None
         wintitle = "Robot Cameras"
         wid = 1280
         heit = 720
-        ncam = len(self.camlist)
-        camviews = omni.ui.Window(wintitle, width=wid, height=heit+20) # Add 20 for the title-bar
-
-        with camviews.frame:
-            if ncam==0:
-                ui.Label("No Cameras Found (camlist is empty)")
-            else:
-                with ui.VStack():
-                    vh = heit / len(self.camlist)
-                    for camname in self.camlist:
-                        cam = self.camlist[camname]
-                        viewport_widget = ViewportWidget(resolution = (wid, vh))
-
-                        # Control of the ViewportTexture happens through the object held in the viewport_api property
-                        viewport_api = viewport_widget.viewport_api
-
-                        # We can reduce the resolution of the render easily
-                        viewport_api.resolution = (wid, vh)
-
-                        # We can also switch to a different camera if we know the path to one that exists
-                        viewport_api.camera_path = cam["usdpath"]
-
-        self.camviews = camviews
-        return wintitle
+        self.robcamviews = make_cam_view_window(self.robcamlist, wintitle, wid, heit)
+        self.rob_wintitle = wintitle
 
     def set_stiffness_and_damping_for_all_joints(self, rcfg):
         # print(f"set_stiffness_and_damping_for_all_joints - {rcfg.robot_name} - {rcfg.robot_id}")
@@ -714,19 +701,30 @@ class ScenarioBase:
             prim.AddScaleOp().Set(Gf.Vec3f(sz,sz,sz))
             prim.GetDisplayColorAttr().Set([(1, 1, 0)])
 
-
     def scenario_action(self, action_name, action_args):
         match action_name:
-            case "Camera Viewports":
-                if not hasattr(self, "camlist"):
+            case "Robot Cam Views":
+                if not hasattr(self, "robcamlist"):
                     return
-                if len(self.camlist)==0:
-                    carb.log_warn("No cameras found in camlist")
+                if len(self.robcamlist)==0:
+                    carb.log_warn("No cameras found in robcamlist")
                     return
-                self.wtit = self.make_camera_views()
-                # ui.Workspace.show_window(self.wtit,True)
-            case "Camera Viewports":
+                self.make_rob_camera_views()
+                # ui.Workspace.show_window(self.rob_wintitle,True)
+            case "Joint Check":
                 self.joint_check()
 
     def get_scenario_actions(self):
-        return ["Camera Viewports","Joint Check"]
+        return ["Robot Cam Views","Joint Check"]
+
+    def get_action_button_text(self, action_name,action_args=None):
+        match action_name:
+            case _:
+                rv = action_name
+        return rv
+
+    def get_action_button_tooltip(self, action_name, action_args=None):
+        match action_name:
+            case _:
+                rv = f"Tooltip for {action_name}"
+        return rv

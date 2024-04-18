@@ -36,7 +36,6 @@ from omni.isaac.core.utils.rotations import euler_angles_to_quat
 class FrankaPickAndPlaceScenario(ScenarioBase):
     _running_scenario = False
     _rmpflow = None
-    _show_collision_bounds = True
     _rob_base_pos = Gf.Vec3d([0, 0, 0])
     _rob_base_xang = 0
     _gripper_type = "parallel"
@@ -260,12 +259,13 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
             xqrot = euler_angles_to_quat(np.array([self._rob_base_xang*np.pi/180, 0, 0]))
             self._controller._cspace_controller._motion_policy.set_robot_base_pose(self._rob_base_pos, xqrot)
             self._rmpflow = self._controller._cspace_controller.rmp_flow
+
             if self._show_collision_bounds:
-                # self._rmpflow.reset()
                 self._rmpflow.visualize_collision_spheres()
+            if self._show_endeffector_box:
                 self._rmpflow.visualize_end_effector_position()
+            if self._show_rmp_target:
                 self.realize_rmptarg_vis(self._show_rmp_target_opt)
-                self.realize_collider_vis_opt(self._show_collision_bounds)
 
 
             gripper.set_joint_positions(gripper.joint_opened_positions)
@@ -282,9 +282,12 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
         if self._show_collision_bounds:
             if self._rmpflow is not None:
                 self._rmpflow.reset()
-                self._rmpflow.visualize_collision_spheres()
-                self._rmpflow.visualize_end_effector_position()
-                self.realize_rmptarg_vis(self._show_rmp_target_opt)
+                if self._show_collision_bounds:
+                    self._rmpflow.visualize_collision_spheres()
+                if self._show_endeffector_box:
+                    self._rmpflow.visualize_end_effector_position()
+                if self._show_rmp_target:
+                    self.realize_rmptarg_vis(self._show_rmp_target_opt)
 
 
         if gripper is not None:
