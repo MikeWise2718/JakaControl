@@ -57,7 +57,12 @@ class RMPflowNewScenario(ScenarioBase):
 
         # self.get_robot_config(robot_name, ground_opt)
 
-        self._robcfg = self.create_robot_config(robot_name, "/World/roborg", ground_opt)
+        self.create_robot_config(robot_name, "/World/roborg", ground_opt)
+
+        stage = get_current_stage()
+
+        self.add_light("sphere_light")
+        self.add_ground(ground_opt)
 
         # self._robcfg = self.create_robot_config(robot_name, ground_opt)
 
@@ -73,56 +78,42 @@ class RMPflowNewScenario(ScenarioBase):
         self._obstacle_start_pos = np.array([0.4, 0.0, 0.65])
         self._obstacle_start_rot = euler_angles_to_quats([0, np.pi, 0])
 
-        self.add_light("sphere_light")
-        self.add_ground(ground_opt)
-
-
-        self._start_robot_pos = Gf.Vec3d([0, 0, 0])
-        self._start_robot_rot = [0, 0, 0]
+        pos0 = Gf.Vec3d([0, 0, 1.1])
+        rot0 = [180, 0, 0]
         if self._robot_name == "ur10-suction-short":
-            self._start_robot_pos = Gf.Vec3d([0, 0, 0.4])
-            self._start_robot_rot = [180, 0, 0]
-        elif self._robot_name == "fancy_franka":
-            self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
-            self._start_robot_rot = [180, 0, 0]
-        elif self._robot_name == "jaka-minicobo-1a":
-             self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
-             self._start_robot_rot = [180, 0, 0]
-        elif self._robot_name == "minicobo-dual-sucker":
-             self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
-             self._start_robot_rot = [180, 0, 0]
-        elif self._robot_name == "rs007n":
-            self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
-            self._start_robot_rot = [180, 0, 0]
+            pos0 = Gf.Vec3d([0, 0, 0.4])
+            rot0 = [180, 0, 0]
+        # elif self._robot_name == "fancy_franka":
+        #     pos0 = Gf.Vec3d([0, 0, 1.1])
+        #     rot0 = [180, 0, 0]
+        # elif self._robot_name == "jaka-minicobo-1a":
+        #     pos0 = Gf.Vec3d([0, 0, 1.1])
+        #     rot0 = [180, 0, 0]
+        # elif self._robot_name == "minicobo-dual-sucker":
+        #     pos0 = Gf.Vec3d([0, 0, 1.1])
+        #     rot0 = [180, 0, 0]
+        # elif self._robot_name == "rs007n":
+        #     pos0 = Gf.Vec3d([0, 0, 1.1])
+        #     rot0 = [180, 0, 0]
 
-        stage = get_current_stage()
-        roborg = UsdGeom.Xform.Define(stage, "/World/roborg")
-        roborg.AddTranslateOp().Set(self._start_robot_pos)
-        roborg.AddRotateXOp().Set(self._start_robot_rot[0])
+        self.load_robot_into_scene(0, pos0, rot0)
 
+        rcfg = self.get_robot_config()
 
-
-        # Setup Robot Arm
-        add_reference_to_stage(self._robcfg.robot_usd_file_path, self._robcfg.robot_prim_path)
-        apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg.robot_prim_path)
-        apply_diable_gravity_to_rigid_bodies(stage, self._robcfg.robot_prim_path)
-        adjust_articulationAPI_location_if_needed(stage, self._robcfg.robot_prim_path)
-
-        self._articulation = Articulation(self._robcfg.artpath)
+        self._articulation = Articulation(rcfg.artpath)
         world = World.instance()
         world.scene.add(self._articulation)
 
-
         # Add a target to the stage
         add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", "/World/target")
-        self._target = XFormPrim("/World/target", scale=[.04,.04,.04])
+        sz = 0.04
+        self._target = XFormPrim("/World/target", scale=[sz, sz, sz])
 
         self._world = world
 
         if self._enable_obstacle:
-            self._obstacle = FixedCuboid("/World/obstacle",size=.05,color=np.array([0.,0.,1.]))
+            self._obstacle = FixedCuboid("/World/obstacle", size=.05, color=np.array([0.,0.,1.]))
             self._rmpflow.add_obstacle(self._obstacle)
-
 
     def post_load_scenario(self):
         print("post_load_scenario")
@@ -130,31 +121,24 @@ class RMPflowNewScenario(ScenarioBase):
 
         self.register_articulation(self._articulation) # this has to happen in post_load_scenario
 
+        rcfg = self.get_robot_config()
+
         # # teleport robot to its zero position
-        self._articulation.set_joint_positions(self._robcfg.dof_zero_pos)
+        self._articulation.set_joint_positions(rcfg.dof_zero_pos)
 
         # Initialize an RmpFlow object
         self._rmpflow = RmpFlow(
-            robot_description_path = self._robcfg.rdf_path,
-            urdf_path = self._robcfg.urdf_path,
-            rmpflow_config_path = self._robcfg.rmp_config_path,
-            end_effector_frame_name = self._robcfg.eeframe_name,
-            maximum_substep_size = self._robcfg.max_step_size
+            robot_description_path=rcfg.rdf_path,
+            urdf_path=rcfg.urdf_path,
+            rmpflow_config_path=rcfg.rmp_config_path,
+            end_effector_frame_name=rcfg.eeframe_name,
+            maximum_substep_size=rcfg.max_step_size
         )
 
-        self.lulaHelper = LulaInterfaceHelper(self._rmpflow._robot_description)
-
-        if self._robcfg.stiffness>0:
-            self.set_stiffness_for_all_joints(self._robcfg.stiffness) # 1e8 or 10 million seems too high
-
-        if self._robcfg.damping>0:
-            self.set_damping_for_all_joints(self._robcfg.damping) # 1e5 or 100 thousand seems too high
-
-
-        self._articulation_rmpflow = ArticulationMotionPolicy(self._articulation,self._rmpflow)
+        self._articulation_rmpflow = ArticulationMotionPolicy(self._articulation, self._rmpflow)
         self._kinematics_solver = self._rmpflow.get_kinematics_solver()
 
-        self._articulation_kinematics_solver = ArticulationKinematicsSolver(self._articulation,self._kinematics_solver, self._robcfg.eeframe_name)
+        self._articulation_kinematics_solver = ArticulationKinematicsSolver(self._articulation,self._kinematics_solver, rcfg.eeframe_name)
         ee_pos, ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
 
         self._ee_pos = ee_pos
@@ -164,14 +148,14 @@ class RMPflowNewScenario(ScenarioBase):
 
     def reset_scenario(self):
         # teleport robot to its zero position
-        self._articulation.set_joint_positions(self._robcfg.dof_zero_pos)
+        rcfg = self.get_robot_config()
+        self._articulation.set_joint_positions(rcfg.dof_zero_pos)
 
         # self._target.set_world_pose(np.array([.5,0,.7]),euler_angles_to_quats([0,np.pi,0]))
         self._target.set_world_pose(self._target_start_pos,self._target_start_rot)
 
         if self._enable_obstacle:
             self._obstacle.set_world_pose(self._obstacle_start_pos,self._obstacle_start_rot)
-
 
         self._rmpflow.reset()
         self.realize_rmptarg_vis(self._show_rmp_target_opt)
@@ -181,19 +165,10 @@ class RMPflowNewScenario(ScenarioBase):
         if self._show_endeffector_box:
             self._rmpflow.visualize_end_effector_position()
 
-
-    def set_stiffness_for_all_joints(self, stiffness):
-        active_joints = self.lulaHelper.get_active_joints()
-        set_stiffness_for_joints(active_joints, stiffness)
-
-    def set_damping_for_all_joints(self, damping):
-        active_joints = self.lulaHelper.get_active_joints()
-        set_damping_for_joints(active_joints, damping)
-
     def physics_step(self, step_size):
-        robot_base_translation,robot_base_orientation = self._articulation.get_world_pose()
-        self._rmpflow.set_robot_base_pose(robot_base_translation,robot_base_orientation)
 
+        robot_base_translation, robot_base_orientation = self._articulation.get_world_pose()
+        self._rmpflow.set_robot_base_pose(robot_base_translation, robot_base_orientation)
 
         target_position, target_orientation = self._target.get_world_pose()
 
@@ -220,35 +195,13 @@ class RMPflowNewScenario(ScenarioBase):
         self.physics_step(step)
 
     def get_scenario_actions(self):
-        rv = ["Move Target to EE","Adjust Stiffness - All Joints","Adjust Damping - All Joints" ]
+        rv = ["Move Target to EE"]
         return rv
 
-    def adjust_stiffness_for_all_joints(self,fak):
-        active_joints = self.lulaHelper.get_active_joints()
-        # print(f"active_joints:{active_joints} fak:{fak:.2f} tot_stiffness:{self.tot_stiffness_factor:.4e}")
-        adjust_joint_values(active_joints,"stiffness",fak)
-        self.tot_stiffness_factor = self.tot_stiffness_factor * fak
-
-    def adjust_damping_for_all_joints(self,fak):
-        active_joints = self.lulaHelper.get_active_joints()
-        # print(f"active_joints:{active_joints} fak:{fak:.2f} tot_damping:{self.tot_damping_factor:.4e}")
-        adjust_joint_values(active_joints,"damping",fak)
-        self.tot_damping_factor = self.tot_damping_factor * fak
-
-    def scenario_action(self, actionname, mouse_button=0 ):
-        print("InvkinScenario action:",actionname, "   mouse_button:",mouse_button)
+    def scenario_action(self, actionname, mouse_button=0):
+        print("InvkinScenario action:",actionname, "   mouse_button:", mouse_button)
         if actionname == "Move Target to EE":
             # self._target.set_world_pose(np.array([0.0,-0.006,0.7668]),euler_angles_to_quats([0,0,0]))
             self._target.set_world_pose(self._ee_pos, rot_matrices_to_quats(self._ee_rot))
-        elif actionname == "Adjust Stiffness - All Joints":
-            if mouse_button>0:
-                self.adjust_stiffness_for_all_joints(1.1)
-            else:
-                self.adjust_stiffness_for_all_joints(1/1.1)
-        elif actionname == "Adjust Damping - All Joints":
-            if mouse_button>0:
-                self.adjust_damping_for_all_joints(1.1)
-            else:
-                self.adjust_damping_for_all_joints(1/1.1)
         else:
             print(f"Unknown actionname: {actionname}")

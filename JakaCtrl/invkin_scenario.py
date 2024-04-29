@@ -64,13 +64,13 @@ class InvkinScenario(ScenarioBase):
     def load_scenario(self, robot_name, ground_opt):
         super().load_scenario(robot_name, ground_opt)
 
-        # self._robcfg = self.create_robot_config(robot_name, ground_opt)
+        # self._ro bcfg = self.create_robot_config(robot_name, ground_opt)
 
         self.add_light("sphere_light")
         self.add_ground(ground_opt)
 
-        self.create_robot_config(robot_name,"/World/roborg", ground_opt)
-        self._robcfg = self.get_robot_config()
+        self.create_robot_config(robot_name, "/World/roborg", ground_opt)
+        # self._robcfg = self.get_robot_config()
         self.load_robot_into_scene()
 
         self.phystep = 0
@@ -100,14 +100,13 @@ class InvkinScenario(ScenarioBase):
 
         rcfg = self.get_robot_config()
         rcfg._kinematics_solver = LulaKinematicsSolver(
-            robot_description_path = self._robcfg.rdf_path,
-            urdf_path = self._robcfg.urdf_path
+            robot_description_path = rcfg.rdf_path,
+            urdf_path = rcfg.urdf_path
         )
 
-
-        end_effector_name = self._robcfg.eeframe_name
-        rcfg._articulation_kinematics_solver = ArticulationKinematicsSolver(rcfg._articulation,rcfg._kinematics_solver, end_effector_name)
-        ee_position,ee_rot_mat = rcfg._articulation_kinematics_solver.compute_end_effector_pose()
+        eename = rcfg.eeframe_name
+        rcfg._articulation_kinematics_solver = ArticulationKinematicsSolver(rcfg._articulation, rcfg._kinematics_solver, eename)
+        ee_position, ee_rot_mat = rcfg._articulation_kinematics_solver.compute_end_effector_pose()
         self._ee_pos = ee_position
         self._ee_rot = ee_rot_mat
 
