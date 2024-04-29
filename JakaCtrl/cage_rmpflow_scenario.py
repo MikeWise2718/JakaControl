@@ -28,6 +28,7 @@ from .senut import make_cam_view_window
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 #
 
+
 class CageRmpflowScenario(ScenarioBase):
 
     _running_scenario = False
@@ -47,14 +48,14 @@ class CageRmpflowScenario(ScenarioBase):
     def load_scenario(self, robot_name, ground_opt, light_opt="dome_light"):
         super().load_scenario(robot_name, ground_opt)
 
-        self.create_robot_config(robot_name,"/World/roborg0")
-        self.create_robot_config(robot_name,"/World/roborg1")
+        self.create_robot_config(robot_name, "/World/roborg0")
+        self.create_robot_config(robot_name, "/World/roborg1")
 
         self.add_light(light_opt)
         self.add_ground(ground_opt)
 
         # Robots
-        (pos0, rot0) = ([0.14, 0, 0.77], [0, 150, 0])
+        (pos0, rot0) = ([0.14, 0, 0.77], [0, 150, 180])
         self.load_robot_into_scene(0, pos0, rot0)
 
         (pos1, rot1) = ([-0.08, 0, 0.77], [0, -150, 0])

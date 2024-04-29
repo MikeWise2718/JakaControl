@@ -350,13 +350,19 @@ class ScenarioBase:
         self.check_alarm_status(rcfg)
         # print("done senut.register_articulation")
 
-    def setup_robot_for_pose_movement(self, gprim, rcfg, pos, rot):
+    def setup_robot_for_pose_movement(self, gprim, rcfg, pos, rot, ska=[1, 1, 1], order="ZYX"):
         pos = Gf.Vec3d(list(pos))
         rot = list(rot)
         rcfg.tranop = gprim.AddTranslateOp()
-        rcfg.zrotop = gprim.AddRotateZOp()
-        rcfg.yrotop = gprim.AddRotateYOp()
-        rcfg.xrotop = gprim.AddRotateXOp()
+        match order:
+            case "ZYX":
+                rcfg.xrotop = gprim.AddRotateXOp()
+                rcfg.yrotop = gprim.AddRotateYOp()
+                rcfg.zrotop = gprim.AddRotateZOp()
+            case "XYZ":
+                rcfg.zrotop = gprim.AddRotateZOp()
+                rcfg.yrotop = gprim.AddRotateYOp()
+                rcfg.xrotop = gprim.AddRotateXOp()
         rcfg.tranop.Set(pos)
         rcfg.zrotop.Set(rot[2])
         rcfg.yrotop.Set(rot[1])
@@ -365,7 +371,7 @@ class ScenarioBase:
         rcfg.start_robot_rot = rot
         rcfg.robot_rotvek = np.array(rot)*np.pi/180
 
-    def load_robot_into_scene(self, ridx=0, pos=[0,0,0], rot=[0,0,0]):
+    def load_robot_into_scene(self, ridx=0, pos=[0, 0, 0], rot=[0, 0, 0]):
         stage = self._stage
         rcfg = self.get_robot_config(ridx)
 
