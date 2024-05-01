@@ -120,7 +120,7 @@ class ScenarioBase:
                 rv = ["franka", "fancy_franka","rs007n", "ur10-suction-short"]
             case "pick-and-place" | "pick-and-place-new" | "rmpflow"  | "rmpflow-new"  | "inverse-kinematics":
                 rv = ["franka", "fancy_franka","rs007n", "ur10-suction-short",
-                    "jaka-minicobo-0","jaka-minicobo-1","jaka-minicobo-1a", "minicobo-dual-sucker",  "jaka-minicobo-2",
+                    "jaka-minicobo-1","jaka-minicobo-2","jaka-minicobo-1a", "minicobo-dual-sucker",
                     "minicobo-rg2-high", "minicobo-suction-dual", "minicobo-suction", "minicobo-suction-high", "minicobo-dual-high"]
             case "gripper":
                 rv = ["cone","inverted-cone","sphere","cube","cube-yrot","cylinder","suction-short","suction-dual","suction-dual-0"]

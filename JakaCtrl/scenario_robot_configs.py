@@ -133,7 +133,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
             max_step_size = 0.00334
 
             grippername = "rg2"
-            pp_controller = "ur"
+            pp_controller = "ur-rg2"
 
 
             mfg = "Universal Robots"
@@ -154,7 +154,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
             max_step_size = 0.00334
 
             grippername = "short suction"
-            pp_controller = "ur"
+            pp_controller = "ur-ss"
 
 
             mfg = "Universal Robots"
@@ -202,7 +202,8 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
             desc = "Jaka Minicobo without a gripper"
 
         case "jaka-minicobo-1":
-            robot_prim_path = "/World/roborg/minicobo_v1_4"
+            # robot_prim_path = "/World/roborg/minicobo_v1_4"
+            robot_prim_path = f"{robot_root_usdpath}/minicobo_v1_4"
             artpath = f"{robot_prim_path}/world"
             robot_usd_file_path = f"{jakacontrol_extension_dir}/usd/jaka_v14_1.usda"
             mopo_robot_name = "RS007N"
@@ -218,7 +219,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
 
             grippername = "dual sucker"
             prefered_target = "phone_slab"
-            pp_controller = "jaka"
+            pp_controller = "jaka-ds"
 
             mfg = "Jaka"
             model = "Minicobo"
@@ -246,7 +247,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
 
             grippername = "dual sucker"
             prefered_target = "phone_slab"
-            pp_controller = "jaka"
+            pp_controller = "jaka-ds"
 
 
             mfg = "Jaka"
@@ -275,7 +276,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
 
             grippername = "dual sucker"
             prefered_target = "phone_slab"
-            pp_controller = "jaka"
+            pp_controller = "jaka-ds"
 
             mfg = "Jaka"
             model = "Minicobo"
@@ -298,7 +299,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
             max_step_size = 0.00334
 
             grippername = "rg2"
-            pp_controller = "jaka"
+            pp_controller = "jaka-rg2"
 
             mfg = "Jaka"
             model = "Minicobo"
@@ -320,7 +321,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
             damping = 40
 
             grippername = "rg2"
-            pp_controller = "jaka"
+            pp_controller = "jaka-rg2"
 
             mfg = "Jaka"
             model = "Minicobo"
@@ -344,7 +345,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
 
             grippername = "dual sucker"
             prefered_target = "phone_slab"
-            pp_controller = "jaka"
+            pp_controller = "jaka-ds"
 
             mfg = "Jaka"
             model = "Minicobo"
@@ -365,7 +366,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
             max_step_size = 0.00334
 
             grippername = "short suction"
-            pp_controller = "jaka"
+            pp_controller = "jaka-ss"
 
             mfg = "Jaka"
             model = "Minicobo"
@@ -387,7 +388,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
             max_step_size = 0.00334
 
             grippername = "short suction"
-            pp_controller = "jaka"
+            pp_controller = "jaka-ss"
 
             mfg = "Jaka"
             model = "Minicobo"
@@ -406,7 +407,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
             max_step_size = 0.00334
 
             grippername = "rg2"
-            pp_controller = "jaka"
+            pp_controller = "jaka-rg2"
 
             mfg = "Kawasaki"
             model = "RS007N"
@@ -424,7 +425,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
             eeframe_name = "right_gripper"
             max_step_size = 0.00334
 
-            grippername = "Franka Gripper"
+            grippername = "franka gripper"
             pp_controller = "franka"
 
             mfg = "Franka"
@@ -443,7 +444,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
             eeframe_name = "right_gripper"
             max_step_size = 0.00334
 
-            grippername = "Franka Gripper"
+            grippername = "franka gripper"
             pp_controller = "franka"
 
             mfg = "Franka"

@@ -237,6 +237,9 @@ class PickAndPlaceNewScenario(ScenarioBase):
         self.grip_eeori = euler_angles_to_quat(np.array([0,0,0]))
         self.grip_eeoff = np.array([0,0,0])
 
+        art = self._articulation
+        if not hasattr(art, "_policy_robot_name"):
+            art._policy_robot_name = self._mopo_robot_name #ugly hack, should remove at some point
 
         if not hasattr(self._articulation, "gripper"):
             self._articulation.gripper = self.get_gripper()
@@ -331,16 +334,17 @@ class PickAndPlaceNewScenario(ScenarioBase):
                     robot_articulation=self._articulation,
                     events_dt=events_dt
                 )
-            elif rcfg.pp_controller == "ur10":
+            elif rcfg.pp_controller in ["ur-rg2", "ur-ss"]:
             # elif self._robot_name in ["ur10-suction-short"]:
-                self._gripper_type = "suction"
+                self._gripper_type = "suction" if rcfg.pp_controller == "ur10-ss" else "parallel"
                 self._controller = ur10_PickPlaceController(
                     name="pick_place_controller",
                     gripper=gripper,
                     robot_articulation=self._articulation
                 )
-            elif self._robot_name in ["minicobo-suction","minicobo-suction-high","jaka-minicobo-1",
-                                       "jaka-minicobo-1a","minicobo-dual-sucker","minicobo-suction-dual","minicobo-dual-high"]:
+            elif rcfg.pp_controller in ["jaka-ss", "jaka-ds"]:
+            #elif self._robot_name in ["minicobo-suction","minicobo-suction-high","jaka-minicobo-1",
+            #                           "jaka-minicobo-1a","minicobo-dual-sucker","minicobo-suction-dual","minicobo-dual-high"]:
                 self._gripper_type = "suction"
                 rmpconfig = {
                     "end_effector_frame_name": self._robcfg.eeframe_name,
@@ -358,7 +362,8 @@ class PickAndPlaceNewScenario(ScenarioBase):
                     rmpconfig=rmpconfig,
                     events_dt=events_dt
                 )
-            elif self._robot_name in ["jaka-minicobo-0","jaka-minicobo-2","minicobo-rg2-high"]:
+            elif rcfg.pp_controller == "jaka-rg2":
+            # elif self._robot_name in ["jaka-minicobo-0","jaka-minicobo-2","minicobo-rg2-high"]:
                 self._gripper_type = "parallel"
                 rmpconfig = {
                     "end_effector_frame_name": self._robcfg.eeframe_name,
@@ -375,6 +380,9 @@ class PickAndPlaceNewScenario(ScenarioBase):
                     rmpconfig=rmpconfig,
                     events_dt=events_dt
                 )
+            else:
+                print(f"add_controllers - unknown controller: {rcfg.pp_controller}")
+                self._controller = None
 
 
     nphysstep_calls = 0
@@ -481,5 +489,5 @@ class PickAndPlaceNewScenario(ScenarioBase):
 
     def get_scenario_actions(self):
         self.base_actions = super().get_scenario_actions()
-        combo  = self.base_actions + ["rotate","show_rmp_target"]
+        combo  = self.base_actions + ["rotate", "show_rmp_target"]
         return combo
