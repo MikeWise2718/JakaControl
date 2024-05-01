@@ -29,6 +29,7 @@ from .invkin_scenario import InvkinScenario
 from .rmp_scenario import RMPflowScenario
 from .rmp_new_scenario import RMPflowNewScenario
 from .pickplace_scenario import PickAndPlaceScenario
+from .pickplace_new_scenario import PickAndPlaceNewScenario
 from .franka_pickplace_scenario import FrankaPickAndPlaceScenario
 from .sinusoid_scenario import SinusoidJointScenario
 from .object_inspection_scenario import ObjectInspectionScenario
@@ -721,6 +722,8 @@ class UIBuilder:
             self._cur_scenario = SinusoidJointScenario()
         elif scenario_name == "pick-and-place":
             self._cur_scenario = PickAndPlaceScenario()
+        elif scenario_name == "pick-and-place-new":
+            self._cur_scenario = PickAndPlaceNewScenario()
         elif scenario_name == "franka-pick-and-place":
             self._cur_scenario = FrankaPickAndPlaceScenario()
         elif scenario_name == "rmpflow":

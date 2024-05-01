@@ -3,13 +3,10 @@ import carb
 
 from pxr import UsdPhysics, Usd, UsdGeom, Gf
 
-
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.core.utils.stage import add_reference_to_stage
 
-from omni.isaac.core.articulations import Articulation
 from omni.isaac.core.objects.cuboid import FixedCuboid
-from omni.isaac.core.objects import GroundPlane
 from omni.isaac.core.prims import XFormPrim
 from omni.isaac.core.world import World
 
@@ -18,15 +15,9 @@ from omni.isaac.core.utils.numpy.rotations import euler_angles_to_quats, rot_mat
 from omni.isaac.motion_generation import RmpFlow, ArticulationMotionPolicy
 from omni.isaac.motion_generation import ArticulationKinematicsSolver
 
-from .senut import add_sphere_light_to_stage
 from .scenario_base import ScenarioBase
 
-from omni.isaac.core.utils.stage import add_reference_to_stage,  get_current_stage
-from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelper
-
-from .senut import adjust_joint_values, set_stiffness_for_joints, set_damping_for_joints
-from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
-from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulationAPI_location_if_needed
+from omni.isaac.core.utils.stage import add_reference_to_stage
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
@@ -55,19 +46,12 @@ class RMPflowNewScenario(ScenarioBase):
         # Here we do object loading and simple initialization
         super().load_scenario(robot_name, ground_opt)
 
-        # self.get_robot_config(robot_name, ground_opt)
-
         self.create_robot_config(robot_name, "/World/roborg", ground_opt)
-
-        stage = get_current_stage()
 
         self.add_light("sphere_light")
         self.add_ground(ground_opt)
 
         # self._robcfg = self.create_robot_config(robot_name, ground_opt)
-
-        self.tot_damping_factor = 1.0
-        self.tot_stiffness_factor = 1.0
 
         self._robot_name = robot_name
         self._ground_opt = ground_opt
@@ -83,33 +67,15 @@ class RMPflowNewScenario(ScenarioBase):
         if self._robot_name == "ur10-suction-short":
             pos0 = Gf.Vec3d([0, 0, 0.4])
             rot0 = [180, 0, 0]
-        # elif self._robot_name == "fancy_franka":
-        #     pos0 = Gf.Vec3d([0, 0, 1.1])
-        #     rot0 = [180, 0, 0]
-        # elif self._robot_name == "jaka-minicobo-1a":
-        #     pos0 = Gf.Vec3d([0, 0, 1.1])
-        #     rot0 = [180, 0, 0]
-        # elif self._robot_name == "minicobo-dual-sucker":
-        #     pos0 = Gf.Vec3d([0, 0, 1.1])
-        #     rot0 = [180, 0, 0]
-        # elif self._robot_name == "rs007n":
-        #     pos0 = Gf.Vec3d([0, 0, 1.1])
-        #     rot0 = [180, 0, 0]
 
         self.load_robot_into_scene(0, pos0, rot0)
-
-        rcfg = self.get_robot_config()
-
-        self._articulation = Articulation(rcfg.artpath)
-        world = World.instance()
-        world.scene.add(self._articulation)
 
         # Add a target to the stage
         add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", "/World/target")
         sz = 0.04
         self._target = XFormPrim("/World/target", scale=[sz, sz, sz])
 
-        self._world = world
+        # self._world = world
 
         if self._enable_obstacle:
             self._obstacle = FixedCuboid("/World/obstacle", size=.05, color=np.array([0.,0.,1.]))
@@ -119,14 +85,11 @@ class RMPflowNewScenario(ScenarioBase):
         print("post_load_scenario")
         # Here we do multi-object initialization - things that needs to be done after all objects are loaded
 
-        self.register_articulation(self._articulation) # this has to happen in post_load_scenario
-
-        rcfg = self.get_robot_config()
-
-        # # teleport robot to its zero position
-        self._articulation.set_joint_positions(rcfg.dof_zero_pos)
+        self.register_robot_articulations()
+        self.teleport_robots_to_zeropos()
 
         # Initialize an RmpFlow object
+        rcfg = self.get_robot_config()
         self._rmpflow = RmpFlow(
             robot_description_path=rcfg.rdf_path,
             urdf_path=rcfg.urdf_path,
@@ -135,10 +98,10 @@ class RMPflowNewScenario(ScenarioBase):
             maximum_substep_size=rcfg.max_step_size
         )
 
-        self._articulation_rmpflow = ArticulationMotionPolicy(self._articulation, self._rmpflow)
+        self._articulation_rmpflow = ArticulationMotionPolicy(rcfg._articulation, self._rmpflow)
         self._kinematics_solver = self._rmpflow.get_kinematics_solver()
 
-        self._articulation_kinematics_solver = ArticulationKinematicsSolver(self._articulation,self._kinematics_solver, rcfg.eeframe_name)
+        self._articulation_kinematics_solver = ArticulationKinematicsSolver(rcfg._articulation,self._kinematics_solver, rcfg.eeframe_name)
         ee_pos, ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
 
         self._ee_pos = ee_pos
@@ -148,10 +111,8 @@ class RMPflowNewScenario(ScenarioBase):
 
     def reset_scenario(self):
         # teleport robot to its zero position
-        rcfg = self.get_robot_config()
-        self._articulation.set_joint_positions(rcfg.dof_zero_pos)
+        self.teleport_robots_to_zeropos()
 
-        # self._target.set_world_pose(np.array([.5,0,.7]),euler_angles_to_quats([0,np.pi,0]))
         self._target.set_world_pose(self._target_start_pos,self._target_start_rot)
 
         if self._enable_obstacle:
@@ -167,19 +128,18 @@ class RMPflowNewScenario(ScenarioBase):
 
     def physics_step(self, step_size):
 
-        robot_base_translation, robot_base_orientation = self._articulation.get_world_pose()
+        rcfg = self.get_robot_config()
+        robot_base_translation, robot_base_orientation = rcfg._articulation.get_world_pose()
         self._rmpflow.set_robot_base_pose(robot_base_translation, robot_base_orientation)
 
-        target_position, target_orientation = self._target.get_world_pose()
+        target_pos, target_ori = self._target.get_world_pose()
 
         self._rmpflow.update_world()
 
-        self._rmpflow.set_end_effector_target(
-            target_position, target_orientation
-        )
+        self._rmpflow.set_end_effector_target( target_pos, target_ori )
 
         action = self._articulation_rmpflow.get_next_articulation_action(step_size)
-        self._articulation.apply_action(action)
+        rcfg._articulation.apply_action(action)
 
         ee_pos, ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
 

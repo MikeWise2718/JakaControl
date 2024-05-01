@@ -28,11 +28,12 @@ from .senut import apply_matdict_to_prim_and_children
 from .senut import set_stiffness_for_joints, set_damping_for_joints
 
 from omni.isaac.core.utils.stage import add_reference_to_stage
-from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
+from .senut import apply_convex_decomposition_to_mesh_and_children
 from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulationAPI_location_if_needed
 from .senut import add_sphere_light_to_stage, add_dome_light_to_stage
 from .senut import get_link_paths
 from .senut import make_cam_view_window
+
 
 class ScenarioBase:
     rmpactive = True
@@ -62,7 +63,7 @@ class ScenarioBase:
     @staticmethod
     def get_scenario_names():
         rv = [ "sinusoid-joint","inverse-kinematics","rmpflow","rmpflow-new","gripper","object-inspection","cage-rmpflow",
-             "franka-pick-and-place","pick-and-place"]
+             "franka-pick-and-place","pick-and-place","pick-and-place-new"]
         return rv
 
     @staticmethod
@@ -83,10 +84,12 @@ class ScenarioBase:
                 rv = "Franka Pick and Place"
             case "pick-and-place":
                 rv = "Pick and Place Scenario - for testing pick and place controllers"
+            case "pick-and-place-new":
+                rv = "Pick and Place Scenario - for testing pick and place controllers - new version"
             case "rmpflow":
                 rv = "RMPflow - For testing robots with RMPFlow controllers"
             case "rmpflow-new":
-                rv = "RMPflow - For testing robots with RMPFlow controllers"
+                rv = "RMPflow - For testing robots with RMPFlow controllers - new version"
             case "inverse-kinematics":
                 rv = "Inverse Kinematics - For testing robots with lula inverse kinematics controllers"
             case "gripper":
@@ -113,7 +116,7 @@ class ScenarioBase:
                 rv = ["minicobo-dual-high","minicobo-rg2-high","jaka-minicobo-1a","minicobo-dual-sucker","rs007n"]
             case "franka-pick-and-place":
                 rv = ["franka", "fancy_franka","rs007n", "ur10-suction-short"]
-            case "pick-and-place" | "rmpflow"  | "rmpflow-new"  | "inverse-kinematics":
+            case "pick-and-place" | "pick-and-place-new" | "rmpflow"  | "rmpflow-new"  | "inverse-kinematics":
                 rv = ["franka", "fancy_franka","rs007n", "ur10-suction-short",
                     "jaka-minicobo-0","jaka-minicobo-1","jaka-minicobo-1a", "minicobo-dual-sucker",  "jaka-minicobo-2",
                     "minicobo-rg2-high", "minicobo-suction-dual", "minicobo-suction", "minicobo-suction-high", "minicobo-dual-high"]
