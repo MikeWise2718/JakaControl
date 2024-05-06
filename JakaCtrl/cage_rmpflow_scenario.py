@@ -55,7 +55,8 @@ class CageRmpflowScenario(ScenarioBase):
         self.add_ground(ground_opt)
 
         # Robots
-        (pos0, rot0) = ([0.14, 0, 0.77], [0, 150, 180])
+        # (pos0, rot0) = ([0.14, 0, 0.77], [0, 150, 180])
+        (pos0, rot0) = ([0.14, 0, 0.77], [0, 150, 0])
         self.load_robot_into_scene(0, pos0, rot0)
 
         (pos1, rot1) = ([-0.08, 0, 0.77], [0, -150, 0])
