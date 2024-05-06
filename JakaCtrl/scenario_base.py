@@ -28,11 +28,14 @@ from .senut import apply_matdict_to_prim_and_children
 from .senut import set_stiffness_for_joints, set_damping_for_joints
 
 from omni.isaac.core.utils.stage import add_reference_to_stage
-from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
+from .senut import apply_convex_decomposition_to_mesh_and_children
 from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulationAPI_location_if_needed
 from .senut import add_sphere_light_to_stage, add_dome_light_to_stage
 from .senut import get_link_paths
 from .senut import make_cam_view_window
+
+from omni.asimov.manipulators.grippers.parallel_gripper import ParallelGripper
+from omni.asimov.manipulators.grippers.surface_gripper import SurfaceGripper
 
 class ScenarioBase:
     rmpactive = True
@@ -62,7 +65,7 @@ class ScenarioBase:
     @staticmethod
     def get_scenario_names():
         rv = [ "sinusoid-joint","inverse-kinematics","rmpflow","rmpflow-new","gripper","object-inspection","cage-rmpflow",
-             "franka-pick-and-place","pick-and-place"]
+             "franka-pick-and-place","pick-and-place","pick-and-place-new"]
         return rv
 
     @staticmethod
@@ -83,10 +86,12 @@ class ScenarioBase:
                 rv = "Franka Pick and Place"
             case "pick-and-place":
                 rv = "Pick and Place Scenario - for testing pick and place controllers"
+            case "pick-and-place-new":
+                rv = "Pick and Place Scenario - for testing pick and place controllers - new version"
             case "rmpflow":
                 rv = "RMPflow - For testing robots with RMPFlow controllers"
             case "rmpflow-new":
-                rv = "RMPflow - For testing robots with RMPFlow controllers"
+                rv = "RMPflow - For testing robots with RMPFlow controllers - new version"
             case "inverse-kinematics":
                 rv = "Inverse Kinematics - For testing robots with lula inverse kinematics controllers"
             case "gripper":
@@ -113,9 +118,9 @@ class ScenarioBase:
                 rv = ["minicobo-dual-high","minicobo-rg2-high","jaka-minicobo-1a","minicobo-dual-sucker","rs007n"]
             case "franka-pick-and-place":
                 rv = ["franka", "fancy_franka","rs007n", "ur10-suction-short"]
-            case "pick-and-place" | "rmpflow"  | "rmpflow-new"  | "inverse-kinematics":
+            case "pick-and-place" | "pick-and-place-new" | "rmpflow"  | "rmpflow-new"  | "inverse-kinematics":
                 rv = ["franka", "fancy_franka","rs007n", "ur10-suction-short",
-                    "jaka-minicobo-0","jaka-minicobo-1","jaka-minicobo-1a", "minicobo-dual-sucker",  "jaka-minicobo-2",
+                    "jaka-minicobo-1","jaka-minicobo-2","jaka-minicobo-1a", "minicobo-dual-sucker",
                     "minicobo-rg2-high", "minicobo-suction-dual", "minicobo-suction", "minicobo-suction-high", "minicobo-dual-high"]
             case "gripper":
                 rv = ["cone","inverted-cone","sphere","cube","cube-yrot","cylinder","suction-short","suction-dual","suction-dual-0"]
@@ -200,6 +205,158 @@ class ScenarioBase:
         elif self._ground_opt == "groundplane-blue":
             self._ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]),position=[0,0,-1.03313])
             world.scene.add(self._ground)
+
+    def get_gripper(self):
+        art = self._articulation
+        if not hasattr(art, "_policy_robot_name"):
+            art._policy_robot_name = self._mopo_robot_name #ugly hack, should remove at some point
+        if hasattr(art,"gripper"):
+            # this is the case for robots with pre-configured grippers
+            if not hasattr(self,"grip_eeori"):
+                self.grip_eeori = euler_angles_to_quat(np.array([0,0,0]))
+            if not hasattr(self,"grip_eeoff"):
+                self.grip_eeoff = np.array([0,0,0])
+            return art.gripper
+        else:
+            art = self._articulation
+            self._gripper_type = "parallel"
+            art._policy_robot_name = self._mopo_robot_name
+            self.physics_sim_view = self._world.physics_sim_view
+            self.grip_eeori = euler_angles_to_quat(np.array([0,0,0]))
+            self.grip_eeoff = np.array([0,0,0])
+            grippername = self._robcfg.grippername
+
+            #if self._robot_name in ["franka","fancy_franka"]:   # franka gripper
+            if grippername=="franka gripper":   # franka gripper
+                eepp = "/World/roborg/franka/panda_rightfinger"
+                jpn = ["panda_finger_joint1", "panda_finger_joint2"]
+                jop = np.array([0.05, 0.05])
+                jcp = np.array([0, 0])
+                ad = np.array([0.05, 0.05])
+                art._policy_robot_name = "Franka"
+                # try getting sim_view from world
+
+                pg = ParallelGripper(
+                    end_effector_prim_path=eepp,
+                    joint_prim_names=jpn,
+                    joint_opened_positions=jop,
+                    joint_closed_positions=jcp,
+                    action_deltas=ad
+                )
+                pg.initialize(
+                    physics_sim_view=self.physics_sim_view,
+                    articulation_apply_action_func=art.apply_action,
+                    get_joint_positions_func=art.get_joint_positions,
+                    set_joint_positions_func=art.set_joint_positions,
+                    dof_names=art.dof_names,
+                )
+                return pg
+
+            elif grippername=="rg2": # rg2 gripper / eepp, jpn, jop,jcp, ad
+            # elif self._robot_name in ["rs007n","jaka-minicobo-2","minicobo-rg2-high"]: # rg2 gripper / eepp, jpn, jop,jcp, ad
+                art = self._articulation
+                if self._robot_name == "rs007n":
+                    eepp = "/World/roborg/khi_rs007n/gripper_center"
+                else:
+                    eepp = "/World/roborg/minicobo_parallel_onrobot_rg2/minicobo_onrobot_rg2/gripper_center"
+                jpn = ["left_inner_finger_joint", "right_inner_finger_joint"]
+                jop = np.array([0.05, 0.05])
+                jcp = np.array([0, 0])
+                ad = np.array([0.05, 0.05])
+                art._policy_robot_name = "RS007N"
+                pg = ParallelGripper(
+                    end_effector_prim_path=eepp,
+                    joint_prim_names=jpn,
+                    joint_opened_positions=jop,
+                    joint_closed_positions=jcp,
+                    action_deltas=ad
+                )
+                print(f"art dof names: {art.dof_names}")
+                pg.initialize(
+                    physics_sim_view=None,
+                    articulation_apply_action_func=art.apply_action,
+                    get_joint_positions_func=art.get_joint_positions,
+                    set_joint_positions_func=art.set_joint_positions,
+                    dof_names=art.dof_names,
+                )
+                self._gripper_type = "parallel"
+                return pg
+            # elif self._robot_name in ["ur10-suction-short","jaka-minicobo-1","jaka-minicobo-1a",
+            #                           "minicobo-suction-dual","minicobo-suction","minicobo-dual-sucker",
+            #                           "minicobo-dual-high","minicobo-suction-high"]:  # short suction gripper and dual sucker gripper
+            elif grippername in ["short suction", "dual sucker"]:  # short suction gripper and dual sucker gripper
+                art = self._articulation
+                self._gripper_type = "suction"
+                # eepp = "/World/roborg/ur10_suction_short/ee_link/gripper_base/xf"
+                # UsdGeom.Xform.Define(get_current_stage(), eepp)
+                # self._end_effector = RigidPrim(prim_path=eepp, name= "ur10" + "_end_effector")
+                # self._end_effector.initialize(None)
+                grip_direction = "x"
+                grip_threshold = 0.02
+                grip_translate = 0.1611
+
+                if self._robot_name == "ur10-suction-short":
+                    eepp = "/World/roborg/ur10_suction_short/ee_link"
+                    self.grip_eeori = euler_angles_to_quat(np.array([0,np.pi/2,0]))
+                elif self._robot_name == "minicobo-suction":
+                    # eepp = "/World/roborg/minicobo_suction/short_gripper"
+                    eepp = "/World/roborg/minicobo_suction_short/minicobo_suction/short_gripper"
+                elif self._robot_name == "minicobo-suction-high":
+                    eepp = "/World/roborg/minicobo_suction_short/minicobo_suction/short_gripper"
+                elif self._robot_name in ["minicobo-suction-dual","minicobo-dual-high"]:
+                    eepp = "/World/roborg/minicobo_suction_dual/minicobo_suction/dual_gripper"
+                    # eepp = "/World/roborg/minicobo_suction_dual/minicobo_suction/dual_gripper/JAKA___MOTO_200mp_v4"
+
+                    # self._end_effector = RigidPrim(prim_path=eepp, name= "minicobo_dual_gripper" + "_end_effector")
+                    # self._end_effector.initialize(self.physics_sim_view)
+                    grip_direction = "y"
+                    grip_threshold = 0.1
+                    grip_translate = 0.17
+                    self.grip_eeori = euler_angles_to_quat(np.array([-np.pi/2,0,0]))
+                elif self._robot_name in ["jaka-minicobo-1a","minicobo-dual-sucker"]:
+                    eepp = "/World/roborg/minicobo_v1_4/tool0"
+                    # eepp = "/World/roborg/minicobo_suction_dual/minicobo_suction/dual_gripper/JAKA___MOTO_200mp_v4"
+
+                    # self._end_effector = RigidPrim(prim_path=eepp, name= "minicobo_dual_gripper" + "_end_effector")
+                    # self._end_effector.initialize(self.physics_sim_view)
+                    grip_direction = "y"
+                    grip_threshold = 0.01
+                    # grip_translate = -0.018 # 0.002 and -0.019 does not work, but 0.001 to -0.018 do work for jaka-minicobo-1a and minicobo-dual-sucker
+                    grip_translate = 0.0
+                    self.grip_eeori = euler_angles_to_quat(np.array([-np.pi/2,0,0]))
+
+                elif self._robot_name == "jaka-minicobo-1":
+                    eepp = "/World/roborg/minicobo_v1_4/Link6/jaka_camera_endpoint/JAKA___MOTO_200mp_v4/ZPR25CNK10_06_A10_v007"
+                    self._end_effector = RigidPrim(prim_path=eepp, name= "jaka-minicobo-1" + "_end_effector")
+                    self._end_effector.initialize(self.physics_sim_view)
+                else:
+                    print("Unknown robot name for suction gripper")
+                # jpn = ["left_inner_finger_joint", "right_inner_finger_joint"]
+                # jop = np.array([0.05, 0.05])
+                # jcp = np.array([0, 0])
+                # ad = np.array([0.05, 0.05])
+                art._policy_robot_name = "UR10"
+                self._end_effector_prim_path = eepp
+                sg = SurfaceGripper(
+                    end_effector_prim_path=self._end_effector_prim_path,
+                    #  translate=0.1611,
+                    # translate=0.223, # minicobo-suction works between -0.001 and 0.222 - fails at 0.223 and -0.002
+                    translate=grip_translate, # minicobo-suction works between -0.001 and 0.222 - fails at 0.223 and -0.002
+                    direction=grip_direction,
+                    grip_threshold=grip_threshold,  # between 0.01 and 0.5 work for minicobo-suction for the big cube
+                )
+                # self._end_effector = RigidPrim(prim_path=eeppgb, name= "ur10" + "_end_effector")
+                # self._end_effector.initialize(None)
+                sg.initialize(
+                    physics_sim_view=self.physics_sim_view,
+                    articulation_num_dofs=len(art.dof_names)
+                )
+
+                return sg
+
+            else:
+                carb.log_error(f"Unknown gripper type: {grippername} for robot:{self._robot_name} - returning None")
+                return None
 
     robcamlist = {}
 
@@ -350,13 +507,19 @@ class ScenarioBase:
         self.check_alarm_status(rcfg)
         # print("done senut.register_articulation")
 
-    def setup_robot_for_pose_movement(self, gprim, rcfg, pos, rot):
+    def setup_robot_for_pose_movement(self, gprim, rcfg, pos, rot, ska=[1, 1, 1], order="ZYX"):
         pos = Gf.Vec3d(list(pos))
         rot = list(rot)
         rcfg.tranop = gprim.AddTranslateOp()
-        rcfg.zrotop = gprim.AddRotateZOp()
-        rcfg.yrotop = gprim.AddRotateYOp()
-        rcfg.xrotop = gprim.AddRotateXOp()
+        match order:
+            case "ZYX":
+                rcfg.xrotop = gprim.AddRotateXOp()
+                rcfg.yrotop = gprim.AddRotateYOp()
+                rcfg.zrotop = gprim.AddRotateZOp()
+            case "XYZ":
+                rcfg.zrotop = gprim.AddRotateZOp()
+                rcfg.yrotop = gprim.AddRotateYOp()
+                rcfg.xrotop = gprim.AddRotateXOp()
         rcfg.tranop.Set(pos)
         rcfg.zrotop.Set(rot[2])
         rcfg.yrotop.Set(rot[1])
@@ -365,7 +528,7 @@ class ScenarioBase:
         rcfg.start_robot_rot = rot
         rcfg.robot_rotvek = np.array(rot)*np.pi/180
 
-    def load_robot_into_scene(self, ridx=0, pos=[0,0,0], rot=[0,0,0]):
+    def load_robot_into_scene(self, ridx=0, pos=[0, 0, 0], rot=[0, 0, 0]):
         stage = self._stage
         rcfg = self.get_robot_config(ridx)
 
