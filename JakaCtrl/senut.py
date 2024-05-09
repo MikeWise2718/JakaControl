@@ -329,6 +329,69 @@ def apply_convex_decomposition_to_mesh_and_children(stage, primname):
     print("apply_convex_decomposition_to_mesh_and_children:",primname," nit:",nhit)
     return nhit
 
+def checkskipcondition(pathname, skiplist):
+    # this allows us to specify skip conditions for certain paths without knowing the full path
+    for entry in skiplist:
+        if pathname.endswith(entry):
+            return True
+    return False
+
+def checkfiltcondition(pathname, filtlist):
+    # this allows us to specify filter conditions for certain paths without knowing the full path
+    for entry in filtlist:
+        if pathname.endswith(entry):
+            return True
+    return False
+
+
+def apply_collisionapis_to_mesh_and_children_recur(stage, prim, level, exclude=None, include=None, method=None):
+    if level > 12:
+        carb.log_warn("apply_collisionapis_to_mesh_and_children_recur - level too deep ({level})")
+        return 0
+    # https://forums.developer.nvidia.com/t/script-for-convex-decomposition-collisions/259649/2
+    nmesh = 0
+    nphysapi = 0
+    ncolapi = 0
+    typename = prim.GetTypeName()
+    pathname = prim.GetPath().pathString
+    do_me = True
+    if exclude is not None:
+        do_me = not checkskipcondition(pathname, exclude)
+    elif include is not None:
+        do_me = checkfiltcondition(pathname, include)
+
+    if typename == "Mesh" and do_me:
+        nmesh += 1
+        schemas = prim.GetAppliedSchemas()
+        # print("prim:",prim.GetPath()," schemas:",schemas)
+        if "CollisionAPI" not in schemas:
+            UsdPhysics.CollisionAPI.Apply(prim)
+            ncolapi += 1
+            pass
+        if "PhysicsMeshCollisionAPI" not in schemas:
+            phycollApi = UsdPhysics.MeshCollisionAPI.Apply(prim)
+        else:
+            phycollApi = UsdPhysics.MeshCollisionAPI(prim)
+        if method is None:
+            method = UsdPhysics.Tokens.convexDecomposition
+        phycollApi.GetApproximationAttr().Set(method)
+        nphysapi += 1
+    children = prim.GetChildren()
+    for child_prim in children:
+        nmdt, coldt, npdt = apply_collisionapis_to_mesh_and_children_recur(stage, child_prim, level+1, exclude=exclude, include=include, method=method)
+        nmesh += nmdt
+        ncolapi += coldt
+        nphysapi += npdt
+    return nmesh,  ncolapi, nphysapi
+
+
+def apply_collisionapis_to_mesh_and_children(stage, primname, exclude=None, include=None, method=None):
+    prim = stage.GetPrimAtPath(primname)
+    nmesh, ncolapi, nphysapi  = apply_collisionapis_to_mesh_and_children_recur(stage, prim, 0, exclude=exclude, include=include, method=method)
+    print(f"apply_collisionapis_to_mesh_and_children:{primname} nmesh:{nmesh} ncolapi:{ncolapi} nphysapi:{nphysapi}")
+    return nmesh, ncolapi, nphysapi
+
+
 def apply_diable_gravity_to_rigid_bodies_recur(stage, prim, level, disableGravity=True):
     if level > 12:
         carb.log_warn("apply_diable_gravity_to_rigid_bodies_recur - level too deep ({level})")
