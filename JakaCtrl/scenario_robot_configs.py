@@ -23,7 +23,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
 
     assets_root_dir = get_assets_root_path()
     mg_extension_dir = get_extension_path_from_name("omni.isaac.motion_generation")
-    jakacontrol_extension_dir = cleanup_path(get_extension_path_from_name("JakaControl"))
+    current_extension_dir = cleanup_path(get_extension_path_from_name("JakaControl"))
     # robsjaka_extension_path = cleanup_path(get_extension_path_from_name("robs.jaka"))
     asimovjaka_extension_dir = cleanup_path(get_extension_path_from_name("omni.asimov.jaka"))
     rmp_config_dir = cleanup_path(mg_extension_dir + "/motion_policy_configs")
@@ -164,10 +164,10 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
         case "m0609":
             robot_prim_path = "/World/roborg/minicobo_v1_4"
             artpath = f"{robot_prim_path}/world"
-            robot_usd_file_path = f"{jakacontrol_extension_dir}/usd/jaka2.usda"
+            robot_usd_file_path = f"{current_extension_dir}/usd/jaka2.usda"
             mopo_robot_name = "Franka"
 
-            rmp_param_dir = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Doosan"
+            rmp_param_dir = f"{current_extension_dir}/JakaCtrl/motion_policy_configs/Doosan"
             rdf_path = rmp_param_dir + "/m0609/rmpflow/m0609_robot_description.yaml"
             urdf_path = rmp_param_dir + "/m0609/minicobo_v14.urdf"
             rmp_config_path = rmp_param_dir + "/m0609/rmpflow/m0609_rmpflow_config.yaml"
@@ -183,10 +183,10 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
         case "jaka-minicobo-0":
             robot_prim_path = "/World/roborg/minicobo_v1_4"
             artpath = f"{robot_prim_path}/world"
-            robot_usd_file_path = f"{jakacontrol_extension_dir}/usd/jaka2.usda"
+            robot_usd_file_path = f"{current_extension_dir}/usd/jaka2.usda"
             mopo_robot_name = "Franka"
 
-            rmp_param_dir = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka"
+            rmp_param_dir = f"{current_extension_dir}/JakaCtrl/motion_policy_configs/Jaka"
             rdf_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_robot_description_0.yaml"
             urdf_path = rmp_param_dir + "/minicobo/minicobo_v14.urdf"
             rmp_config_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
@@ -205,10 +205,10 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
             # robot_prim_path = "/World/roborg/minicobo_v1_4"
             robot_prim_path = f"{robot_root_usdpath}/minicobo_v1_4"
             artpath = f"{robot_prim_path}/world"
-            robot_usd_file_path = f"{jakacontrol_extension_dir}/usd/jaka_v14_1.usda"
+            robot_usd_file_path = f"{current_extension_dir}/usd/jaka_v14_1.usda"
             mopo_robot_name = "RS007N"
 
-            rmp_param_dir = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka"
+            rmp_param_dir = f"{current_extension_dir}/JakaCtrl/motion_policy_configs/Jaka"
             rdf_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_robot_description_0.yaml"
             urdf_path = rmp_param_dir + "/minicobo/minicobo_v14_1.urdf"
             rmp_config_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
@@ -230,11 +230,11 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
             robot_prim_path = f"{robot_root_usdpath}/minicobo_v1_4"
             artpath = f"{robot_prim_path}/world"
             # robot_usd_file_path = f"{jakacontrol_extension_dir}/usd/jaka_v14_1.usda"
-            robot_usd_file_path = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka/minicobo/minicobo_v14_1a/minicobo_v14_1a.usd"
+            robot_usd_file_path = f"{current_extension_dir}/JakaCtrl/motion_policy_configs/Jaka/minicobo/minicobo_v14_1a/minicobo_v14_1a.usd"
 
             mopo_robot_name = "RS007N"
 
-            rmp_param_dir = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka"
+            rmp_param_dir = f"{current_extension_dir}/JakaCtrl/motion_policy_configs/Jaka"
             rdf_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_robot_description_0.yaml"
             urdf_path = rmp_param_dir + "/minicobo/minicobo_v14_1a.urdf"
             rmp_config_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_rmpflow_config.yaml"
@@ -259,11 +259,11 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
             robot_prim_path = f"{robot_root_usdpath}/minicobo_v1_4"
             artpath = f"{robot_prim_path}/world"
             # robot_usd_file_path = f"{jakacontrol_extension_dir}/usd/jaka_v14_1.usda"
-            robot_usd_file_path = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka/minicobo/minicobo_dual_sucker/minicobo_dual_sucker.usda"
+            robot_usd_file_path = f"{current_extension_dir}/JakaCtrl/motion_policy_configs/Jaka/minicobo/minicobo_dual_sucker/minicobo_dual_sucker1.usda"
 
             mopo_robot_name = "RS007N"
 
-            rmp_param_dir = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka"
+            rmp_param_dir = f"{current_extension_dir}/JakaCtrl/motion_policy_configs/Jaka"
             rdf_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_robot_description_dual_sucker.yaml"
             urdf_path = rmp_param_dir + "/minicobo/minicobo_dual_sucker.urdf"
             rmp_config_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_rmpflow_config_dual_sucker.yaml"
@@ -288,7 +288,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
             robot_usd_file_path = f"{asimovjaka_extension_dir}/usd/minicobo-parallel-onrobot-rg2-6.usda"
             mopo_robot_name = "RS007N"
 
-            rmp_param_dir = f"{jakacontrol_extension_dir}/JakaCtrl/motion_policy_configs/Jaka"
+            rmp_param_dir = f"{current_extension_dir}/JakaCtrl/motion_policy_configs/Jaka"
             rdf_path = rmp_param_dir + "/minicobo/rmpflow/minicobo_robot_description.yaml"
             # urdf_path = rmp_param_dir + "/minicobo/minicobo_v14_onrobot_rg2.urdf"
             urdf_path = rmp_param_dir + "/minicobo/minicobo_v14.urdf"
@@ -494,7 +494,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
 
     rc.mg_extension_dir = mg_extension_dir
     rc.rmp_config_dir = rmp_config_dir
-    rc.jc_extension_dir = jakacontrol_extension_dir
+    rc.jc_extension_dir = current_extension_dir
     rc.asv_extension_dir = asimovjaka_extension_dir
 
     rc.artpath = artpath

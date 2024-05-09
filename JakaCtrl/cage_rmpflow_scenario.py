@@ -1,5 +1,8 @@
 import numpy as np
-from pxr import Usd, UsdGeom, Gf
+from pxr import Usd, UsdGeom, Gf, UsdPhysics, PhysxSchema
+
+import omni
+import carb
 
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.core.utils.stage import add_reference_to_stage
@@ -18,7 +21,9 @@ from .senut import add_rob_cam
 
 from .scenario_base import ScenarioBase
 from .senut import make_cam_view_window
-
+from .senut import apply_convex_decomposition_to_mesh_and_children
+from .senut import apply_collisionapis_to_mesh_and_children
+from .senut import apply_diable_gravity_to_rigid_bodies
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
@@ -43,7 +48,135 @@ class CageRmpflowScenario(ScenarioBase):
         self._scenario_name = "cage-rmpflow"
         self._scenario_description = ScenarioBase.get_scenario_desc(self._scenario_name)
         self._nrobots = 2
-        pass
+        self._moto50mp_list = []
+        self._moto_tray_list = []
+
+    def AddMoto50mp(self, name, pos=[0,0,0],rot=[0,0,0],ska=[1,1,1]):
+        idx = len(self._moto50mp_list)
+        usdpath = f"/World/moto_50mp_{idx}"
+        filepath_to_moto_50mp_usd = f"{self.current_extension_path}/usd/MOTO_50MP_v2fix.usda"
+        add_reference_to_stage(filepath_to_moto_50mp_usd, usdpath)
+        quat = euler_angles_to_quat(rot)
+        self._moto = XFormPrim(usdpath, scale=ska, position=pos, orientation=quat )
+        apply_collisionapis_to_mesh_and_children(self._stage, usdpath)
+
+        prim = self._stage.GetPrimAtPath(usdpath)
+        UsdPhysics.RigidBodyAPI.Apply(prim)
+        mapi = UsdPhysics.MassAPI.Apply(prim)
+        mapi.CreateMassAttr(0.192) # g54 stats w=73.82 mm, h=161.56, d=8.89, pearl blue
+        moto = {"usdpath":usdpath, "prim":prim, "idx":idx, "name":name}
+        self._moto50mp_list.append(moto)
+
+    def GetMoto50mpByIdx(self, idx):
+        if idx>=len(self._moto50mp_list):
+            carb.log_error(f"GetMoto50mpByIdx: idx {idx} out of range")
+            return None
+        return self._moto50mp_list[idx]
+
+    def GetMoto50mpByName(self, name):
+        for moto in self._moto50mp_list:
+            if moto["name"] == name:
+                return moto
+        carb.log_error(f"GetMoto50mpByName: name {name} not found")
+        return None
+
+    def AddMotoTray(self, name, fillstr="000000", pos=[0,0,0],rot=[0,0,0],ska=[1.01,1.01,1.01]):
+        idx = len(self._moto_tray_list)
+        usdpath = f"/World/moto_tray_{idx}"
+        filepath_to_moto_tray_usd = f"{self.current_extension_path}/usd/MOTO_TRAY_v2fix.usda"
+        add_reference_to_stage(filepath_to_moto_tray_usd, usdpath)
+        quat = euler_angles_to_quat(rot)
+        self._moto = XFormPrim(usdpath, scale=ska, position=pos, orientation=quat )
+        # Don't do body1 for now, all the options are too big to let the phone slip through
+        #     it needs to be custom vertical and horizontal strips
+        # meth = UsdPhysics.Tokens.boundingCube
+        # meth = UsdPhysics.Tokens.convexHull
+        # apply_collisionapis_to_mesh_and_children(self._stage, usdpath,
+        #                                          filt_end_path=["Body1"],method=meth )
+        # options are: boundingCube, convexHull, convexDecomposition and probably a few more
+        meth = UsdPhysics.Tokens.convexDecomposition
+        apply_collisionapis_to_mesh_and_children(self._stage, usdpath,
+                                                 include=["Body2"],method=meth )
+
+        prim = self._stage.GetPrimAtPath(usdpath)
+        UsdPhysics.RigidBodyAPI.Apply(prim)
+        mapi = UsdPhysics.MassAPI.Apply(prim)
+        mapi.CreateMassAttr(0.2)
+        # apply_diable_gravity_to_rigid_bodies(self._stage, usdpath)
+
+        mototray = {"usdpath":usdpath, "prim":prim, "idx":idx, "name":name}
+        self._moto_tray_list.append(mototray)
+
+        while len(fillstr)<6:
+            fillstr += "0"
+
+        a90 = np.pi/2
+
+        w = 0.07382
+        h = 0.16156
+        iw = 0 # 0,1,2  - corresponds to width of mp50 which is 0.07382 meters
+        ih = 0 # 0,1    - corresponds to height of mp50 which is 0.16156 meters
+        for c in fillstr:
+            yp = (iw-2.5)*w + pos[0] + iw*0.01
+            xp = (ih+0.0)*h + pos[1] + ih*0.01 + 0.015
+            zp = 0.02 + pos[2]
+            if c=="1":
+                self.AddMoto50mp(f"{name}_moto{idx}",pos=[xp,yp,zp],rot=[-a90,0,a90],ska=[1,1,1])
+            iw += 1
+            if iw>2:
+                iw  = 0
+                ih += 1
+
+
+    def GetMotoTrayByIdx(self, idx):
+        if idx>=len(self._moto_tray_list):
+            carb.log_error(f"GetMotoTrayByIdx: idx {idx} out of range")
+            return None
+        return self._moto_tray_list[idx]
+
+    def GetMotoTrayByName(self, name):
+        for moto in self._moto_tray_list:
+            if moto["name"] == name:
+                return moto
+        carb.log_error(f"GetMotoTrayByName: name {name} not found")
+        return None
+
+
+    def add_cage(self):
+        usdpath = "/World/cage_v1"
+        self.current_extension_path = get_extension_path_from_name("JakaControl")
+        # cagevariant = "cage_with_static_colliders"
+        cagevariant = "cage_v1"
+        if cagevariant == "cage_v1":
+            filepath_to_cage_usd = f"{self.current_extension_path}/usd/cage_v1.usda"
+            self._cage = XFormPrim(usdpath, scale=[1,1,1], position=[0,0,0])
+        else:
+            filepath_to_cage_usd = f"{self.current_extension_path}/usd/cage_with_static_colliders.usda"
+            sz = 0.0254
+            quat = euler_angles_to_quat([np.pi/2,0,0])
+            self._cage = XFormPrim(usdpath, scale=[sz,sz,sz], position=[0,0,0], orientation=quat)
+
+        add_reference_to_stage(filepath_to_cage_usd, usdpath)
+
+        # adjust collision shapes
+        if cagevariant == "cage_v1":
+            meth = UsdPhysics.Tokens.convexHull
+            apply_collisionapis_to_mesh_and_children(self._stage, usdpath, method=meth )
+        else:
+            ppath1 = "ACRYLIC___FIXTURE_V1_v8_1/ACRYLIC___FIXTURE_V1_v8/Body1/Body1"
+            ppath2 = "ACRYLIC___FIXTURE_V1_v8_2/ACRYLIC___FIXTURE_V1_v8/Body1/Body1"
+            meth = UsdPhysics.Tokens.convexHull
+            apply_collisionapis_to_mesh_and_children(self._stage, usdpath, include=[ppath1,ppath2],method=meth )
+
+
+        if self._colorScheme == "default":
+            self._cage.set_color([0.5, 0.5, 0.5, 1.0])
+        elif self._colorScheme == "transparent":
+            apply_material_to_prim_and_children(self._stage, self._matman, "Steel_Blued", usdpath)
+        self.cagepath = usdpath
+
+
+
 
     def load_scenario(self, robot_name, ground_opt, light_opt="dome_light"):
         super().load_scenario(robot_name, ground_opt)
@@ -56,11 +189,35 @@ class CageRmpflowScenario(ScenarioBase):
 
         # Robots
         # (pos0, rot0) = ([0.14, 0, 0.77], [0, 150, 180])
+        # this seems to be related to robot_rotvek
+        # used in set_robot_base_pose in scenario_base self.make_rmpflow()
+        # the latter uses a quaternion so we really should just be using that
+        #
+        # This works but we have no good way to rotate the robot arm around its long axis
+        # order = "XYZ"
+        # (pos0, rot0) = ([0.14, 0, 0.77], [0, -150, 180])
+        # self.load_robot_into_scene(0, pos0, rot0, order=order)
+
+
+        # (pos1, rot1) = ([-0.08, 0, 0.77], [0, -150, 0])
+        # self.load_robot_into_scene(1, pos1, rot1, order=order)
+
+        # This works but it is oriented the same as the other robot which is wrong
+        # order = "ZYX"
+        # (pos0, rot0) = ([0.14, 0, 0.77], [0, 150, 0])
+        # self.load_robot_into_scene(0, pos0, rot0, order=order)
+
+
+        # (pos1, rot1) = ([-0.08, 0, 0.77], [0, -150, 0])
+        # self.load_robot_into_scene(1, pos1, rot1, order=order)
+
+        order = "ZYX"
         (pos0, rot0) = ([0.14, 0, 0.77], [0, 150, 0])
-        self.load_robot_into_scene(0, pos0, rot0)
+        self.load_robot_into_scene(0, pos0, rot0, order=order)
+
 
         (pos1, rot1) = ([-0.08, 0, 0.77], [0, -150, 0])
-        self.load_robot_into_scene(1, pos1, rot1)
+        self.load_robot_into_scene(1, pos1, rot1, order=order)
 
         self.add_cameras_to_robots()
 
@@ -77,21 +234,22 @@ class CageRmpflowScenario(ScenarioBase):
         (self.targ1top,_,_,_) = GetXformOpsFromPath(t1path)
         add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", t1path)
 
-
         # obstacles
         self._obstacle = FixedCuboid("/World/obstacle",size=.05,position=np.array([0.4, 0.0, 1.65]),color=np.array([0.,0.,1.]))
 
         # cage
-        jakacontrol_extension_path = get_extension_path_from_name("JakaControl")
-        path_to_cage_usd = f"{jakacontrol_extension_path}/usd/cage_v1.usd"
-        add_reference_to_stage(path_to_cage_usd, "/World/cage_v1")
+        self.add_cage()
 
-        cagepath = "/World/cage_v1"
-        self._cage = XFormPrim(cagepath, scale=[1,1,1], position=[0,0,0])
-        if self._colorScheme == "default":
-            self._cage.set_color([0.5, 0.5, 0.5, 1.0])
-        elif self._colorScheme == "transparent":
-            apply_material_to_prim_and_children(self._stage, self._matman, "Steel_Blued", cagepath)
+        a90 = np.pi/2
+
+        # moto_50mp
+        self.AddMoto50mp("moto1",rot=[-a90,0,a90],pos=[0,0,0.1])
+        self.AddMoto50mp("moto2",rot=[-a90,0,a90],pos=[0.1,0.1,0.1])
+
+        # moto_tray
+        self.AddMotoTray("tray1", "111111", rot=[a90,0,0],pos=[0.35,0.25,0.0])
+
+
 
     def setup_scenario(self):
         self.register_robot_articulations()

@@ -7,7 +7,7 @@ import carb
 import carb.settings
 from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelper
 from .matman import MatMan
-from pxr import Usd, UsdGeom, UsdShade, Gf
+from pxr import Usd, UsdGeom, UsdShade, Gf, UsdPhysics
 from typing import List
 
 from omni.isaac.core.articulations import Articulation
@@ -510,34 +510,49 @@ class ScenarioBase:
     def setup_robot_for_pose_movement(self, gprim, rcfg, pos, rot, ska=[1, 1, 1], order="ZYX"):
         pos = Gf.Vec3d(list(pos))
         rot = list(rot)
+        rotv = rot.copy()
+        rotv.reverse()
         rcfg.tranop = gprim.AddTranslateOp()
+        rad = np.pi/180
         match order:
             case "ZYX":
                 rcfg.xrotop = gprim.AddRotateXOp()
                 rcfg.yrotop = gprim.AddRotateYOp()
                 rcfg.zrotop = gprim.AddRotateZOp()
+                rotvek = np.array(rot)*rad
+                quat = euler_angles_to_quat(rotvek, extrinsic=True)
+
             case "XYZ":
                 rcfg.zrotop = gprim.AddRotateZOp()
                 rcfg.yrotop = gprim.AddRotateYOp()
                 rcfg.xrotop = gprim.AddRotateXOp()
+                rotvek = np.array(rot)*rad
+                quat = euler_angles_to_quat(rotvek, extrinsic=True)
         rcfg.tranop.Set(pos)
         rcfg.zrotop.Set(rot[2])
         rcfg.yrotop.Set(rot[1])
         rcfg.xrotop.Set(rot[0])
         rcfg.start_robot_pos = pos
         rcfg.start_robot_rot = rot
-        rcfg.robot_rotvek = np.array(rot)*np.pi/180
+        # rcfg.robot_rotvek = np.array(rot)*np.pi/180
+        rcfg.robot_rotvek = np.array(rotv)*np.pi/180
+        rcfg.robot_rotquat = quat
 
-    def load_robot_into_scene(self, ridx=0, pos=[0, 0, 0], rot=[0, 0, 0]):
+    def load_robot_into_scene(self, ridx=0, pos=[0, 0, 0], rot=[0, 0, 0], order="ZYX"):
         stage = self._stage
         rcfg = self.get_robot_config(ridx)
 
         roborg = UsdGeom.Xform.Define(stage, rcfg.root_usdpath)
-        self.setup_robot_for_pose_movement(roborg, rcfg, pos, rot)
+        self.setup_robot_for_pose_movement(roborg, rcfg, pos, rot, order=order)
 
         add_reference_to_stage(rcfg.robot_usd_file_path, rcfg.robot_prim_path)
         apply_convex_decomposition_to_mesh_and_children(stage, rcfg.robot_prim_path)
         apply_diable_gravity_to_rigid_bodies(stage, rcfg.robot_prim_path)
+
+        prim = self._stage.GetPrimAtPath(rcfg.robot_prim_path)
+        # UsdPhysics.RigidBodyAPI.Apply(prim)
+        # UsdPhysics.CollisionAPI.Apply(prim)
+
 
         adjust_articulationAPI_location_if_needed(stage, rcfg.robot_prim_path)
         rcfg._articulation = Articulation(rcfg.artpath,f"mico-{ridx}")
@@ -562,7 +577,8 @@ class ScenarioBase:
             end_effector_frame_name = rcfg.eeframe_name,
             maximum_substep_size = rcfg.max_step_size
         )
-        quat = euler_angles_to_quat(rcfg.robot_rotvek)
+        # quat = euler_angles_to_quat(rcfg.robot_rotvek, extrinsic=True)
+        quat = rcfg.robot_rotquat
         rmpflow.set_robot_base_pose(rcfg.start_robot_pos, quat)
 
         for ob in oblist:

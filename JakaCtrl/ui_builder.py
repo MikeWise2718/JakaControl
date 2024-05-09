@@ -428,7 +428,7 @@ class UIBuilder:
                     tooltip = tool_tip,
                     style={'background_color': self.dkred}
                 )
-                self.custbuttdict["action"] = butt
+                self.custbuttdict[action] = butt
 
     cfg_lab_dict = {}
     config_line_list = []
@@ -782,7 +782,7 @@ class UIBuilder:
     def _do_action(self, action, x,y,b,m):
         argdict = {"m":m, "b":b, "x":x, "y":y}
         self._cur_scenario.scenario_action(action, argdict)
-        butt = self.custbuttdict.get("action")
+        butt = self.custbuttdict.get(action)
         if butt is not None:
             butt.text = self._cur_scenario.get_action_button_text( action, argdict )
 
