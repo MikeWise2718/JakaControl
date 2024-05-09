@@ -9,10 +9,10 @@ from omni.isaac.core.utils.stage import add_reference_to_stage
 from omni.isaac.core.objects.cuboid import FixedCuboid
 from omni.isaac.core.prims import XFormPrim
 
+
 from omni.isaac.core.utils.stage import get_current_stage
 from omni.isaac.core.world import World
 
-from omni.isaac.core.utils.extensions import get_extension_path_from_name
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
 from omni.isaac.core.utils.viewports import set_camera_view
 
@@ -21,9 +21,6 @@ from .senut import add_rob_cam
 
 from .scenario_base import ScenarioBase
 from .senut import make_cam_view_window
-from .senut import apply_convex_decomposition_to_mesh_and_children
-from .senut import apply_collisionapis_to_mesh_and_children
-from .senut import apply_diable_gravity_to_rigid_bodies
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
@@ -51,130 +48,6 @@ class CageRmpflowScenario(ScenarioBase):
         self._moto50mp_list = []
         self._moto_tray_list = []
 
-    def AddMoto50mp(self, name, pos=[0,0,0],rot=[0,0,0],ska=[1,1,1]):
-        idx = len(self._moto50mp_list)
-        usdpath = f"/World/moto_50mp_{idx}"
-        filepath_to_moto_50mp_usd = f"{self.current_extension_path}/usd/MOTO_50MP_v2fix.usda"
-        add_reference_to_stage(filepath_to_moto_50mp_usd, usdpath)
-        quat = euler_angles_to_quat(rot)
-        self._moto = XFormPrim(usdpath, scale=ska, position=pos, orientation=quat )
-        meth = UsdPhysics.Tokens.convexHull
-        apply_collisionapis_to_mesh_and_children(self._stage, usdpath, method=meth)
-
-        prim = self._stage.GetPrimAtPath(usdpath)
-        UsdPhysics.RigidBodyAPI.Apply(prim)
-        mapi = UsdPhysics.MassAPI.Apply(prim)
-        mapi.CreateMassAttr(0.192) # g54 stats w=73.82 mm, h=161.56, d=8.89, pearl blue
-        moto = {"usdpath":usdpath, "prim":prim, "idx":idx, "name":name}
-        self._moto50mp_list.append(moto)
-
-    def GetMoto50mpByIdx(self, idx):
-        if idx>=len(self._moto50mp_list):
-            carb.log_error(f"GetMoto50mpByIdx: idx {idx} out of range")
-            return None
-        return self._moto50mp_list[idx]
-
-    def GetMoto50mpByName(self, name):
-        for moto in self._moto50mp_list:
-            if moto["name"] == name:
-                return moto
-        carb.log_error(f"GetMoto50mpByName: name {name} not found")
-        return None
-
-    def AddMotoTray(self, name, fillstr="000000", pos=[0,0,0],rot=[0,0,0],ska=[1.01,1.01,1.01]):
-        idx = len(self._moto_tray_list)
-        usdpath = f"/World/moto_tray_{idx}"
-        filepath_to_moto_tray_usd = f"{self.current_extension_path}/usd/MOTO_TRAY_v2fix.usda"
-        add_reference_to_stage(filepath_to_moto_tray_usd, usdpath)
-        quat = euler_angles_to_quat(rot)
-        self._moto = XFormPrim(usdpath, scale=ska, position=pos, orientation=quat )
-        # Don't do body1 for now, all the options are too big to let the phone slip through
-        #     it needs to be custom vertical and horizontal strips
-        # meth = UsdPhysics.Tokens.boundingCube
-        # meth = UsdPhysics.Tokens.convexHull
-        # apply_collisionapis_to_mesh_and_children(self._stage, usdpath,
-        #                                          filt_end_path=["Body1"],method=meth )
-        # options are: boundingCube, convexHull, convexDecomposition and probably a few more
-        meth = UsdPhysics.Tokens.convexDecomposition
-        apply_collisionapis_to_mesh_and_children(self._stage, usdpath,
-                                                 include=["Body2"],method=meth )
-
-        prim = self._stage.GetPrimAtPath(usdpath)
-        UsdPhysics.RigidBodyAPI.Apply(prim)
-        mapi = UsdPhysics.MassAPI.Apply(prim)
-        mapi.CreateMassAttr(0.2)
-        # apply_diable_gravity_to_rigid_bodies(self._stage, usdpath)
-
-        mototray = {"usdpath":usdpath, "prim":prim, "idx":idx, "name":name}
-        self._moto_tray_list.append(mototray)
-
-        while len(fillstr)<6:
-            fillstr += "0"
-
-        a90 = np.pi/2
-
-        w = 0.07382
-        h = 0.16156
-        iw = 0 # 0,1,2  - corresponds to width of mp50 which is 0.07382 meters
-        ih = 0 # 0,1    - corresponds to height of mp50 which is 0.16156 meters
-        for c in fillstr:
-            yp = (iw-2.5)*w + pos[0] + iw*0.01
-            xp = (ih+0.0)*h + pos[1] + ih*0.01 + 0.015
-            zp = 0.02 + pos[2]
-            if c=="1":
-                self.AddMoto50mp(f"{name}_moto{idx}",pos=[xp,yp,zp],rot=[-a90,0,a90],ska=[1,1,1])
-            iw += 1
-            if iw>2:
-                iw  = 0
-                ih += 1
-
-
-    def GetMotoTrayByIdx(self, idx):
-        if idx>=len(self._moto_tray_list):
-            carb.log_error(f"GetMotoTrayByIdx: idx {idx} out of range")
-            return None
-        return self._moto_tray_list[idx]
-
-    def GetMotoTrayByName(self, name):
-        for moto in self._moto_tray_list:
-            if moto["name"] == name:
-                return moto
-        carb.log_error(f"GetMotoTrayByName: name {name} not found")
-        return None
-
-
-    def add_cage(self):
-        usdpath = "/World/cage_v1"
-        self.current_extension_path = get_extension_path_from_name("JakaControl")
-        # cagevariant = "cage_with_static_colliders"
-        cagevariant = "cage_v1"
-        if cagevariant == "cage_v1":
-            filepath_to_cage_usd = f"{self.current_extension_path}/usd/cage_v1.usda"
-            self._cage = XFormPrim(usdpath, scale=[1,1,1], position=[0,0,0])
-        else:
-            filepath_to_cage_usd = f"{self.current_extension_path}/usd/cage_with_static_colliders.usda"
-            sz = 0.0254
-            quat = euler_angles_to_quat([np.pi/2,0,0])
-            self._cage = XFormPrim(usdpath, scale=[sz,sz,sz], position=[0,0,0], orientation=quat)
-
-        add_reference_to_stage(filepath_to_cage_usd, usdpath)
-
-        # adjust collision shapes
-        if cagevariant == "cage_v1":
-            meth = UsdPhysics.Tokens.convexHull
-            apply_collisionapis_to_mesh_and_children(self._stage, usdpath, method=meth )
-        else:
-            ppath1 = "ACRYLIC___FIXTURE_V1_v8_1/ACRYLIC___FIXTURE_V1_v8/Body1/Body1"
-            ppath2 = "ACRYLIC___FIXTURE_V1_v8_2/ACRYLIC___FIXTURE_V1_v8/Body1/Body1"
-            meth = UsdPhysics.Tokens.convexHull
-            apply_collisionapis_to_mesh_and_children(self._stage, usdpath, include=[ppath1,ppath2],method=meth )
-
-
-        if self._colorScheme == "default":
-            self._cage.set_color([0.5, 0.5, 0.5, 1.0])
-        elif self._colorScheme == "transparent":
-            apply_material_to_prim_and_children(self._stage, self._matman, "Steel_Blued", usdpath)
-        self.cagepath = usdpath
 
 
 
@@ -229,7 +102,7 @@ class CageRmpflowScenario(ScenarioBase):
         (self.targ0top,_,_,_) = GetXformOpsFromPath(t0path)
         add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", t0path)
 
-        quat = euler_angles_to_quat([-np.pi/2,0,0])
+        quat = euler_angles_to_quat([-np.pi/2,0,np.pi])
         t1path = "/World/target1"
         self._target1 = XFormPrim(t1path, scale=[.04,.04,.04], position=[-0.15, 0.00, 0.02], orientation=quat)
         (self.targ1top,_,_,_) = GetXformOpsFromPath(t1path)

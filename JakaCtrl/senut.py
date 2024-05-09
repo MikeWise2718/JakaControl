@@ -344,7 +344,7 @@ def checkfiltcondition(pathname, filtlist):
     return False
 
 
-def apply_collisionapis_to_mesh_and_children_recur(stage, prim, level, exclude=None, include=None, method=None):
+def apply_collisionapis_to_mesh_and_children_recur(stage, prim, level, exclude=None, include=None, method=None, remove=False):
     if level > 12:
         carb.log_warn("apply_collisionapis_to_mesh_and_children_recur - level too deep ({level})")
         return 0
@@ -363,31 +363,39 @@ def apply_collisionapis_to_mesh_and_children_recur(stage, prim, level, exclude=N
     if typename == "Mesh" and do_me:
         nmesh += 1
         schemas = prim.GetAppliedSchemas()
-        # print("prim:",prim.GetPath()," schemas:",schemas)
-        if "CollisionAPI" not in schemas:
-            UsdPhysics.CollisionAPI.Apply(prim)
-            ncolapi += 1
-            pass
-        if "PhysicsMeshCollisionAPI" not in schemas:
-            phycollApi = UsdPhysics.MeshCollisionAPI.Apply(prim)
+        if remove:
+            if "PhysicsCollisionAPI" in schemas:
+                prim.RemoveAPI(UsdPhysics.CollisionAPI)
+                ncolapi += 1
+            if "PhysicsMeshCollisionAPI" in schemas:
+                prim.RemoveAPI(UsdPhysics.MeshCollisionAPI)
+                nphysapi += 1
         else:
-            phycollApi = UsdPhysics.MeshCollisionAPI(prim)
-        if method is None:
-            method = UsdPhysics.Tokens.convexDecomposition
-        phycollApi.GetApproximationAttr().Set(method)
-        nphysapi += 1
+            # print("prim:",prim.GetPath()," schemas:",schemas)
+            if "PhysicsCollisionAPI" not in schemas:
+                UsdPhysics.CollisionAPI.Apply(prim)
+                ncolapi += 1
+                pass
+            if "PhysicsMeshCollisionAPI" not in schemas:
+                phycollApi = UsdPhysics.MeshCollisionAPI.Apply(prim)
+            else:
+                phycollApi = UsdPhysics.MeshCollisionAPI(prim)
+            if method is None:
+                method = UsdPhysics.Tokens.convexDecomposition
+            phycollApi.GetApproximationAttr().Set(method)
+            nphysapi += 1
     children = prim.GetChildren()
     for child_prim in children:
-        nmdt, coldt, npdt = apply_collisionapis_to_mesh_and_children_recur(stage, child_prim, level+1, exclude=exclude, include=include, method=method)
+        nmdt, coldt, npdt = apply_collisionapis_to_mesh_and_children_recur(stage, child_prim, level+1, exclude=exclude, include=include, method=method, remove=remove)
         nmesh += nmdt
         ncolapi += coldt
         nphysapi += npdt
     return nmesh,  ncolapi, nphysapi
 
 
-def apply_collisionapis_to_mesh_and_children(stage, primname, exclude=None, include=None, method=None):
+def apply_collisionapis_to_mesh_and_children(stage, primname, exclude=None, include=None, method=None, remove=False):
     prim = stage.GetPrimAtPath(primname)
-    nmesh, ncolapi, nphysapi  = apply_collisionapis_to_mesh_and_children_recur(stage, prim, 0, exclude=exclude, include=include, method=method)
+    nmesh, ncolapi, nphysapi  = apply_collisionapis_to_mesh_and_children_recur(stage, prim, 0, exclude=exclude, include=include, method=method, remove=remove)
     print(f"apply_collisionapis_to_mesh_and_children:{primname} nmesh:{nmesh} ncolapi:{ncolapi} nphysapi:{nphysapi}")
     return nmesh, ncolapi, nphysapi
 

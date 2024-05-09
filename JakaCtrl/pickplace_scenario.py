@@ -274,6 +274,8 @@ class PickAndPlaceScenario(ScenarioBase):
         self._ee_pos = ee_pos
         self._ee_rot = ee_rot_mat
 
+        self.activate_ee_collision( 0, False)
+
         print(f"post_load_scenario done - eeori: {self.grip_eeori}")
 
     def reset_scenario(self):
