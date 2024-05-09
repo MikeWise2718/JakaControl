@@ -230,7 +230,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
             robot_prim_path = f"{robot_root_usdpath}/minicobo_v1_4"
             artpath = f"{robot_prim_path}/world"
             # robot_usd_file_path = f"{jakacontrol_extension_dir}/usd/jaka_v14_1.usda"
-            robot_usd_file_path = f"{current_extension_dir}/JakaCtrl/motion_policy_configs/Jaka/minicobo/minicobo_v14_1a/minicobo_v14_1a.usd"
+            robot_usd_file_path = f"{current_extension_dir}/JakaCtrl/motion_policy_configs/Jaka/minicobo/minicobo_v14_1a/minicobo_v14_1a.usda"
 
             mopo_robot_name = "RS007N"
 

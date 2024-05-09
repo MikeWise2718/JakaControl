@@ -58,7 +58,8 @@ class CageRmpflowScenario(ScenarioBase):
         add_reference_to_stage(filepath_to_moto_50mp_usd, usdpath)
         quat = euler_angles_to_quat(rot)
         self._moto = XFormPrim(usdpath, scale=ska, position=pos, orientation=quat )
-        apply_collisionapis_to_mesh_and_children(self._stage, usdpath)
+        meth = UsdPhysics.Tokens.convexHull
+        apply_collisionapis_to_mesh_and_children(self._stage, usdpath, method=meth)
 
         prim = self._stage.GetPrimAtPath(usdpath)
         UsdPhysics.RigidBodyAPI.Apply(prim)
