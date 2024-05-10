@@ -21,6 +21,8 @@ from .senut import add_rob_cam
 
 from .scenario_base import ScenarioBase
 from .senut import make_cam_view_window
+
+from .motomod import MotoMan
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
@@ -29,7 +31,6 @@ from .senut import make_cam_view_window
 # distribution of this software and related documentation without an express
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 #
-
 
 class CageRmpflowScenario(ScenarioBase):
 
@@ -45,10 +46,6 @@ class CageRmpflowScenario(ScenarioBase):
         self._scenario_name = "cage-rmpflow"
         self._scenario_description = ScenarioBase.get_scenario_desc(self._scenario_name)
         self._nrobots = 2
-
-
-
-
 
     def load_scenario(self, robot_name, ground_opt, light_opt="dome_light"):
         super().load_scenario(robot_name, ground_opt)
@@ -109,17 +106,18 @@ class CageRmpflowScenario(ScenarioBase):
         # obstacles
         self._obstacle = FixedCuboid("/World/obstacle",size=.05,position=np.array([0.4, 0.0, 1.65]),color=np.array([0.,0.,1.]))
 
+        mm = MotoMan(self._stage, self._matman)
         # cage
-        self.add_cage()
+        mm.AddCage()
 
         a90 = np.pi/2
 
         # moto_50mp
-        self.AddMoto50mp("moto1",rot=[-a90,0,a90],pos=[0,0,0.1])
-        self.AddMoto50mp("moto2",rot=[-a90,0,a90],pos=[0.1,0.1,0.1])
+        mm.AddMoto50mp("moto1",rot=[-a90,0,a90],pos=[0,0,0.1])
+        mm.AddMoto50mp("moto2",rot=[-a90,0,a90],pos=[0.1,0.1,0.1])
 
         # moto_tray
-        self.AddMotoTray("tray1", "111111", rot=[a90,0,0],pos=[0.35,0.25,0.0])
+        mm.AddMotoTray("tray1", "111111", rot=[a90,0,0],pos=[0.35,0.25,0.0])
 
 
 

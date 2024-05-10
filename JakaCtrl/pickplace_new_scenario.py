@@ -36,6 +36,7 @@ from omni.isaac.core.utils.rotations import euler_angles_to_quat
 
 from omni.isaac.core.prims.rigid_prim import RigidPrim
 from .senut import calc_robot_circle_pose, interp, GetXformOps, GetXformOpsFromPath, deg_euler_to_quatd, deg_euler_to_quatf
+from .motomod import MotoMan
 
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
@@ -178,7 +179,8 @@ class PickAndPlaceNewScenario(ScenarioBase):
         elif prefered_target == "moto50mp":
             a90 = np.pi/2
             rot = np.array([-a90, 0, 44*np.pi/180])
-            self.AddMoto50mp("moto2", rot=rot, pos=self._target_pos)
+            mm = MotoMan(self._stage, self._matman)
+            mm.AddMoto50mp("moto2", rot=rot, pos=self._target_pos)
             self._cuboid = None
             self.cuboid_rmp_off = 0
         else:

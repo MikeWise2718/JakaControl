@@ -55,6 +55,8 @@ class ScenarioBase:
 
     _moto50mp_list = []
     _moto_tray_list = []
+    _colprims = None
+    _matman = None
 
     _show_rmp_target = False
     _show_rmp_target_opt = "invisible" # don't delete
@@ -227,7 +229,6 @@ class ScenarioBase:
             remove = not active
             apply_collisionapis_to_mesh_and_children(self._stage, usdpath, include=include, remove=remove)
 
-
     def get_gripper(self):
         art = self._articulation
         if not hasattr(art, "_policy_robot_name"):
@@ -303,16 +304,9 @@ class ScenarioBase:
                 )
                 self._gripper_type = "parallel"
                 return pg
-            # elif self._robot_name in ["ur10-suction-short","jaka-minicobo-1","jaka-minicobo-1a",
-            #                           "minicobo-suction-dual","minicobo-suction","minicobo-dual-sucker",
-            #                           "minicobo-dual-high","minicobo-suction-high"]:  # short suction gripper and dual sucker gripper
             elif grippername in ["short suction", "dual sucker"]:  # short suction gripper and dual sucker gripper
                 art = self._articulation
                 self._gripper_type = "suction"
-                # eepp = "/World/roborg/ur10_suction_short/ee_link/gripper_base/xf"
-                # UsdGeom.Xform.Define(get_current_stage(), eepp)
-                # self._end_effector = RigidPrim(prim_path=eepp, name= "ur10" + "_end_effector")
-                # self._end_effector.initialize(None)
                 grip_direction = "x"
                 grip_threshold = 0.02
                 grip_translate = 0.1611
@@ -327,20 +321,12 @@ class ScenarioBase:
                     eepp = "/World/roborg/minicobo_suction_short/minicobo_suction/short_gripper"
                 elif self._robot_name in ["minicobo-suction-dual","minicobo-dual-high"]:
                     eepp = "/World/roborg/minicobo_suction_dual/minicobo_suction/dual_gripper"
-                    # eepp = "/World/roborg/minicobo_suction_dual/minicobo_suction/dual_gripper/JAKA___MOTO_200mp_v4"
-
-                    # self._end_effector = RigidPrim(prim_path=eepp, name= "minicobo_dual_gripper" + "_end_effector")
-                    # self._end_effector.initialize(self.physics_sim_view)
                     grip_direction = "y"
                     grip_threshold = 0.1
                     grip_translate = 0.17
                     self.grip_eeori = euler_angles_to_quat(np.array([-np.pi/2,0,0]))
                 elif self._robot_name in ["jaka-minicobo-1a","minicobo-dual-sucker"]:
                     eepp = "/World/roborg/minicobo_v1_4/tool0"
-                    # eepp = "/World/roborg/minicobo_suction_dual/minicobo_suction/dual_gripper/JAKA___MOTO_200mp_v4"
-
-                    # self._end_effector = RigidPrim(prim_path=eepp, name= "minicobo_dual_gripper" + "_end_effector")
-                    # self._end_effector.initialize(self.physics_sim_view)
                     grip_direction = "y"
                     grip_threshold = 0.01
                     # grip_translate = -0.018 # 0.002 and -0.019 does not work, but 0.001 to -0.018 do work for jaka-minicobo-1a and minicobo-dual-sucker
@@ -353,22 +339,14 @@ class ScenarioBase:
                     self._end_effector.initialize(self.physics_sim_view)
                 else:
                     print("Unknown robot name for suction gripper")
-                # jpn = ["left_inner_finger_joint", "right_inner_finger_joint"]
-                # jop = np.array([0.05, 0.05])
-                # jcp = np.array([0, 0])
-                # ad = np.array([0.05, 0.05])
                 art._policy_robot_name = "UR10"
                 self._end_effector_prim_path = eepp
                 sg = SurfaceGripper(
                     end_effector_prim_path=self._end_effector_prim_path,
-                    #  translate=0.1611,
-                    # translate=0.223, # minicobo-suction works between -0.001 and 0.222 - fails at 0.223 and -0.002
                     translate=grip_translate, # minicobo-suction works between -0.001 and 0.222 - fails at 0.223 and -0.002
                     direction=grip_direction,
                     grip_threshold=grip_threshold,  # between 0.01 and 0.5 work for minicobo-suction for the big cube
                 )
-                # self._end_effector = RigidPrim(prim_path=eeppgb, name= "ur10" + "_end_effector")
-                # self._end_effector.initialize(None)
                 sg.initialize(
                     physics_sim_view=self.physics_sim_view,
                     articulation_num_dofs=len(art.dof_names)
@@ -387,13 +365,6 @@ class ScenarioBase:
         self.robcamlist[cam_name]["name"] = cam_name
         self.robcamlist[cam_name]["display_name"] = cam_display_name
         self.robcamlist[cam_name]["usdpath"] = campath
-
-    # def add_camera_to_robot(self,robot_name,robot_id,robot_prim_path):
-    #     campath = None
-    #     if robot_name in ["jaka-minicobo-1a","minicobo-dual-sucker"]:
-    #         camera_root = f"{robot_prim_path}/dummy_tcp"
-    #         campath = add_rob_cam(robot_name, camera_root)
-    #     return campath
 
     def add_cameras_to_robots(self):
         for idx in range(self._nrobots):
@@ -481,13 +452,11 @@ class ScenarioBase:
                                 # print(f"   changing {link_path} to {rcfg.robmatskin} - inalarm:{joint_in_alarm}")
                                 apply_material_to_prim_and_children(self._stage, self._matman, rcfg.robmatskin, link_path)
                 rcfg.dof_alarm_last = copy.deepcopy(rcfg.dof_alarm)
-        # print("realize_joint_alarms done")
 
 
     def register_articulation(self, articulation, rcfg=None):
         # this has to happen in post_load_scenario - some initialization must be happening before this
         # probably as a result of articuation being added to the world.scene
-        # self._articulation = articulation
         # TODO: once everthing uses register_robot_articulations we can get rid of the articulation parameters
         if rcfg is None:
             rcfg = self.get_robot_config(0)
@@ -508,10 +477,7 @@ class ScenarioBase:
 
         pos = art.get_joint_positions()
         props = art.dof_properties
-        # stiffs = props["stiffness"]
-        # print(f"stiffs for {rcfg.robot_name} {rcfg.robot_id} - {stiffs}")
-        # damps = props["damping"]
-        # print(f"damps for {rcfg.robot_name} {rcfg.robot_id} - {damps}")
+
         rcfg.dof_alarm_llim = np.zeros(rcfg.njoints)
         rcfg.dof_alarm_ulim = np.zeros(rcfg.njoints)
         rcfg.orig_dof_pos =  copy.deepcopy(pos)
@@ -574,7 +540,6 @@ class ScenarioBase:
         prim = self._stage.GetPrimAtPath(rcfg.robot_prim_path)
         # UsdPhysics.RigidBodyAPI.Apply(prim)
         # UsdPhysics.CollisionAPI.Apply(prim)
-
 
         adjust_articulationAPI_location_if_needed(stage, rcfg.robot_prim_path)
         rcfg._articulation = Articulation(rcfg.artpath,f"mico-{ridx}")
@@ -653,132 +618,6 @@ class ScenarioBase:
     def set_end_effector_target_for_robot(self, rob_idx, ee_targ_pos, ee_targ_ori):
         rcfg = self.get_robot_config(rob_idx)
         rcfg.rmpflow.set_end_effector_target(ee_targ_pos, ee_targ_ori)
-
-    def AddMoto50mp(self, name, pos=[0,0,0],rot=[0,0,0],ska=[1,1,1]):
-        idx = len(self._moto50mp_list)
-        usdpath = f"/World/moto_50mp_{idx}"
-        filepath_to_moto_50mp_usd = f"{self.current_extension_path}/usd/MOTO_50MP_v2fix.usda"
-        add_reference_to_stage(filepath_to_moto_50mp_usd, usdpath)
-        quat = euler_angles_to_quat(rot)
-        self._moto = XFormPrim(usdpath, scale=ska, position=pos, orientation=quat )
-        meth = UsdPhysics.Tokens.convexHull
-        apply_collisionapis_to_mesh_and_children(self._stage, usdpath, method=meth)
-
-        prim = self._stage.GetPrimAtPath(usdpath)
-        UsdPhysics.RigidBodyAPI.Apply(prim)
-        mapi = UsdPhysics.MassAPI.Apply(prim)
-        mapi.CreateMassAttr(0.192) # g54 stats w=73.82 mm, h=161.56, d=8.89, pearl blue
-        moto = {"usdpath":usdpath, "prim":prim, "idx":idx, "name":name}
-        self._moto50mp_list.append(moto)
-        return prim
-
-    def GetMoto50mpByIdx(self, idx):
-        if idx>=len(self._moto50mp_list):
-            carb.log_error(f"GetMoto50mpByIdx: idx {idx} out of range")
-            return None
-        return self._moto50mp_list[idx]
-
-    def GetMoto50mpByName(self, name):
-        for moto in self._moto50mp_list:
-            if moto["name"] == name:
-                return moto
-        carb.log_error(f"GetMoto50mpByName: name {name} not found")
-        return None
-
-    def AddMotoTray(self, name, fillstr="000000", pos=[0,0,0],rot=[0,0,0],ska=[1.01,1.01,1.01]):
-        idx = len(self._moto_tray_list)
-        usdpath = f"/World/moto_tray_{idx}"
-        filepath_to_moto_tray_usd = f"{self.current_extension_path}/usd/MOTO_TRAY_v2fix.usda"
-        add_reference_to_stage(filepath_to_moto_tray_usd, usdpath)
-        quat = euler_angles_to_quat(rot)
-        self._moto = XFormPrim(usdpath, scale=ska, position=pos, orientation=quat )
-        # Don't do body1 for now, all the options are too big to let the phone slip through
-        #     it needs to be custom vertical and horizontal strips
-        # meth = UsdPhysics.Tokens.boundingCube
-        # meth = UsdPhysics.Tokens.convexHull
-        # apply_collisionapis_to_mesh_and_children(self._stage, usdpath,
-        #                                          filt_end_path=["Body1"],method=meth )
-        # options are: boundingCube, convexHull, convexDecomposition and probably a few more
-        meth = UsdPhysics.Tokens.convexDecomposition
-        apply_collisionapis_to_mesh_and_children(self._stage, usdpath,
-                                                 include=["Body2"],method=meth )
-
-        prim = self._stage.GetPrimAtPath(usdpath)
-        UsdPhysics.RigidBodyAPI.Apply(prim)
-        mapi = UsdPhysics.MassAPI.Apply(prim)
-        mapi.CreateMassAttr(0.2)
-        # apply_diable_gravity_to_rigid_bodies(self._stage, usdpath)
-
-        mototray = {"usdpath":usdpath, "prim":prim, "idx":idx, "name":name}
-        self._moto_tray_list.append(mototray)
-
-        while len(fillstr)<6:
-            fillstr += "0"
-
-        a90 = np.pi/2
-
-        w = 0.07382
-        h = 0.16156
-        iw = 0 # 0,1,2  - corresponds to width of mp50 which is 0.07382 meters
-        ih = 0 # 0,1    - corresponds to height of mp50 which is 0.16156 meters
-        for c in fillstr:
-            yp = (iw-2.5)*w + pos[0] + iw*0.01
-            xp = (ih+0.0)*h + pos[1] + ih*0.01 + 0.015
-            zp = 0.02 + pos[2]
-            if c=="1":
-                self.AddMoto50mp(f"{name}_moto{idx}",pos=[xp,yp,zp],rot=[-a90,0,a90],ska=[1,1,1])
-            iw += 1
-            if iw>2:
-                iw  = 0
-                ih += 1
-
-
-    def GetMotoTrayByIdx(self, idx):
-        if idx>=len(self._moto_tray_list):
-            carb.log_error(f"GetMotoTrayByIdx: idx {idx} out of range")
-            return None
-        return self._moto_tray_list[idx]
-
-    def GetMotoTrayByName(self, name):
-        for moto in self._moto_tray_list:
-            if moto["name"] == name:
-                return moto
-        carb.log_error(f"GetMotoTrayByName: name {name} not found")
-        return None
-
-
-    def add_cage(self):
-        usdpath = "/World/cage_v1"
-        # cagevariant = "cage_with_static_colliders"
-        cagevariant = "cage_v1"
-        if cagevariant == "cage_v1":
-            filepath_to_cage_usd = f"{self.current_extension_path}/usd/cage_v1.usda"
-            self._cage = XFormPrim(usdpath, scale=[1,1,1], position=[0,0,0])
-        else:
-            filepath_to_cage_usd = f"{self.current_extension_path}/usd/cage_with_static_colliders.usda"
-            sz = 0.0254
-            quat = euler_angles_to_quat([np.pi/2,0,0])
-            self._cage = XFormPrim(usdpath, scale=[sz,sz,sz], position=[0,0,0], orientation=quat)
-
-        add_reference_to_stage(filepath_to_cage_usd, usdpath)
-
-        # adjust collision shapes
-        if cagevariant == "cage_v1":
-            meth = UsdPhysics.Tokens.convexHull
-            apply_collisionapis_to_mesh_and_children(self._stage, usdpath, method=meth )
-        else:
-            ppath1 = "ACRYLIC___FIXTURE_V1_v8_1/ACRYLIC___FIXTURE_V1_v8/Body1/Body1"
-            ppath2 = "ACRYLIC___FIXTURE_V1_v8_2/ACRYLIC___FIXTURE_V1_v8/Body1/Body1"
-            meth = UsdPhysics.Tokens.convexHull
-            apply_collisionapis_to_mesh_and_children(self._stage, usdpath, include=[ppath1,ppath2],method=meth )
-
-
-        if self._colorScheme == "default":
-            self._cage.set_color([0.5, 0.5, 0.5, 1.0])
-        elif self._colorScheme == "transparent":
-            apply_material_to_prim_and_children(self._stage, self._matman, "Steel_Blued", usdpath)
-        self.cagepath = usdpath
-
 
 
     def load_scenario(self, robot_name="default", ground_opt="default"):
@@ -873,8 +712,6 @@ class ScenarioBase:
         if not didone:
             carb.log_warn("realize_robot_skin - no robot config found")
 
-    _colprims = None
-    _matman = None
 
     def change_colliders_viz(self, action):
         stage = get_current_stage()
@@ -981,12 +818,9 @@ class ScenarioBase:
         self.rob_wintitle = wintitle
 
     def set_stiffness_and_damping_for_all_joints(self, rcfg):
-        # print(f"set_stiffness_and_damping_for_all_joints - {rcfg.robot_name} - {rcfg.robot_id}")
         if rcfg.stiffness>0:
-            # print(f"    setting stiffness - {rcfg.robot_name} stiffness:{rcfg.stiffness}")
             set_stiffness_for_joints(rcfg.dof_paths, rcfg.stiffness)
         if rcfg.damping>0:
-            # print(f"    setting damping - {rcfg.robot_name} damping:{rcfg.damping}")
             set_damping_for_joints(rcfg.dof_paths, rcfg.damping)
 
     def ensure_orimat(self):
@@ -999,11 +833,7 @@ class ScenarioBase:
         art = rcfg._articulation
         pos = art.get_joint_positions()
         props = art.dof_properties
-        # stiffs = props["stiffness"]
-        # damps = props["damping"]
         for j,jn in enumerate(rcfg.dof_names):
-            # stiff = stiffs[j]
-            # damp = damps[j]
             jpos = degs*pos[j]
             llim = degs*rcfg.lower_dof_lim[j]
             ulim = degs*rcfg.upper_dof_lim[j]
