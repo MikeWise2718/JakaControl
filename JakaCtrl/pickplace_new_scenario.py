@@ -148,19 +148,20 @@ class PickAndPlaceNewScenario(ScenarioBase):
         world = World.instance()
 
         cuboid_path = "/Scenario/cuboid"
-        if self._robcfg.prefered_target == "cuboid":
+        prefered_target = self._robcfg.prefered_target
+        if prefered_target == "cuboid":
             self._cuboid = cuboid.DynamicCuboid(
                 cuboid_path,
                 position=[0.3, 0.3, 0.15],
                 scale=np.array([0.05, 0.05, 0.05]),
-                color=np.array([0.5, 0, 0.5]),
+                color=np.array([0.0, 0, 0.5]),
             )
             self.cuboid_rmp_off = 0
         #  self._cuboid = DynamicCuboid(
         #     "/Scenario/cuboid", position=np.array([0.3, 0.3, 0.15]), size=0.05, color=np.array([128, 0, 128])
         # )
 
-        else:
+        elif prefered_target == "phone_slab":
             orient = euler_angles_to_quat(np.array([0, 0, 44*np.pi/180]))
             cuboid_thickness = 0.01
             self.cuboid_rmp_off = cuboid_thickness*interp(cuboid_thickness, 0.01, 0.02, 1.2, 0.9)
@@ -173,7 +174,16 @@ class PickAndPlaceNewScenario(ScenarioBase):
                 color=np.array([128, 0, 128]
                 )
             )
-        apply_material_to_prim_and_children(stage, self._matman, "Blue_Glass", cuboid_path )
+            apply_material_to_prim_and_children(stage, self._matman, "Blue_Glass", cuboid_path )
+        elif prefered_target == "moto50mp":
+            a90 = np.pi/2
+            rot = np.array([-a90, 0, 44*np.pi/180])
+            self.AddMoto50mp("moto2", rot=rot, pos=self._target_pos)
+            self._cuboid = None
+            self.cuboid_rmp_off = 0
+        else:
+            carb.log_error(f"Unknown prefered_target: {prefered_target}")
+
         # self._cuboid = DynamicCuboid(
         #     "/Scenario/cuboid", position=self._target_pos, size=0.05, color=np.array([128, 0, 128])
         # )
@@ -281,6 +291,8 @@ class PickAndPlaceNewScenario(ScenarioBase):
 
         self._ee_pos = ee_pos
         self._ee_rot = ee_rot_mat
+
+        self.activate_ee_collision( 0, False)
 
         print(f"post_load_scenario done - eeori: {self.grip_eeori}")
 
@@ -418,8 +430,13 @@ class PickAndPlaceNewScenario(ScenarioBase):
         if self._show_rmp_target:
             self.visualize_rmp_target()
 
-        cp, _ = self._cuboid.get_world_pose()
-        cube_position = np.array([cp[0],cp[1],cp[2]+self.cuboid_rmp_off])
+        if self._robcfg.prefered_target in ["cuboid","phone-slab"]:
+            cp, _ = self._cuboid.get_world_pose()
+            cube_position = np.array([cp[0],cp[1],cp[2]+self.cuboid_rmp_off])
+        else:
+            cp = self._target_pos
+            rmpoff = 0.0
+            cube_position = np.array([cp[0],cp[1],0.01+rmpoff])
         goal_position = self._goal_position
         current_joint_positions = self._articulation.get_joint_positions()
         if self._controller is not None:

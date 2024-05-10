@@ -45,8 +45,6 @@ class CageRmpflowScenario(ScenarioBase):
         self._scenario_name = "cage-rmpflow"
         self._scenario_description = ScenarioBase.get_scenario_desc(self._scenario_name)
         self._nrobots = 2
-        self._moto50mp_list = []
-        self._moto_tray_list = []
 
 
 

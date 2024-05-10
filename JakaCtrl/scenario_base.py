@@ -53,6 +53,9 @@ class ScenarioBase:
     _rcfg_list = []
     _show_joints_close_to_limits = False
 
+    _moto50mp_list = []
+    _moto_tray_list = []
+
     _show_rmp_target = False
     _show_rmp_target_opt = "invisible" # don't delete
     _show_collision_bounds = False
@@ -68,6 +71,7 @@ class ScenarioBase:
         self._stage = get_current_stage()
         self.robcamlist = {}
         self.rmpactive = True
+        self.current_extension_path = get_extension_path_from_name("JakaControl")
         init_configs()
         pass
 
@@ -666,6 +670,7 @@ class ScenarioBase:
         mapi.CreateMassAttr(0.192) # g54 stats w=73.82 mm, h=161.56, d=8.89, pearl blue
         moto = {"usdpath":usdpath, "prim":prim, "idx":idx, "name":name}
         self._moto50mp_list.append(moto)
+        return prim
 
     def GetMoto50mpByIdx(self, idx):
         if idx>=len(self._moto50mp_list):
@@ -744,7 +749,6 @@ class ScenarioBase:
 
     def add_cage(self):
         usdpath = "/World/cage_v1"
-        self.current_extension_path = get_extension_path_from_name("JakaControl")
         # cagevariant = "cage_with_static_colliders"
         cagevariant = "cage_v1"
         if cagevariant == "cage_v1":
