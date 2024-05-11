@@ -28,16 +28,16 @@ class MotoMP50:
         self._mm = mm
         self.idx = idx
         self.name = name
-        self.inipos = pos
-        self.rot = rot
-        self.pos = pos
-        self.inirot = rot
-        self.ska = ska
+        self.inipos = np.array(pos)
+        self.rot = np.array(rot)
+        self.pos = np.array(pos)
+        self.inirot = np.array(rot)
+        self.ska = np.array(ska)
         usdpath = f"/World/moto50mp_{idx}"
         self.usdpath = usdpath
-        self.construct()
+        self.Construct()
 
-    def construct(self):
+    def Construct(self):
         mm = self._mm
         usdpath = self.usdpath
         filepath_to_moto_50mp_usd = f"{mm.current_extension_path}/usd/MOTO_50MP_v2fix.usda"
@@ -51,6 +51,19 @@ class MotoMP50:
         UsdPhysics.RigidBodyAPI.Apply(prim)
         mapi = UsdPhysics.MassAPI.Apply(prim)
         mapi.CreateMassAttr(0.192) # g54 stats w=73.82 mm, h=161.56, d=8.89, pearl blue
+        self.prim = prim
+
+    def GetPose(self):
+        tc = Usd.TimeCode.Default()
+        xf = UsdGeom.Xformable(self.prim)
+        world_transform: Gf.Matrix4d = xf.ComputeLocalToWorldTransform(tc)
+        pos = world_transform.ExtractTranslation()
+        rot = world_transform.ExtractRotation().GetQuaternion()
+        return pos, rot
+
+    def get_world_pose(self):
+        rv = self.GetPose()
+        return rv
 
 class MotoTray:
     def __init__(self, mm, idx, name, fillstr, pos, rot, ska):
@@ -60,11 +73,11 @@ class MotoTray:
         while len(fillstr)<6:
             fillstr += "0"
         self.fillstr = fillstr
-        self.inipos = pos
-        self.rot = rot
-        self.pos = pos
-        self.inirot = rot
-        self.ska = ska
+        self.inipos = np.array(pos)
+        self.rot = np.array(rot)
+        self.pos = np.array(pos)
+        self.inirot = np.array(rot)
+        self.ska = np.array(ska)
         self.w = 0.07382 # in meters
         self.h = 0.16156
         usdpath = f"/World/moto_tray_{idx}"
@@ -85,7 +98,7 @@ class MotoTray:
         # options are: boundingCube, convexHull, convexDecomposition and probably a few more
         # apply_collisionapis_to_mesh_and_children(mm._stage, usdpath,
         #                                          filt_end_path=["Body1"],method=meth )
-        meth = UsdPhysics.Tokens.convexDecomposition
+        meth = UsdPhysics.Tokens.convexHull
         apply_collisionapis_to_mesh_and_children(mm._stage, usdpath, include=["Body2"],method=meth )
         prim = mm._stage.GetPrimAtPath(usdpath)
         UsdPhysics.RigidBodyAPI.Apply(prim)
@@ -94,6 +107,7 @@ class MotoTray:
 
         # Now add the phones according to fillstr - everywhere it is a 1 we add a phone
         a90 = np.pi/2
+        zrot = self.rot[2]
 
         iw = 0 # 0,1,2  - corresponds to width of mp50 which is 0.07382 meters
         ih = 0 # 0,1    - corresponds to height of mp50 which is 0.16156 meters
@@ -101,22 +115,37 @@ class MotoTray:
         for c in self.fillstr:
             (xp,yp,zp) = self.get_trayslot_pos(iw,ih)
             if c=="1":
-                mm.AddMoto50mp(f"{self.name}_moto_t{self.idx}",pos=[xp,yp,zp],rot=[-a90,0,a90],ska=[1,1,1])
+                mm.AddMoto50mp(f"{self.name}_moto_t{self.idx}",pos=[xp,yp,zp],rot=[-a90,0,a90+zrot],ska=[1,1,1])
             iw += 1
             if iw>2:
                 iw  = 0
                 ih += 1
 
-    def get_trayslot_pos(self, iw,ih):
+    def get_trayslot_pos_delt(self, iw,ih):
         # iw range is 0,1,2 and ih range is  0,1
         # this returns the center of the tray slot position
         if iw<0 or 2<iw or ih<0 or 1<ih:
             carb.log_error(f"getpos: iw {iw} or ih {ih} out of range")
             return None
-        yp = (iw-2.5)*self.w + self.pos[0] + iw*0.01
-        xp = (ih+0.0)*self.h + self.pos[1] + ih*0.01 + 0.015
+        # yp = (iw-2.5)*self.w + self.pos[0] + iw*0.01
+        # xp = (ih+0.0)*self.h + self.pos[1] + ih*0.01 + 0.015
+        # zp = 0.02 + self.pos[2]
+        iiw = iw - 1
+        iih = ih - 0.5
+        yp = iiw*self.w + iiw*0.01
+        xp = iih*self.h + iih*0.01
         zp = 0.02 + self.pos[2]
-        return [xp,yp,zp]
+        rv = np.array([xp,yp,zp])
+        return rv
+
+    def get_trayslot_pos(self, iw,ih):
+        delt = self.get_trayslot_pos_delt(iw,ih)
+        s = np.sin(self.rot[2])
+        c = np.cos(self.rot[2])
+        deltrot = np.array([c*delt[0]-s*delt[1], s*delt[0]+c*delt[1], delt[2]])
+        rv = self.pos + deltrot
+        return rv
+
 
 class MotoMan:
     def __init__(self, stage, matman: MatMan):

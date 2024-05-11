@@ -180,7 +180,7 @@ class PickAndPlaceNewScenario(ScenarioBase):
             a90 = np.pi/2
             rot = np.array([-a90, 0, 44*np.pi/180])
             mm = MotoMan(self._stage, self._matman)
-            mm.AddMoto50mp("moto2", rot=rot, pos=self._target_pos)
+            self.moto = mm.AddMoto50mp("moto2", rot=rot, pos=self._target_pos)
             self._cuboid = None
             self.cuboid_rmp_off = 0
         else:
@@ -436,7 +436,7 @@ class PickAndPlaceNewScenario(ScenarioBase):
             cp, _ = self._cuboid.get_world_pose()
             cube_position = np.array([cp[0],cp[1],cp[2]+self.cuboid_rmp_off])
         else:
-            cp = self._target_pos
+            cp, _ = self.moto.get_world_pose()
             rmpoff = 0.0
             cube_position = np.array([cp[0],cp[1],0.01+rmpoff])
         goal_position = self._goal_position
