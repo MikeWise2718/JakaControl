@@ -34,7 +34,6 @@ from omni.asimov.manipulators.grippers.surface_gripper import SurfaceGripper
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
 
-from omni.isaac.core.prims.rigid_prim import RigidPrim
 from .senut import calc_robot_circle_pose, interp, GetXformOps, GetXformOpsFromPath, deg_euler_to_quatd, deg_euler_to_quatf
 from .motomod import MotoMan
 
@@ -253,8 +252,13 @@ class PickAndPlaceNewScenario(ScenarioBase):
         if not hasattr(art, "_policy_robot_name"):
             art._policy_robot_name = self._mopo_robot_name #ugly hack, should remove at some point
 
+        self.use_base_griper = False
+
         if not hasattr(self._articulation, "gripper"):
-            self._articulation.gripper = self.get_gripper()
+            if self.use_base_griper:
+                self._articulation.gripper = self.get_gripper()
+            else:
+                self._robcfg.gripper = self.get_gripper_new(0)
 
 
         self._robot_id = self._robcfg.robot_id
@@ -303,8 +307,15 @@ class PickAndPlaceNewScenario(ScenarioBase):
         self.nphysstep_calls = 0
         self.global_time = 0
         self.global_ang = 0
-        gripper = self.get_gripper()
-        print(f"reset_scenario after get_gripper - eeori: {self.grip_eeori}")
+        rcfg = self.get_robot_config()
+        if self.use_base_griper:
+            gripper = self.get_gripper()
+            print(f"reset_scenario after get_gripper - eeori: {self.grip_eeori}")
+        else:
+            rcfg.gripper = self.get_gripper_new(0)
+            print(f"reset_scenario after get_gripper - eeori: {rcfg.grip_eeori}")
+
+
 
         if self._controller is not None:
             self._controller.reset()
@@ -319,12 +330,20 @@ class PickAndPlaceNewScenario(ScenarioBase):
             self.realize_rmptarg_vis(self._show_rmp_target_opt)
 
 
-        if gripper is not None:
-            if self._gripper_type == "parallel":
-                gripper.open()
-            elif self._gripper_type == "suction":
-                if gripper.is_closed():
+        if self.use_base_griper:
+            if gripper is not None:
+                if self._gripper_type == "parallel":
                     gripper.open()
+                elif self._gripper_type == "suction":
+                    if gripper.is_closed():
+                        gripper.open()
+        else:
+            if rcfg.gripper is not None:
+                if rcfg._gripper_type == "parallel":
+                    rcfg.gripper.open()
+                elif rcfg._gripper_type == "suction":
+                    if rcfg.gripper.is_closed():
+                        rcfg.gripper.open()
 
         if self._robot_name in ["minicobo-rg2-high","minicobo-suction-high"]:
             self._robcfg.dof_zero_pos[2] = 0.9
@@ -337,11 +356,17 @@ class PickAndPlaceNewScenario(ScenarioBase):
         events_dt = [0.008, 0.005, 0.1,  0.1, 0.005, 0.005, 0.005, 0.1, 0.008, 0.08]
         rcfg = self.get_robot_config()
 
-        gripper = self._articulation.gripper
+        if self.use_base_griper:
+            gripper = self._articulation.gripper
+        else:
+            gripper = rcfg.gripper
         if gripper is not None:
             if rcfg.pp_controller == "franka":
             # if self._robot_name in ["fancy_franka", "franka", "rs007n"]:
-                self._gripper_type = "parallel"
+                if self.use_base_griper:
+                    self._gripper_type = "parallel"
+                else:
+                    rcfg._gripper_type = "parallel"
                 self._controller = franka_PickPlaceController(
                     name="pick_place_controller",
                     gripper=gripper,
@@ -350,7 +375,10 @@ class PickAndPlaceNewScenario(ScenarioBase):
                 )
             elif rcfg.pp_controller in ["ur-rg2", "ur-ss"]:
             # elif self._robot_name in ["ur10-suction-short"]:
-                self._gripper_type = "suction" if rcfg.pp_controller == "ur10-ss" else "parallel"
+                if self.use_base_griper:
+                    self._gripper_type = "suction" if rcfg.pp_controller == "ur10-ss" else "parallel"
+                else:
+                    rcfg._gripper_type = "suction" if rcfg.pp_controller == "ur10-ss" else "parallel"
                 self._controller = ur10_PickPlaceController(
                     name="pick_place_controller",
                     gripper=gripper,
@@ -359,7 +387,10 @@ class PickAndPlaceNewScenario(ScenarioBase):
             elif rcfg.pp_controller in ["jaka-ss", "jaka-ds"]:
             #elif self._robot_name in ["minicobo-suction","minicobo-suction-high","jaka-minicobo-1",
             #                           "jaka-minicobo-1a","minicobo-dual-sucker","minicobo-suction-dual","minicobo-dual-high"]:
-                self._gripper_type = "suction"
+                if self.use_base_griper:
+                    self._gripper_type = "suction"
+                else:
+                    rcfg._gripper_type = "suction"
                 rmpconfig = {
                     "end_effector_frame_name": self._robcfg.eeframe_name,
                     "maximum_substep_size": self._robcfg.max_step_size,
@@ -378,7 +409,11 @@ class PickAndPlaceNewScenario(ScenarioBase):
                 )
             elif rcfg.pp_controller == "jaka-rg2":
             # elif self._robot_name in ["jaka-minicobo-0","jaka-minicobo-2","minicobo-rg2-high"]:
-                self._gripper_type = "parallel"
+                if self.use_base_griper:
+                    self._gripper_type = "parallel"
+                else:
+                    rcfg._gripper_type = "parallel"
+
                 rmpconfig = {
                     "end_effector_frame_name": self._robcfg.eeframe_name,
                     "maximum_substep_size": self._robcfg.max_step_size,
