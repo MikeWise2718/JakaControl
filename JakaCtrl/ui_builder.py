@@ -60,6 +60,7 @@ class UIBuilder:
     _robot_name = "ur3e"
     _ground_opts = ["none", "default", "groundplane", "groundplane-blue"]
     _ground_opt = "default"
+    _joint_alarms = True
     _modes = ["CollisionSpheres","none"]
     _mode = "none"
     _choices = ["choice 1","choice 2"]
@@ -107,6 +108,8 @@ class UIBuilder:
             save_setting("p_mode", self._mode)
             save_setting("p_choice", self._choice)
             save_setting("p_action", self._action)
+            save_setting("p_joint_alarms", self._joint_alarms)
+            print(f"SaveSettings p_joint_alarms:{self._joint_alarms}")
 
         except Exception as e:
             carb.log_error(f"Exception in SaveSettings: {e}")
@@ -116,6 +119,8 @@ class UIBuilder:
         self._robot_name = get_setting("p_robot_name", self._robot_name)
         self._ground_opt = get_setting("p_ground_opt", self._ground_opt)
         self._robskin_opt = get_setting("p_robskin_opt", self._robskin_opt)
+        self._joint_alarms = get_setting("p_joint_alarms", self._joint_alarms)
+        print(f"LoadSettings p_joint_alarms:{self._joint_alarms}")
 
         self._scenario_name = get_setting("p_scenario_name", self._scenario_name)
         self._base_action_list = ScenarioBase.get_scenario_actions(self._scenario_name)
@@ -719,7 +724,7 @@ class UIBuilder:
             for (robot_idx,j,_) in self.joint_ui_dict:
                 if j>=0:
                     self.refresh_robot_joint_values(robot_idx, j)
-        self._cur_scenario.realize_joint_alarms()
+        self._cur_scenario.realize_joint_alarms_for_all()
 
     def pick_scenario(self, scenario_name):
         if scenario_name == "sinusoid-joint":
@@ -744,6 +749,8 @@ class UIBuilder:
             self._cur_scenario = GripperScenario()
         else:
             self._cur_scenario = SinusoidJointScenario()
+        self._cur_scenario.uibuilder = self
+        self._cur_scenario.show_joint_limits_for_all_robots = self._joint_alarms
 
     def _on_init(self):
         # self._articulation = None

@@ -64,6 +64,7 @@ class ScenarioBase:
     _show_collision_bounds_opt = "invisible" # don't delete
     _show_endeffector_box = False
     robcamviews = None
+    show_joint_limits_for_all_robots = False
 
     def __init__(self):
         self._scenario_name = "empty scenario"
@@ -402,15 +403,16 @@ class ScenarioBase:
             rcfg = self.get_robot_config(idx)
             self.register_articulation(rcfg._articulation, rcfg)
 
-    def toggle_show_joints_close_to_limits(self, ridx):
+    def toggle_show_joints_close_to_limits(self, ridx, notoggle=False):
         rcfg = self.get_robot_config(ridx)
-        rcfg.show_joints_close_to_limits = not rcfg.show_joints_close_to_limits
+        if not notoggle:
+            rcfg.show_joints_close_to_limits = not rcfg.show_joints_close_to_limits
         # print(f"toggle_show_joints_close_to_limits on {rcfg.robot_name} {rcfg.robot_id} - {rcfg.show_joints_close_to_limits}")
         if rcfg.show_joints_close_to_limits:
             self.assign_alarm_skin(ridx)
             self.check_alarm_status(rcfg)
             rcfg.dof_alarm_last = copy.deepcopy(rcfg.dof_alarm)
-            self.realize_joint_alarms(force=True)
+            self.realize_joint_alarms_for_one(ridx, force=True)
         else:
             if rcfg.robmatskin == "default":
                 # print("Reverting to original materials (default)")
@@ -428,30 +430,34 @@ class ScenarioBase:
         else:
             rcfg.alarmskin = "Red_Glass"
 
-    def realize_joint_alarms(self,force=False):
-         #print(f"realize_joint_alarms force:{force}")
+    def realize_joint_alarms_for_all(self,force=False):
         for ridx in range(0,self._nrobots):
-            rcfg = self.get_robot_config(ridx)
-            if rcfg.show_joints_close_to_limits:
-                self.assign_alarm_skin(ridx)
-                self.check_alarm_status(rcfg)
-                for j, jn in enumerate(rcfg.dof_names):
-                    if force or (rcfg.dof_alarm[j] != rcfg.dof_alarm_last[j]):
-                        link_path = rcfg.link_paths[j]
-                        joint_in_alarm = rcfg.dof_alarm[j]
-                        if joint_in_alarm:
-                            # print(f"   changing {link_path} to {rcfg.alarmskin} - inalarm:{joint_in_alarm}")
-                            # print(f"Joint {jn} is close to limit for {rcfg.robot_name} {rcfg.robot_id} link_path:{link_path}")
-                            apply_material_to_prim_and_children(self._stage, self._matman, rcfg.alarmskin, link_path)
+            self.realize_joint_alarms_for_one(ridx)
+
+    def realize_joint_alarms_for_one(self,ridx, force=False):
+         #print(f"realize_joint_alarms force:{force}")
+        rcfg = self.get_robot_config(ridx)
+        if rcfg.show_joints_close_to_limits:
+            self.assign_alarm_skin(ridx)
+            self.check_alarm_status(rcfg)
+            for j, jn in enumerate(rcfg.dof_names):
+                if force or (rcfg.dof_alarm[j] != rcfg.dof_alarm_last[j]):
+                    link_path = rcfg.link_paths[j]
+                    joint_in_alarm = rcfg.dof_alarm[j]
+                    if joint_in_alarm:
+                        # print(f"   changing {link_path} to {rcfg.alarmskin} - inalarm:{joint_in_alarm}")
+                        # print(f"Joint {jn} is close to limit for {rcfg.robot_name} {rcfg.robot_id} link_path:{link_path}")
+                        apply_material_to_prim_and_children(self._stage, self._matman, rcfg.alarmskin, link_path)
+                    else:
+                        # print(f"Joint {jn} is not close to limit for {rcfg.robot_name} {rcfg.robot_id} link_path:{link_path}")
+                        if rcfg.robmatskin == "default":
+                            # print(f"   changing {link_path} to rcfg.orimat - inalarm:{joint_in_alarm}")
+                            apply_matdict_to_prim_and_children(self._stage, rcfg.orimat, link_path)
                         else:
-                            # print(f"Joint {jn} is not close to limit for {rcfg.robot_name} {rcfg.robot_id} link_path:{link_path}")
-                            if rcfg.robmatskin == "default":
-                                # print(f"   changing {link_path} to rcfg.orimat - inalarm:{joint_in_alarm}")
-                                apply_matdict_to_prim_and_children(self._stage, rcfg.orimat, link_path)
-                            else:
-                                # print(f"   changing {link_path} to {rcfg.robmatskin} - inalarm:{joint_in_alarm}")
-                                apply_material_to_prim_and_children(self._stage, self._matman, rcfg.robmatskin, link_path)
-                rcfg.dof_alarm_last = copy.deepcopy(rcfg.dof_alarm)
+                            # print(f"   changing {link_path} to {rcfg.robmatskin} - inalarm:{joint_in_alarm}")
+                            apply_material_to_prim_and_children(self._stage, self._matman, rcfg.robmatskin, link_path)
+            rcfg.dof_alarm_last = copy.deepcopy(rcfg.dof_alarm)
+
 
 
     def register_articulation(self, articulation, rcfg=None):
@@ -473,7 +479,7 @@ class ScenarioBase:
         rcfg.upper_dof_lim = art.dof_properties["upper"]
         rcfg.njoints = art.num_dof
         rcfg.dof_zero_pos = np.zeros(rcfg.njoints)
-        rcfg.show_joints_close_to_limits = False
+        rcfg.show_joints_close_to_limits = self.show_joint_limits_for_all_robots
 
         pos = art.get_joint_positions()
         props = art.dof_properties
@@ -493,6 +499,8 @@ class ScenarioBase:
             rcfg.dof_alarm_llim[j] = llim + lower_alarm_gap*(ulim-llim)
             rcfg.dof_alarm_ulim[j] = ulim - upper_alarm_gap*(ulim-llim)
         self.check_alarm_status(rcfg)
+
+        self.toggle_show_joints_close_to_limits(rcfg.listidx, notoggle=True)
         # print("done senut.register_articulation")
 
     def setup_robot_for_pose_movement(self, gprim, rcfg, pos, rot, ska=[1, 1, 1], order="ZYX"):
@@ -868,6 +876,13 @@ class ScenarioBase:
             if pct<10 or 90>pct:
                 clr = "green"
 
+    def toggle_show_joint_limits(self):
+        self.show_joint_limits_for_all_robots = not self.show_joint_limits_for_all_robots
+        self.uibuilder._joint_alarms = self.show_joint_limits_for_all_robots
+        for ridx,rcfg in enumerate(self._rcfg_list):
+            if rcfg.show_joints_close_to_limits != self.show_joint_limits_for_all_robots:
+                self.toggle_show_joints_close_to_limits(ridx)
+
     def joint_check(self):
         self.ensure_orimat()
         for rcfg in self._rcfg_list:
@@ -893,15 +908,19 @@ class ScenarioBase:
                     return
                 self.make_rob_camera_views()
                 # ui.Workspace.show_window(self.rob_wintitle,True)
-            case "Joint Check":
-                self.joint_check()
+            case "Show Joint Limits":
+                self.toggle_show_joint_limits()
 
     def get_scenario_actions(self):
-        rv =  ["Robot Cam Views","Joint Check"]
+        rv =  ["Robot Cam Views","Show Joint Limits"]
         return rv
 
     def get_action_button_text(self, action_name,action_args=None):
         match action_name:
+            case "Show Joint Limits":
+                ltext = "is on" if self.show_joint_limits_for_all_robots else "is off"
+                msg = f"Show Joint Limits {ltext}"
+                return msg
             case _:
                 rv = action_name
         return rv

@@ -144,20 +144,30 @@ class MotoTray:
             clr = "default_clr"
             match c:
                 case "1": clr = "default_clr"
-                case "b": clr = "#0000ff"
-                case "r": clr = "#ff0000"
-                case "g": clr = "#00ff00"
-                case "y": clr = "#ffff00"
-                case "o": clr = "#ff8000"
-                case "p": clr = "#ff00ff"
+                # case "b": clr = "#0000ff"
+                # case "r": clr = "#ff0000"
+                # case "g": clr = "#00ff00"
+                # case "y": clr = "#ffff00"
+                # case "o": clr = "#ff8000"
+                # case "p": clr = "#ff00ff"
+                # case "w": clr = "#ffffff"
+                # case "c": clr = "#00ffff"
+                # case "m": clr = "#800080"
+                # case "k": clr = "#000000"
+                case "b": clr = "#2020ff"
+                case "r": clr = "#ff2040"
+                case "g": clr = "#20ff20"
+                case "y": clr = "#ffff20"
+                case "o": clr = "#ff8010"
+                case "p": clr = "#ff20ff"
+                case "c": clr = "#20ffff"
+                case "m": clr = "#201020"
                 case "w": clr = "#ffffff"
-                case "c": clr = "#00ffff"
-                case "m": clr = "#800080"
                 case "k": clr = "#000000"
                 case "0": clr = "skip"
 
 
-            if c!="skip":
+            if clr!="skip":
                 mm.AddMoto50mp(f"{self.name}_moto_t{self.idx}",pos=[xp,yp,zp],rot=[-a90,0,a90+zrot],ska=[1,1,1],clr=clr)
             iw += 1
             if iw>2:
@@ -223,52 +233,6 @@ class MotoMan:
         self._moto_tray_list.append(mototray)
         return mototray
 
-    def AddMotoTrayOld(self, name, fillstr="000000", pos=[0,0,0],rot=[0,0,0],ska=[1.01,1.01,1.01]):
-        idx = len(self._moto_tray_list)
-        usdpath = f"/World/moto_tray_{idx}"
-        filepath_to_moto_tray_usd = f"{self.current_extension_path}/usd/MOTO_TRAY_v2fix.usda"
-        add_reference_to_stage(filepath_to_moto_tray_usd, usdpath)
-        quat = euler_angles_to_quat(rot)
-        self._moto = XFormPrim(usdpath, scale=ska, position=pos, orientation=quat )
-        # Don't do body1 for now, all the options are too big to let the phone slip through
-        #     it needs to be custom vertical and horizontal strips
-        # meth = UsdPhysics.Tokens.boundingCube
-        # meth = UsdPhysics.Tokens.convexHull
-        # apply_collisionapis_to_mesh_and_children(self._stage, usdpath,
-        #                                          filt_end_path=["Body1"],method=meth )
-        # options are: boundingCube, convexHull, convexDecomposition and probably a few more
-        meth = UsdPhysics.Tokens.convexDecomposition
-        apply_collisionapis_to_mesh_and_children(self._stage, usdpath,
-                                                include=["Body2"],method=meth )
-
-        prim = self._stage.GetPrimAtPath(usdpath)
-        UsdPhysics.RigidBodyAPI.Apply(prim)
-        mapi = UsdPhysics.MassAPI.Apply(prim)
-        mapi.CreateMassAttr(0.2)
-        # apply_diable_gravity_to_rigid_bodies(self._stage, usdpath)
-
-        mototray = {"usdpath":usdpath, "prim":prim, "idx":idx, "name":name}
-        self._moto_tray_list.append(mototray)
-
-        while len(fillstr)<6:
-            fillstr += "0"
-
-        a90 = np.pi/2
-
-        w = 0.07382
-        h = 0.16156
-        iw = 0 # 0,1,2  - corresponds to width of mp50 which is 0.07382 meters
-        ih = 0 # 0,1    - corresponds to height of mp50 which is 0.16156 meters
-        for c in fillstr:
-            yp = (iw-2.5)*w + pos[0] + iw*0.01
-            xp = (ih+0.0)*h + pos[1] + ih*0.01 + 0.015
-            zp = 0.02 + pos[2]
-            if c=="1":
-                self.AddMoto50mp(f"{name}_moto{idx}",pos=[xp,yp,zp],rot=[-a90,0,a90],ska=[1,1,1])
-            iw += 1
-            if iw>2:
-                iw  = 0
-                ih += 1
 
     def GetMotoTrayByIdx(self, idx):
         if idx>=len(self._moto_tray_list):

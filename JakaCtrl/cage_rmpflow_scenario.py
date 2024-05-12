@@ -119,7 +119,8 @@ class CageRmpflowScenario(ScenarioBase):
         # moto_tray
         zang = 5*np.pi/4
         zang = 0
-        mm.AddMotoTray("tray1", "rgbrgb", rot=[a90,0,zang],pos=[0.35,0.25,0.0])
+        self.mototray1 = mm.AddMotoTray("tray1", "rgbmyc", rot=[a90,0,zang],pos=[+0.35,0.25,0.0])
+        self.mototray2 = mm.AddMotoTray("tray2", "000000", rot=[a90,0,zang],pos=[-0.35,0.25,0.0])
 
     def setup_scenario(self):
         self.register_robot_articulations()
