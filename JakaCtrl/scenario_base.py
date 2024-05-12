@@ -47,7 +47,7 @@ from omni.asimov.manipulators.grippers.parallel_gripper import ParallelGripper
 from omni.asimov.manipulators.grippers.surface_gripper import SurfaceGripper
 
 class ScenarioBase:
-    rmpactive = True
+    rmpactive = False
     global_time = 0
     _nrobots = 0
     _rcfg_list = []
@@ -72,7 +72,7 @@ class ScenarioBase:
         self._rcfg_list = []
         self._stage = get_current_stage()
         self.robcamlist = {}
-        self.rmpactive = True
+        self.rmpactive = False
         self.current_extension_path = get_extension_path_from_name("JakaControl")
         init_configs()
         pass
@@ -555,6 +555,20 @@ class ScenarioBase:
             if rcfg is not None:
                 rcfg._articulation.set_joint_positions(rcfg.dof_zero_pos)
 
+    def get_robot_world_pose(self, robidx):
+        rcfg = self.get_robot_config(robidx)
+        prim = self._stage.GetPrimAtPath(rcfg.robot_prim_path)
+        tc = Usd.TimeCode.Default()
+        xf = UsdGeom.Xformable(prim)
+        world_transform: Gf.Matrix4d = xf.ComputeLocalToWorldTransform(tc)
+        pos = world_transform.ExtractTranslation()
+        rot = world_transform.ExtractRotation().GetQuaternion()
+        posar = np.array([pos[0], pos[1], pos[2]])
+        # rotar = np.array([rot.GetImaginary()[0], rot.GetImaginary()[1], rot.GetImaginary()[2], rot.GetReal()])
+        rotar = np.array([rot.GetReal(), rot.GetImaginary()[2], rot.GetImaginary()[1], rot.GetImaginary()[0]])
+        return posar, rotar
+
+
     def make_rmpflow(self, rob_idx, oblist = []):
         rcfg = self.get_robot_config(rob_idx)
         rmpflow = RmpFlow(
@@ -565,8 +579,18 @@ class ScenarioBase:
             maximum_substep_size = rcfg.max_step_size
         )
         # quat = euler_angles_to_quat(rcfg.robot_rotvek, extrinsic=True)
-        quat = rcfg.robot_rotquat
-        rmpflow.set_robot_base_pose(rcfg.start_robot_pos, quat)
+
+
+        pos = np.array(rcfg.start_robot_pos)
+        quat = np.array(rcfg.robot_rotquat)
+        pos1,quat1 = self.get_robot_world_pose(rob_idx)
+        # print("pos:",pos)
+        # print("quat:",quat)
+        # print("pos1:",pos1)
+        # print("quat1:",quat1)
+        rmpflow.set_robot_base_pose(pos1, quat1)
+
+
 
         for ob in oblist:
             rmpflow.add_obstacle(ob)
@@ -873,7 +897,8 @@ class ScenarioBase:
                 self.joint_check()
 
     def get_scenario_actions(self):
-        return ["Robot Cam Views","Joint Check"]
+        rv =  ["Robot Cam Views","Joint Check"]
+        return rv
 
     def get_action_button_text(self, action_name,action_args=None):
         match action_name:

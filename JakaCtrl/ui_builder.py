@@ -118,6 +118,7 @@ class UIBuilder:
         self._robskin_opt = get_setting("p_robskin_opt", self._robskin_opt)
 
         self._scenario_name = get_setting("p_scenario_name", self._scenario_name)
+        self._base_action_list = ScenarioBase.get_scenario_actions(self._scenario_name)
         self._action_list = ScenarioBase.get_scenario_actions(self._scenario_name)
         action = get_setting("p_action", self._action)
         self._action = action if action in self._action_list else self._action_list[0]
@@ -418,6 +419,9 @@ class UIBuilder:
         with self._action_vstack:
             self._action_list = self._cur_scenario.get_scenario_actions()
             for action in self._action_list:
+                btnclr = self.dkred
+                if action in self._base_action_list:
+                    btnclr = self.dkblue
                 def do_action(action):
                     return lambda x,y,b,m: self._do_action(action, x,y,b,m)
                 button_text = self._cur_scenario.get_action_button_text( action, None )
@@ -426,7 +430,7 @@ class UIBuilder:
                 butt = Button(
                     button_text, mouse_pressed_fn=do_action(action),
                     tooltip = tool_tip,
-                    style={'background_color': self.dkred}
+                    style={'background_color': btnclr}
                 )
                 self.custbuttdict[action] = butt
 

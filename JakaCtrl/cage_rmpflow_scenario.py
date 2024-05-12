@@ -119,7 +119,7 @@ class CageRmpflowScenario(ScenarioBase):
         # moto_tray
         zang = 5*np.pi/4
         zang = 0
-        mm.AddMotoTray("tray1", "111111", rot=[a90,0,zang],pos=[0.35,0.25,0.0])
+        mm.AddMotoTray("tray1", "rgbrgb", rot=[a90,0,zang],pos=[0.35,0.25,0.0])
 
     def setup_scenario(self):
         self.register_robot_articulations()
@@ -211,6 +211,8 @@ class CageRmpflowScenario(ScenarioBase):
             rv = super().scenario_action(action_name, action_args)
             return rv
         match action_name:
+            case "RotateRmp":
+                self.rmpactive = not self.rmpactive
             case "RotateTarget0":
                 self.rotate_target0 = not self.rotate_target0
             case "RotateTarget1":
@@ -237,6 +239,11 @@ class CageRmpflowScenario(ScenarioBase):
             rv = super().get_action_button_text(action_name, action_args)
             return rv
         match action_name:
+            case "RotateRmp":
+                if self.rmpactive:
+                    rv = "Stop RMP"
+                else:
+                    rv = "Start RMP"
             case "RotateTarget0":
                 rv = "Rotate Target 0"
             case "RotateTarget1":
@@ -263,7 +270,7 @@ class CageRmpflowScenario(ScenarioBase):
 
     def get_scenario_actions(self):
         self.base_actions = super().get_scenario_actions()
-        combo  = self.base_actions + ["RotateTarget0", "RotateTarget1",
+        combo  = self.base_actions + ["RotateRmp","RotateTarget0", "RotateTarget1",
                                       "ChangeSpeed",
                                       "CageCamViews"]
         return combo

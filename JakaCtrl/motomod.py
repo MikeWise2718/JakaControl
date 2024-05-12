@@ -2,6 +2,7 @@ import os
 import numpy as np
 import copy
 
+
 import carb
 import carb.settings
 from .matman import MatMan
@@ -20,11 +21,12 @@ from .senut import apply_convex_decomposition_to_mesh_and_children
 from .senut import apply_collisionapis_to_mesh_and_children
 from .senut import apply_diable_gravity_to_rigid_bodies
 from .senut import apply_material_to_prim_and_children
+from .senut import StrToGfColor
 
 from omni.isaac.core.utils.extensions import get_extension_path_from_name
 
 class MotoMP50:
-    def __init__(self, mm, idx, name, pos, rot, ska):
+    def __init__(self, mm, idx, name, pos, rot, ska, clr="default_clr"):
         self._mm = mm
         self.idx = idx
         self.name = name
@@ -35,6 +37,7 @@ class MotoMP50:
         self.ska = np.array(ska)
         usdpath = f"/World/moto50mp_{idx}"
         self.usdpath = usdpath
+        self.clr = clr
         self.Construct()
 
     def Construct(self):
@@ -52,6 +55,8 @@ class MotoMP50:
         mapi = UsdPhysics.MassAPI.Apply(prim)
         mapi.CreateMassAttr(0.192) # g54 stats w=73.82 mm, h=161.56, d=8.89, pearl blue
         self.prim = prim
+        if self.clr!="default_clr":
+            self.ChangeColor(self.clr)
 
     def GetPose(self):
         tc = Usd.TimeCode.Default()
@@ -65,13 +70,35 @@ class MotoMP50:
         rv = self.GetPose()
         return rv
 
+    def ChangeColor(self, colorhexstr):
+        mm = self._mm
+        ok, rgb = StrToGfColor(colorhexstr)
+        if not ok:
+            carb.log_error(f"MotoMP50.ChangeColor: colorhexstr {colorhexstr} not valid")
+            return
+        # "/World/moto50mp_7/MOTO_50MP_v2/Looks/Powder_Coat___Rough__Light_Blue_"
+        sdrsubpath = "MOTO_50MP_v2/Looks/Powder_Coat___Rough__Light_Blue_/Powder_Coat___Rough__Light_Blue_"
+        sdrpath = f"{self.usdpath}/{sdrsubpath}"
+        attname = "inputs:diffuse_color_constant"
+        sdrprim = mm._stage.GetPrimAtPath(sdrpath)
+        clrattr = sdrprim.GetAttribute(attname)
+        clrattr.Set(rgb)
+
+        # attrname = "Aldebo:Aldebo Color"
+        # SetUsdPrimAttrFloatArray(clrprim, attrname, rgb)
+
+
+
 class MotoTray:
     def __init__(self, mm, idx, name, fillstr, pos, rot, ska):
         self._mm = mm
         self.idx = idx
         self.name = name
+        # fillstr is a string of 6 characters, each character is a color code, 0 means empty
         while len(fillstr)<6:
             fillstr += "0"
+        fillstr = fillstr[:6]
+
         self.fillstr = fillstr
         self.inipos = np.array(pos)
         self.rot = np.array(rot)
@@ -85,7 +112,7 @@ class MotoTray:
         self.construct()
 
     def construct(self):
-        mm = self._mm
+        mm: MotoMan = self._mm
         usdpath = self.usdpath
 
         filepath_to_moto_tray_usd = f"{mm.current_extension_path}/usd/MOTO_TRAY_v2fix.usda"
@@ -114,8 +141,24 @@ class MotoTray:
 
         for c in self.fillstr:
             (xp,yp,zp) = self.get_trayslot_pos(iw,ih)
-            if c=="1":
-                mm.AddMoto50mp(f"{self.name}_moto_t{self.idx}",pos=[xp,yp,zp],rot=[-a90,0,a90+zrot],ska=[1,1,1])
+            clr = "default_clr"
+            match c:
+                case "1": clr = "default_clr"
+                case "b": clr = "#0000ff"
+                case "r": clr = "#ff0000"
+                case "g": clr = "#00ff00"
+                case "y": clr = "#ffff00"
+                case "o": clr = "#ff8000"
+                case "p": clr = "#ff00ff"
+                case "w": clr = "#ffffff"
+                case "c": clr = "#00ffff"
+                case "m": clr = "#800080"
+                case "k": clr = "#000000"
+                case "0": clr = "skip"
+
+
+            if c!="skip":
+                mm.AddMoto50mp(f"{self.name}_moto_t{self.idx}",pos=[xp,yp,zp],rot=[-a90,0,a90+zrot],ska=[1,1,1],clr=clr)
             iw += 1
             if iw>2:
                 iw  = 0
@@ -155,9 +198,9 @@ class MotoMan:
         self._moto_tray_list = []
         self._matman = matman
 
-    def AddMoto50mp(self, name, pos=[0,0,0],rot=[0,0,0],ska=[1,1,1]):
+    def AddMoto50mp(self, name, pos=[0,0,0],rot=[0,0,0],ska=[1,1,1],clr="default_clr"):
             idx = len(self._moto50mp_list)
-            moto = MotoMP50(self, idx, name, pos, rot, ska)
+            moto = MotoMP50(self, idx, name, pos, rot, ska, clr)
             self._moto50mp_list.append(moto)
             return moto
 
