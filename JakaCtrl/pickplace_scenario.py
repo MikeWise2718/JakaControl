@@ -234,7 +234,7 @@ class PickAndPlaceScenario(ScenarioBase):
 
 
         if not hasattr(self._articulation, "gripper"):
-            self._articulation.gripper = self.get_gripper()
+            self._articulation.gripper = self.get_orig_pp_gripper()
 
 
         self._robot_id = self._robcfg.robot_id
@@ -283,8 +283,8 @@ class PickAndPlaceScenario(ScenarioBase):
         self.nphysstep_calls = 0
         self.global_time = 0
         self.global_ang = 0
-        gripper = self.get_gripper()
-        print(f"reset_scenario after get_gripper - eeori: {self.grip_eeori}")
+        gripper = self.get_orig_pp_gripper()
+        print(f"reset_scenario after get_pp_gripper - eeori: {self.grip_eeori}")
 
         if self._controller is not None:
             self._controller.reset()
@@ -371,7 +371,7 @@ class PickAndPlaceScenario(ScenarioBase):
                 )
 
 
-    def get_gripper(self):
+    def get_orig_pp_gripper(self):
         art = self._articulation
         if not hasattr(art, "_policy_robot_name"):
             art._policy_robot_name = self._mopo_robot_name #ugly hack, should remove at some point

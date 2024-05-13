@@ -124,7 +124,7 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
         self._world = world
         print("load_scenario done - self._object", self._object)
 
-    def get_gripper(self):
+    def get_franka_gripper(self):
         art = self._articulation
         art._policy_robot_name = self._robcfg.mopo_robot_name
         if hasattr(art,"gripper"):
@@ -241,7 +241,7 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
 
         self.register_articulation(self._articulation) # this has to happen in post_load_scenario
 
-        gripper = self.get_gripper()
+        gripper = self.get_franka_gripper()
         if gripper is not None:
             if self._robot_name in ["fancy_franka", "franka", "rs007n"]:
                 self._controller = franka_PickPlaceController(
@@ -275,7 +275,7 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
 
 
     def reset_scenario(self):
-        gripper = self.get_gripper()
+        gripper = self.get_franka_gripper()
 
         self._controller.reset()
 
