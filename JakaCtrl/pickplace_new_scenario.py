@@ -1,4 +1,5 @@
 import numpy as np
+import time
 
 from pxr import UsdPhysics, Usd, UsdGeom, Gf, Sdf
 from omni.isaac.core.world import World
@@ -234,6 +235,7 @@ class PickAndPlaceNewScenario(ScenarioBase):
 
         # self.lulaHelper = LulaInterfaceHelper(self._kinematics_solver._robot_description)
 
+
         self.register_articulation(self._articulation) # this has to happen in post_load_scenario
 
         if self._robot_name in ["minicobo-rg2-high","minicobo-suction-high"]:
@@ -268,8 +270,9 @@ class PickAndPlaceNewScenario(ScenarioBase):
 
         self.add_controllers()
 
-        self._rmpflow = self._controller._cspace_controller.rmp_flow
            # self._rmpflow.reset()
+        self._rmpflow = self._controller._cspace_controller.rmp_flow
+
 
         self.realize_rmptarg_vis(self._show_rmp_target_opt)
         if self._show_collision_bounds:
@@ -289,12 +292,21 @@ class PickAndPlaceNewScenario(ScenarioBase):
             self.set_damping_for_all_joints(100000.0 / 20) # 1e5 or 100 thousand seems too high
 
 
-        self._articulation_rmpflow = ArticulationMotionPolicy(self._articulation,self._rmpflow)
-        self._kinematics_solver = self._rmpflow.get_kinematics_solver()
 
-        self._articulation_kinematics_solver = ArticulationKinematicsSolver(self._articulation,self._kinematics_solver, self._robcfg.eeframe_name)
-        ee_pos, ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
+        if self.use_base_griper:
+            self._articulation_rmpflow = ArticulationMotionPolicy(self._articulation, self._rmpflow)
+            self._kinematics_solver = self._rmpflow.get_kinematics_solver()
 
+            self._articulation_kinematics_solver = ArticulationKinematicsSolver(self._articulation,self._kinematics_solver, self._robcfg.eeframe_name)
+            ee_pos, ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
+        else:
+            self._robcfg._articulation_rmpflow = ArticulationMotionPolicy(self._robcfg._articulation, self._rmpflow)
+            self._robcfg._kinematics_solver = self._rmpflow.get_kinematics_solver()
+
+            self._robcfg._articulation_kinematics_solver = ArticulationKinematicsSolver(self._robcfg._articulation, self._robcfg._kinematics_solver, self._robcfg.eeframe_name)
+            ee_pos, ee_rot_mat = self._robcfg._articulation_kinematics_solver.compute_end_effector_pose()
+
+        print(f"post_load_scenario done - ee_pos: {ee_pos} ee_rot_mat: {ee_rot_mat}")
         self._ee_pos = ee_pos
         self._ee_rot = ee_rot_mat
 
@@ -348,7 +360,10 @@ class PickAndPlaceNewScenario(ScenarioBase):
         if self._robot_name in ["minicobo-rg2-high","minicobo-suction-high"]:
             self._robcfg.dof_zero_pos[2] = 0.9
             self._robcfg.dof_zero_pos[4] = 0.9
-            self._articulation.set_joint_positions(self._robcfg.dof_zero_pos)
+            if self.use_base_griper:
+                self._articulation.set_joint_positions(self._robcfg.dof_zero_pos)
+            else:
+                self._robcfg._articulation.set_joint_positions(self._robcfg.dof_zero_pos)
         print(f"reset_scenario done - eeori: {self.grip_eeori}")
 
     def add_controllers(self):
@@ -361,6 +376,10 @@ class PickAndPlaceNewScenario(ScenarioBase):
         else:
             gripper = rcfg.gripper
         if gripper is not None:
+            if self.use_base_griper:
+                artic = self._articulation
+            else:
+                artic = rcfg._articulation
             if rcfg.pp_controller == "franka":
             # if self._robot_name in ["fancy_franka", "franka", "rs007n"]:
                 if self.use_base_griper:
@@ -370,7 +389,7 @@ class PickAndPlaceNewScenario(ScenarioBase):
                 self._controller = franka_PickPlaceController(
                     name="pick_place_controller",
                     gripper=gripper,
-                    robot_articulation=self._articulation,
+                    robot_articulation=artic,
                     events_dt=events_dt
                 )
             elif rcfg.pp_controller in ["ur-rg2", "ur-ss"]:
@@ -382,7 +401,7 @@ class PickAndPlaceNewScenario(ScenarioBase):
                 self._controller = ur10_PickPlaceController(
                     name="pick_place_controller",
                     gripper=gripper,
-                    robot_articulation=self._articulation
+                    robot_articulation=artic
                 )
             elif rcfg.pp_controller in ["jaka-ss", "jaka-ds"]:
             #elif self._robot_name in ["minicobo-suction","minicobo-suction-high","jaka-minicobo-1",
@@ -403,7 +422,7 @@ class PickAndPlaceNewScenario(ScenarioBase):
                 self._controller = jaka_PickPlaceController(
                     name="pick_place_controller",
                     gripper=gripper,
-                    robot_articulation=self._articulation,
+                    robot_articulation=artic,
                     rmpconfig=rmpconfig,
                     events_dt=events_dt
                 )
@@ -425,7 +444,7 @@ class PickAndPlaceNewScenario(ScenarioBase):
                 self._controller = jaka_PickPlaceController(
                     name="pick_place_controller",
                     gripper=gripper,
-                    robot_articulation=self._articulation,
+                    robot_articulation=artic,
                     rmpconfig=rmpconfig,
                     events_dt=events_dt
                 )
@@ -442,7 +461,11 @@ class PickAndPlaceNewScenario(ScenarioBase):
         # print(f"physics_step {npc} start - time: {self.global_time:.4f} eeori: {self.grip_eeori} ")
 
         if npc==0:
-            robot_base_translation,robot_base_orientation = self._articulation.get_world_pose()
+            self.lasttime = self.global_time
+            if self.use_base_griper:
+                robot_base_translation,robot_base_orientation = self._articulation.get_world_pose()
+            else:
+                robot_base_translation,robot_base_orientation = self._robcfg._articulation.get_world_pose()
             print(f"physics step zero: robot_base_translation: {robot_base_translation}, robot_base_orientation: {robot_base_orientation}")
             self._rmpflow.set_robot_base_pose(robot_base_translation,robot_base_orientation)
 
@@ -475,7 +498,10 @@ class PickAndPlaceNewScenario(ScenarioBase):
             rmpoff = 0.0
             cube_position = np.array([cp[0],cp[1],0.01+rmpoff])
         goal_position = self._goal_position
-        current_joint_positions = self._articulation.get_joint_positions()
+        if self.use_base_griper:
+            current_joint_positions = self._articulation.get_joint_positions()
+        else:
+            current_joint_positions = self._robcfg._articulation.get_joint_positions()
         if self._controller is not None:
             # eeoff = np.array([0,0,-0.03]) # -0.03 works for minicobo-suction-dual
             eeoff = np.array([0,0,-0.01])
@@ -487,25 +513,48 @@ class PickAndPlaceNewScenario(ScenarioBase):
                         current_joint_positions=current_joint_positions
                     )
                 else:
-                    actions = self._controller.forward(
-                        picking_position=cube_position,
-                        placing_position=goal_position,
-                        current_joint_positions=current_joint_positions,
-                        end_effector_offset=eeoff,
-                        end_effector_orientation=self.grip_eeori
-                    )
-                self._articulation.apply_action(actions)
+                    if self.use_base_griper:
+                        actions = self._controller.forward(
+                            picking_position=cube_position,
+                            placing_position=goal_position,
+                            current_joint_positions=current_joint_positions,
+                            end_effector_offset=eeoff,
+                            end_effector_orientation=self.grip_eeori
+                        )
+                    else:
+                        actions = self._controller.forward(
+                            picking_position=cube_position,
+                            placing_position=goal_position,
+                            current_joint_positions=current_joint_positions,
+                            end_effector_offset=eeoff,
+                            end_effector_orientation=self._robcfg.grip_eeori
+                        )
+                if self.use_base_griper:
+                    self._articulation.apply_action(actions)
+                else:
+                    self._robcfg._articulation.apply_action(actions)
 
-        ee_pos, ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
+        if self.use_base_griper:
+            ee_pos, ee_rot_mat = self._articulation_kinematics_solver.compute_end_effector_pose()
+        else:
+            ee_pos, ee_rot_mat = self._robcfg._articulation_kinematics_solver.compute_end_effector_pose()
 
         self._ee_pos = ee_pos
         self._ee_rot = ee_rot_mat
         # print(f"ee_pos:{ee_pos}")
 
-        # print(f"physics_step {npc} rotate - time: {self.global_time:.4f} phase:{phase} eeori: {self.grip_eeori} ")
 
         self.global_time += step_size
         self.nphysstep_calls += 1
+
+        elap = self.global_time - self.lasttime
+        if elap>0.5:
+            if self.use_base_griper:
+                print(f"physics_step {npc} rotate - time: {self.global_time:.4f} phase:{phase} eeori: {self.grip_eeori} ")
+            else:
+                print(f"physics_step {npc} rotate - time: {self.global_time:.4f} phase:{phase} eeori: {self._robcfg.grip_eeori} ")
+            self.lasttime = self.global_time
+
 
         # Only for the pick and place controller, indicating if the state
         # machine reached the final state.
