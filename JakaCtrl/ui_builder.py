@@ -65,7 +65,7 @@ class UIBuilder:
     _mode = "none"
     _choices = ["choice 1","choice 2"]
     _choice = "choice 1"
-    _action_list = ["--none--"]
+    _scenario_action_list = ["--none--"]
     _action = "--none--"
     _colprims = None
     _colvis_opts = ["Invisible", "Red", "RedGlass", "Glass"]
@@ -123,10 +123,14 @@ class UIBuilder:
         print(f"LoadSettings p_joint_alarms:{self._joint_alarms}")
 
         self._scenario_name = get_setting("p_scenario_name", self._scenario_name)
-        self._base_action_list = ScenarioBase.get_scenario_actions(self._scenario_name)
-        self._action_list = ScenarioBase.get_scenario_actions(self._scenario_name)
+        self._base_scenario_action_list = ScenarioBase.get_scenario_actions(self._scenario_name)
+        self._scenario_action_list = ScenarioBase.get_scenario_actions(self._scenario_name)
+        self._base_robot_action_list = ScenarioBase.get_robot_actions(self._scenario_name)
+        self._robot_action_list = ScenarioBase.get_robot_actions(self._scenario_name)
+
+        # set the default action in the UI
         action = get_setting("p_action", self._action)
-        self._action = action if action in self._action_list else self._action_list[0]
+        self._action = action if action in self._scenario_action_list else self._scenario_action_list[0]
 
         self._mode = get_setting("p_mode", self._mode)
         self._choice = get_setting("p_choice", self._choice)
@@ -281,9 +285,14 @@ class UIBuilder:
         scenario_actions_frame = CollapsableFrame("Scenario Actions", collapsed=False)
 
         with scenario_actions_frame:
-            self._action_vstack = ui.VStack(style=get_style(), spacing=5, height=0)
-            self.load_action_vstack()
+            self._scenario_action_vstack = ui.VStack(style=get_style(), spacing=5, height=0)
+            self.load_scenario_action_vstack()
 
+        robot_actions_frame = CollapsableFrame("Robot Actions", collapsed=False)
+
+        with robot_actions_frame:
+            self._robot_action_vstack = ui.VStack(style=get_style(), spacing=5, height=0)
+            self.load_robot_action_vstack()
 
         rob_appearance_frame = CollapsableFrame("Robot Appearance", collapsed=False)
 
@@ -419,13 +428,33 @@ class UIBuilder:
     ######################################################################################
 
     custbuttdict = {}
-    def load_action_vstack(self):
-        self._action_vstack.clear()
-        with self._action_vstack:
-            self._action_list = self._cur_scenario.get_scenario_actions()
-            for action in self._action_list:
+    def load_scenario_action_vstack(self):
+        self._scenario_action_vstack.clear()
+        with self._scenario_action_vstack:
+            self._scenario_action_list = self._cur_scenario.get_scenario_actions()
+            for action in self._scenario_action_list:
                 btnclr = self.dkred
-                if action in self._base_action_list:
+                if action in self._base_scenario_action_list:
+                    btnclr = self.dkblue
+                def do_action(action):
+                    return lambda x,y,b,m: self._do_action(action, x,y,b,m)
+                button_text = self._cur_scenario.get_action_button_text( action, None )
+                tool_tip = self._cur_scenario.get_action_button_tooltip( action, None )
+                print(f"load_action_vstack {action} {button_text}")
+                butt = Button(
+                    button_text, mouse_pressed_fn=do_action(action),
+                    tooltip = tool_tip,
+                    style={'background_color': btnclr}
+                )
+                self.custbuttdict[action] = butt
+
+    def load_robot_action_vstack(self):
+        self._robot_action_vstack.clear()
+        with self._robot_action_vstack:
+            self._robot_action_list = self._cur_scenario.get_robot_actions()
+            for action in self._robot_action_list:
+                btnclr = self.dkpurple
+                if action in self._base_robot_action_list:
                     btnclr = self.dkblue
                 def do_action(action):
                     return lambda x,y,b,m: self._do_action(action, x,y,b,m)
@@ -770,14 +799,15 @@ class UIBuilder:
 
         self._cur_scenario.realize_robot_skin(self._robskin_opt)
 
-        self._action_list = self._cur_scenario.get_scenario_actions()
-        if len(self._action_list) > 0:
-            self._action = self._action_list[0]
+        self._scenario_action_list = self._cur_scenario.get_scenario_actions()
+        if len(self._scenario_action_list) > 0:
+            self._action = self._scenario_action_list[0]
         else:
             self._action = ""
         self._actionsel_btn.text = self._action
         self._last_created_robot_name = self._robot_name
-        self.load_action_vstack()
+        self.load_scenario_action_vstack()
+        self.load_robot_action_vstack()
 
     def get_next_val_safe(self, lst, val, inc=1):
         try:
@@ -799,7 +829,7 @@ class UIBuilder:
             butt.text = self._cur_scenario.get_action_button_text( action, argdict )
 
     def _change_action(self, x, y, b, m):
-        self._action = self.get_next_val_safe(self._action_list, self._action, self.binc[b])
+        self._action = self.get_next_val_safe(self._scenario_action_list, self._action, self.binc[b])
         self._actionsel_btn.text = self._action
 
     def _change_choice(self):

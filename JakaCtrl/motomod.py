@@ -87,8 +87,6 @@ class MotoMP50:
         # attrname = "Aldebo:Aldebo Color"
         # SetUsdPrimAttrFloatArray(clrprim, attrname, rgb)
 
-
-
 class MotoTray:
     def __init__(self, mm, idx, name, fillstr, pos, rot, ska):
         self._mm = mm
@@ -232,7 +230,6 @@ class MotoMan:
         mototray = MotoTray(self, idx, name, fillstr, pos, rot, ska)
         self._moto_tray_list.append(mototray)
         return mototray
-
 
     def GetMotoTrayByIdx(self, idx):
         if idx>=len(self._moto_tray_list):

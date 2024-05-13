@@ -202,10 +202,13 @@ class CageRmpflowScenario(ScenarioBase):
         if cage:
             cc_rr = Gf.Vec3f([0.0, 0, 0.0])
             cc_pt = Gf.Quatf(1, Gf.Vec3f([0,1,0]))
-            self.add_1_ccam(cagepath, "cage_cam_0", "Cage Cam 0", cc_rr, Gf.Vec3f([+0.559,+0.388,0.794]), cc_pt)
-            self.add_1_ccam(cagepath, "cage_cam_1", "Cage Cam 1", cc_rr, Gf.Vec3f([-0.559,+0.388,0.794]), cc_pt)
-            self.add_1_ccam(cagepath, "cage_cam_2", "Cage Cam 0", cc_rr, Gf.Vec3f([+0.559,-0.388,0.794]), cc_pt)
-            self.add_1_ccam(cagepath, "cage_cam_3", "Cage Cam 1", cc_rr, Gf.Vec3f([-0.559,-0.388,0.794]), cc_pt)
+            cx = 0.559
+            cy = 0.388
+            cz = 0.794
+            self.add_1_ccam(cagepath, "cage_cam_0", "Cage Cam 0", cc_rr, Gf.Vec3f([+cx,+cy,cz]), cc_pt)
+            self.add_1_ccam(cagepath, "cage_cam_1", "Cage Cam 1", cc_rr, Gf.Vec3f([-cx,+cy,cz]), cc_pt)
+            self.add_1_ccam(cagepath, "cage_cam_2", "Cage Cam 0", cc_rr, Gf.Vec3f([+cx,-cy,cz]), cc_pt)
+            self.add_1_ccam(cagepath, "cage_cam_3", "Cage Cam 1", cc_rr, Gf.Vec3f([-cx,-cy,cz]), cc_pt)
             # _, campath = add_rob_cam(cc_path, cc_ring_rot, cc_mount, cc_pt_quat)
             # self.add_camera_to_cagecamlist(cc_name, cc_display_name, campath)
 
