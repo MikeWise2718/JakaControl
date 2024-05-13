@@ -34,12 +34,12 @@ class ObjectInspectionScenario(ScenarioBase):
     rotate_target1 = False
     target_rot_speed = 2*np.pi/10 # 10 seconds for a full rotation
 
-    def __init__(self):
+    def __init__(self, uibuilder=None):
         super().__init__()
         self._scenario_name = "object-inspection"
         self._scenario_description = ScenarioBase.get_scenario_desc(self._scenario_name)
         self._nrobots = 2
-        pass
+        self.uibuilder = uibuilder
 
     def load_scenario(self, robot_name, ground_opt, light_opt="dome_light"):
         super().load_scenario(robot_name, ground_opt)
@@ -137,7 +137,7 @@ class ObjectInspectionScenario(ScenarioBase):
         self.physics_step(step)
 
     def scenario_action(self, action_name, action_args):
-        if action_name in self.base_actions:
+        if action_name in self.base_scenario_actions:
             rv = super().scenario_action(action_name, action_args)
             return rv
         match action_name:
@@ -160,7 +160,7 @@ class ObjectInspectionScenario(ScenarioBase):
                 return False
 
     def get_action_button_text(self, action_name, action_args=None):
-        if action_name in self.base_actions:
+        if action_name in self.base_scenario_actions:
             rv = super().get_action_button_text(action_name, action_args)
             return rv
         match action_name:
@@ -175,7 +175,7 @@ class ObjectInspectionScenario(ScenarioBase):
         return rv
 
     def get_action_button_tooltip(self, action_name, action_args=None):
-        if action_name in self.base_actions:
+        if action_name in self.base_scenario_actions:
             rv = super().get_action_button_tooltip(action_name, action_args)
             return rv
         match action_name:
@@ -186,7 +186,7 @@ class ObjectInspectionScenario(ScenarioBase):
         return rv
 
     def get_scenario_actions(self):
-        self.base_actions = super().get_scenario_actions()
-        combo  = self.base_actions + ["RotateTarget0", "RotateTarget1",
+        self.base_scenario_actions = super().get_scenario_actions()
+        combo  = self.base_scenario_actions + ["RotateTarget0", "RotateTarget1",
                                       "ChangeSpeed"]
         return combo

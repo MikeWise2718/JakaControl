@@ -42,11 +42,12 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
     _show_rmp_target = False
     _show_rmp_target_opt = "invisible"
 
-    def __init__(self):
+    def __init__(self, uibuilder=None):
         super().__init__()
         self._scenario_name = "franka-pick-and-place"
         self._scenario_description = ScenarioBase.get_scenario_desc(self._scenario_name)
         self._nrobots = 1
+        self.uibuilder = uibuilder
 
 
     def load_scenario(self, robot_name, ground_opt):

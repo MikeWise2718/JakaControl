@@ -59,11 +59,12 @@ class PickAndPlaceNewScenario(ScenarioBase):
     _show_endeffector_box = False
 
 
-    def __init__(self):
+    def __init__(self, uibuilder=None):
         super().__init__()
         self._scenario_name = "pick-and-place-new"
         self._scenario_desc = ScenarioBase.get_scenario_desc(self._scenario_name)
         self._nrobots = 1
+        self._uibuilder = uibuilder
 
 
     def load_scenario(self, robot_name, ground_opt):
@@ -263,9 +264,9 @@ class PickAndPlaceNewScenario(ScenarioBase):
         self._robot_id = rcfg.robot_id
 
         # add_camera_to_robot(self._robot_name, self._robot_id, rcfg.robot_prim_path)
-        self.add_cameras_to_robots()
+        self.add_camera_to_robot(0)
 
-        self.add_pp_controllers()
+        self.add_pp_controller(0)
 
         rcfg._rmpflow = rcfg._controller._cspace_controller.rmp_flow
 
@@ -387,19 +388,20 @@ class PickAndPlaceNewScenario(ScenarioBase):
             eeoff = np.array([0,0,-0.01])
             if self.rmpactive:
                 if rcfg.prefered_target == "cuboid":
-                    actions = rcfg._controller.forward(
+                    args = dict(
                         picking_position=cube_position,
                         placing_position=goal_position,
                         current_joint_positions=current_joint_positions
                     )
                 else:
-                    actions = rcfg._controller.forward(
+                    args = dict(
                         picking_position=cube_position,
                         placing_position=goal_position,
                         current_joint_positions=current_joint_positions,
                         end_effector_offset=eeoff,
                         end_effector_orientation=rcfg.grip_eeori
                     )
+                actions = rcfg._controller.forward(**args)
                 rcfg._articulation.apply_action(actions)
 
         ee_pos, ee_rot_mat = rcfg._articulation_kinematics_solver.compute_end_effector_pose()
@@ -407,7 +409,6 @@ class PickAndPlaceNewScenario(ScenarioBase):
         self._ee_pos = ee_pos
         self._ee_rot = ee_rot_mat
         # print(f"ee_pos:{ee_pos}")
-
 
         self.global_time += step_size
         self.nphysstep_calls += 1
@@ -420,9 +421,9 @@ class PickAndPlaceNewScenario(ScenarioBase):
 
         # Only for the pick and place controller, indicating if the state
         # machine reached the final state.
-        if rcfg._controller is not None:
-            if rcfg._controller.is_done():
-                self._world.pause()
+        # if rcfg._controller is not None:
+        #     if rcfg._controller.is_done():
+        #         self._world.pause()
         return
 
     def scenario_action(self, action_name: str, action_args):
@@ -436,7 +437,7 @@ class PickAndPlaceNewScenario(ScenarioBase):
                 self._show_rmp_target = not self._show_rmp_target
                 print(f"scenario_action - _show_rmp_target changed to: {self._show_rmp_target}  param: {action_args}")
                 return
-        if action_name in self.base_actions:
+        if action_name in self.base_scenario_actions:
             rv = super().scenario_action(action_name, action_args)
             return rv
         return
@@ -454,6 +455,6 @@ class PickAndPlaceNewScenario(ScenarioBase):
 
 
     def get_scenario_actions(self):
-        self.base_actions = super().get_scenario_actions()
-        combo  = self.base_actions + ["rotate", "show_rmp_target"]
+        self.base_scenario_actions = super().get_scenario_actions()
+        combo  = self.base_scenario_actions + ["rotate", "show_rmp_target"]
         return combo

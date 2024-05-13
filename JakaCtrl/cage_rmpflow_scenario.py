@@ -42,11 +42,12 @@ class CageRmpflowScenario(ScenarioBase):
     target_rot_speed = 2*np.pi/10 # 10 seconds for a full rotation
     cagecamviews = None
 
-    def __init__(self):
+    def __init__(self, uibuilder=None):
         super().__init__()
         self._scenario_name = "cage-rmpflow"
         self._scenario_description = ScenarioBase.get_scenario_desc(self._scenario_name)
         self._nrobots = 2
+        self.uibuilder = uibuilder
 
     def load_scenario(self, robot_name, ground_opt, light_opt="dome_light"):
         super().load_scenario(robot_name, ground_opt)
@@ -127,12 +128,20 @@ class CageRmpflowScenario(ScenarioBase):
         self.mototray3 = mm.AddMotoTray("tray2", "000000", rot=[a90,0,zang],pos=[-xoff,-yoff,0.0])
         self.mototray4 = mm.AddMotoTray("tray2", "000000", rot=[a90,0,zang],pos=[+xoff,-yoff,0.0])
 
+    def add_grippers_to_robots(self):
+        for i in range(self._nrobots):
+            rcfg = self.get_robot_config(i)
+            rcfg.gripper = self.get_or_create_gripper(i)
+
     def setup_scenario(self):
         self.register_robot_articulations()
         self.adjust_stiffness_and_damping_for_robots()
         self.teleport_robots_to_zeropos()
 
         self.make_robot_mpflows([self._obstacle])
+
+        self.add_grippers_to_robots()
+        self.add_pp_controllers_to_robots()
 
         set_camera_view(eye=[0.0, 2.5, 1.0], target=[0,0,0], camera_prim_path="/OmniverseKit_Persp")
 
@@ -160,7 +169,7 @@ class CageRmpflowScenario(ScenarioBase):
         if self.rotate_target0:
             self.rotate_target(self._target0, self.targ0top, [+0.3, 0.00, 0.02], 0.15, step_size)
         if self.rotate_target1:
-            self.rotate_target(self._target1, self.targ1top,  [-0.3, 0.00, 0.02], 0.15, step_size)
+            self.rotate_target(self._target1, self.targ1top, [-0.3, 0.00, 0.02], 0.15, step_size)
 
         target0_position, target0_orientation = self._target0.get_world_pose()
         target1_position, target1_orientation = self._target1.get_world_pose()
@@ -213,7 +222,7 @@ class CageRmpflowScenario(ScenarioBase):
 
 
     def scenario_action(self, action_name, action_args):
-        if action_name in self.base_actions:
+        if action_name in self.base_scenario_actions:
             rv = super().scenario_action(action_name, action_args)
             return rv
         match action_name:
@@ -241,7 +250,7 @@ class CageRmpflowScenario(ScenarioBase):
                 return False
 
     def get_action_button_text(self, action_name, action_args=None):
-        if action_name in self.base_actions:
+        if action_name in self.base_scenario_actions:
             rv = super().get_action_button_text(action_name, action_args)
             return rv
         match action_name:
@@ -263,7 +272,7 @@ class CageRmpflowScenario(ScenarioBase):
         return rv
 
     def get_action_button_tooltip(self, action_name, action_args=None):
-        if action_name in self.base_actions:
+        if action_name in self.base_scenario_actions:
             rv = super().get_action_button_tooltip(action_name, action_args)
             return rv
         match action_name:
@@ -275,8 +284,13 @@ class CageRmpflowScenario(ScenarioBase):
 
 
     def get_scenario_actions(self):
-        self.base_actions = super().get_scenario_actions()
-        combo  = self.base_actions + ["RotateRmp","RotateTarget0", "RotateTarget1",
+        self.base_scenario_actions = super().get_scenario_actions()
+        combo  = self.base_scenario_actions + ["RotateRmp","RotateTarget0", "RotateTarget1",
                                       "ChangeSpeed",
                                       "CageCamViews"]
+        return combo
+
+    def get_robot_actions(self):
+        self.base_robot_actions = super().get_robot_actions()
+        combo  = self.base_robot_actions + ["FollowTarget","PickAndPlace"]
         return combo

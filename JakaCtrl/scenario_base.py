@@ -239,7 +239,7 @@ class ScenarioBase:
         rcfg = self.get_robot_config(ridx)
         art = rcfg._articulation
         if not hasattr(art, "_policy_robot_name"):
-            art._policy_robot_name = self._mopo_robot_name #ugly hack, should remove at some point
+            art._policy_robot_name = rcfg.mopo_robot_name #ugly hack, should remove at some point
         if hasattr(art,"gripper"):
             # this is the case for robots with pre-configured grippers
             if not hasattr(self,"grip_eeori"):
@@ -250,7 +250,7 @@ class ScenarioBase:
         else:
             art = rcfg._articulation
             rcfg._gripper_type = "parallel"
-            art._policy_robot_name = self._mopo_robot_name
+            art._policy_robot_name = rcfg.mopo_robot_name
             world = World.instance()
             rcfg.physics_sim_view = world.physics_sim_view
             rcfg.grip_eeori = euler_angles_to_quat(np.array([0,0,0]))
@@ -334,7 +334,8 @@ class ScenarioBase:
                     grip_translate = 0.17
                     rcfg.grip_eeori = euler_angles_to_quat(np.array([-np.pi/2,0,0]))
                 elif rcfg.robot_name in ["jaka-minicobo-1a","minicobo-dual-sucker"]:
-                    eepp = "/World/roborg/minicobo_v1_4/tool0"
+                    # eepp = "/World/roborg/minicobo_v1_4/tool0"
+                    eepp = f"{rcfg.robot_prim_path}/{rcfg.eeframe_name}"
                     grip_direction = "y"
                     grip_threshold = 0.01
                     # grip_translate = -0.018 # 0.002 and -0.019 does not work, but 0.001 to -0.018 do work for jaka-minicobo-1a and minicobo-dual-sucker
@@ -359,17 +360,20 @@ class ScenarioBase:
                     physics_sim_view=rcfg.physics_sim_view,
                     articulation_num_dofs=len(art.dof_names)
                 )
-
                 return sg
 
             else:
                 carb.log_error(f"Unknown gripper type: {grippername} for robot:{rcfg.robot_name} - returning None")
                 return None
 
-    def add_pp_controllers(self):
+    def add_pp_controllers_to_robots(self):
+        for idx in range(self._nrobots):
+            self.add_pp_controller(idx)
+
+    def add_pp_controller(self,ridx=0):
 
         events_dt = [0.008, 0.005, 0.1,  0.1, 0.005, 0.005, 0.005, 0.1, 0.008, 0.08]
-        rcfg = self.get_robot_config()
+        rcfg = self.get_robot_config(ridx)
 
         gripper = rcfg.gripper
         if gripper is not None:
@@ -446,21 +450,24 @@ class ScenarioBase:
         self.robcamlist[cam_name]["display_name"] = cam_display_name
         self.robcamlist[cam_name]["usdpath"] = campath
 
+    def add_camera_to_robot(self, ridx=0):
+        rcfg = self.get_robot_config(ridx)
+        if rcfg.camera_root != "":
+            if rcfg.robot_name == "minicobo-dual-sucker":
+                ring_rot = Gf.Vec3f([0,0,-45])
+            else:
+                ring_rot = Gf.Vec3f([0,0,0])
+            mount_trans = Gf.Vec3f([0.011,0.147,-0.011])
+            point_quat = Gf.Quatf(0.80383,Gf.Vec3f(-0.19581,-0.46288,-0.31822))
+
+            camroot = rcfg.camera_root
+            camname = f"{rcfg.robot_id}_cam"
+            _, campath = add_rob_cam(camroot, ring_rot, mount_trans, point_quat, camname)
+            self.add_camera_to_robcamlist(rcfg.robot_id, rcfg.robot_name, campath)
+
     def add_cameras_to_robots(self):
         for idx in range(self._nrobots):
-            rcfg = self.get_robot_config(idx)
-            if rcfg.camera_root != "":
-                if rcfg.robot_name == "minicobo-dual-sucker":
-                    ring_rot = Gf.Vec3f([0,0,-45])
-                else:
-                    ring_rot = Gf.Vec3f([0,0,0])
-                mount_trans = Gf.Vec3f([0.011,0.147,-0.011])
-                point_quat = Gf.Quatf(0.80383,Gf.Vec3f(-0.19581,-0.46288,-0.31822))
-
-                camroot = rcfg.camera_root
-                camname = f"{rcfg.robot_id}_cam"
-                _, campath = add_rob_cam(camroot, ring_rot, mount_trans, point_quat, camname)
-                self.add_camera_to_robcamlist(rcfg.robot_id, rcfg.robot_name, campath)
+            self.add_camera_to_robot(idx)
 
     def check_alarm_status(self, rcfg):
         art = rcfg._articulation
@@ -536,8 +543,6 @@ class ScenarioBase:
                             # print(f"   changing {link_path} to {rcfg.robmatskin} - inalarm:{joint_in_alarm}")
                             apply_material_to_prim_and_children(self._stage, self._matman, rcfg.robmatskin, link_path)
             rcfg.dof_alarm_last = copy.deepcopy(rcfg.dof_alarm)
-
-
 
     def register_articulation(self, articulation, rcfg=None):
         # this has to happen in post_load_scenario - some initialization must be happening before this
@@ -677,19 +682,15 @@ class ScenarioBase:
         # print("quat1:",quat1)
         rmpflow.set_robot_base_pose(pos1, quat1)
 
-
-
         for ob in oblist:
             rmpflow.add_obstacle(ob)
 
         rmpflow.set_ignore_state_updates(True)
-
         if self._show_collision_bounds:
             rmpflow.visualize_collision_spheres()
-        articulation_rmpflow = ArticulationMotionPolicy(rcfg._articulation,rmpflow)
+
+        rcfg.articulation_rmpflow = ArticulationMotionPolicy(rcfg._articulation,rmpflow)
         rcfg.rmpflow = rmpflow
-        rcfg.articulation_rmpflow = articulation_rmpflow
-        return rmpflow, articulation_rmpflow
 
     def adjust_stiffness_and_damping_for_robots(self):
         for idx in range(self._nrobots):
@@ -729,7 +730,6 @@ class ScenarioBase:
     def set_end_effector_target_for_robot(self, rob_idx, ee_targ_pos, ee_targ_ori):
         rcfg = self.get_robot_config(rob_idx)
         rcfg.rmpflow.set_end_effector_target(ee_targ_pos, ee_targ_ori)
-
 
     def load_scenario(self, robot_name="default", ground_opt="default"):
         self._matman = MatMan(get_current_stage())
@@ -955,8 +955,15 @@ class ScenarioBase:
             if pct<10 or 90>pct:
                 clr = "green"
 
-    def toggle_show_joint_limits(self):
-        self.show_joint_limits_for_all_robots = not self.show_joint_limits_for_all_robots
+    def show_joint_limits_for_all_robots(self, showthem):
+        self.show_joint_limits_for_all_robots = showthem
+        for ridx,rcfg in enumerate(self._rcfg_list):
+            if rcfg.show_joints_close_to_limits != self.show_joint_limits_for_all_robots:
+                self.toggle_show_joints_close_to_limits(ridx)
+
+    def toggle_show_joint_limits(self, notoggle=False):
+        if not notoggle:
+            self.show_joint_limits_for_all_robots = not self.show_joint_limits_for_all_robots
         self.uibuilder._joint_alarms = self.show_joint_limits_for_all_robots
         for ridx,rcfg in enumerate(self._rcfg_list):
             if rcfg.show_joints_close_to_limits != self.show_joint_limits_for_all_robots:
@@ -992,6 +999,10 @@ class ScenarioBase:
 
     def get_scenario_actions(self):
         rv =  ["Robot Cam Views","Show Joint Limits"]
+        return rv
+
+    def get_robot_actions(self):
+        rv =  []
         return rv
 
     def get_action_button_text(self, action_name,action_args=None):

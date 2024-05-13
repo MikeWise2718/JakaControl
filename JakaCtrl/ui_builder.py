@@ -728,29 +728,30 @@ class UIBuilder:
 
     def pick_scenario(self, scenario_name):
         if scenario_name == "sinusoid-joint":
-            self._cur_scenario = SinusoidJointScenario()
+            self._cur_scenario = SinusoidJointScenario(self)
         elif scenario_name == "pick-and-place":
-            self._cur_scenario = PickAndPlaceScenario()
+            self._cur_scenario = PickAndPlaceScenario(self)
         elif scenario_name == "pick-and-place-new":
-            self._cur_scenario = PickAndPlaceNewScenario()
+            self._cur_scenario = PickAndPlaceNewScenario(self)
         elif scenario_name == "franka-pick-and-place":
-            self._cur_scenario = FrankaPickAndPlaceScenario()
+            self._cur_scenario = FrankaPickAndPlaceScenario(self)
         elif scenario_name == "rmpflow":
-            self._cur_scenario = RMPflowScenario()
+            self._cur_scenario = RMPflowScenario(self)
         elif scenario_name == "rmpflow-new":
-            self._cur_scenario = RMPflowNewScenario()
+            self._cur_scenario = RMPflowNewScenario(self)
         elif scenario_name == "object-inspection":
             self._cur_scenario = ObjectInspectionScenario()
         elif scenario_name == "cage-rmpflow":
-            self._cur_scenario = CageRmpflowScenario()
+            self._cur_scenario = CageRmpflowScenario(self)
         elif scenario_name == "inverse-kinematics":
-            self._cur_scenario = InvkinScenario()
+            self._cur_scenario = InvkinScenario(self)
         elif scenario_name == "gripper":
-            self._cur_scenario = GripperScenario()
+            self._cur_scenario = GripperScenario(self)
         else:
-            self._cur_scenario = SinusoidJointScenario()
-        self._cur_scenario.uibuilder = self
-        self._cur_scenario.show_joint_limits_for_all_robots = self._joint_alarms
+            self._cur_scenario = SinusoidJointScenario(self)
+        self._cur_scenario.show_joint_limits_for_all_robots(showthem=self._joint_alarms)
+
+        # self._cur_scenario.show_joint_limits_for_all_robots = self._joint_alarms
 
     def _on_init(self):
         # self._articulation = None

@@ -36,10 +36,12 @@ the logic that runs the example from the UI design.
 """
 
 class SinusoidJointScenario(ScenarioBase):
-    def __init__(self):
+    def __init__(self, uibuilder=None):
         super().__init__()
         self._scenario_name = "sinusoid-joint"
         self._scenario_description = ScenarioBase.get_scenario_desc(self._scenario_name)
+        self._nrobots = 1
+        self.uibuilder = uibuilder
 
         self._running_scenario = False
 
@@ -51,12 +53,12 @@ class SinusoidJointScenario(ScenarioBase):
 
         self._joint_index = 0
         self._max_joint_speed = 4  # rad/sec
-        self._nrobots = 1
 
         self._joint_time = 0
         self._path_duration = 0
         self._calculate_position = lambda t, x: 0
         self._calculate_velocity = lambda t, x: 0
+
 
     def load_scenario(self, robot_name, ground_opt):
         super().load_scenario(robot_name, ground_opt)

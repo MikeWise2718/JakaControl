@@ -52,13 +52,14 @@ the logic that runs the example from the UI design.
 """
 
 class GripperScenario(ScenarioBase):
-    def __init__(self):
+    def __init__(self, uibuilder=None):
         super().__init__()
         self._scenario_name = "gripper"
         self._scenario_desc = ScenarioBase.get_scenario_desc(self._scenario_name)
         self._object = None
         self._articulation = None
         self._nrobots = 1
+        self.uibuilder = uibuilder
 
 
         self._running_scenario = False

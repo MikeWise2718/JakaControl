@@ -61,11 +61,12 @@ class PickAndPlaceScenario(ScenarioBase):
     _show_endeffector_box = False
 
 
-    def __init__(self):
+    def __init__(self, uibuilder=None):
         super().__init__()
         self._scenario_name = "pick-and-place"
         self._scenario_desc = ScenarioBase.get_scenario_desc(self._scenario_name)
         self._nrobots = 1
+        self.uibuilder = uibuilder
 
 
     def load_scenario(self, robot_name, ground_opt):
@@ -620,7 +621,7 @@ class PickAndPlaceScenario(ScenarioBase):
                 self._show_rmp_target = not self._show_rmp_target
                 print(f"scenario_action - _show_rmp_target changed to: {self._show_rmp_target}  param: {param}")
                 return
-        if action_name in self.base_actions:
+        if action_name in self.base_scenario_actions:
             rv = super().scenario_action(action_name, action_args)
             return rv
         return
@@ -638,6 +639,6 @@ class PickAndPlaceScenario(ScenarioBase):
 
 
     def get_scenario_actions(self):
-        self.base_actions = super().get_scenario_actions()
-        combo  = self.base_actions + ["rotate","show_rmp_target"]
+        self.base_scenario_actions = super().get_scenario_actions()
+        combo  = self.base_scenario_actions + ["rotate","show_rmp_target"]
         return combo

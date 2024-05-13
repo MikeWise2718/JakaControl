@@ -31,7 +31,7 @@ class InvkinScenario(ScenarioBase):
     _running_scenario = False
     _show_collision_bounds = True
 
-    def __init__(self):
+    def __init__(self, uibuilder=None):
         super().__init__()
         self._scenario_name = "inverse-kinematics"
         self._scenario_description = ScenarioBase.get_scenario_desc(self._scenario_name)
@@ -41,6 +41,7 @@ class InvkinScenario(ScenarioBase):
         self._articulation = None
         self._target = None
         self._nrobots = 1
+        self.uibuilder = uibuilder
 
     def load_scenario(self, robot_name, ground_opt):
         super().load_scenario(robot_name, ground_opt)
