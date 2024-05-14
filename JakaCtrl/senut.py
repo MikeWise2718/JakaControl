@@ -343,8 +343,7 @@ def checkfiltcondition(pathname, filtlist):
             return True
     return False
 
-
-def apply_collisionapis_to_mesh_and_children_recur(stage, prim, level, exclude=None, include=None, method=None):
+def apply_collisionapis_to_mesh_and_children_recur(stage, prim, level, exclude=None, include=None, method=None, remove=False):
     if level > 12:
         carb.log_warn("apply_collisionapis_to_mesh_and_children_recur - level too deep ({level})")
         return 0
@@ -363,31 +362,39 @@ def apply_collisionapis_to_mesh_and_children_recur(stage, prim, level, exclude=N
     if typename == "Mesh" and do_me:
         nmesh += 1
         schemas = prim.GetAppliedSchemas()
-        # print("prim:",prim.GetPath()," schemas:",schemas)
-        if "CollisionAPI" not in schemas:
-            UsdPhysics.CollisionAPI.Apply(prim)
-            ncolapi += 1
-            pass
-        if "PhysicsMeshCollisionAPI" not in schemas:
-            phycollApi = UsdPhysics.MeshCollisionAPI.Apply(prim)
+        if remove:
+            if "PhysicsCollisionAPI" in schemas:
+                prim.RemoveAPI(UsdPhysics.CollisionAPI)
+                ncolapi += 1
+            if "PhysicsMeshCollisionAPI" in schemas:
+                prim.RemoveAPI(UsdPhysics.MeshCollisionAPI)
+                nphysapi += 1
         else:
-            phycollApi = UsdPhysics.MeshCollisionAPI(prim)
-        if method is None:
-            method = UsdPhysics.Tokens.convexDecomposition
-        phycollApi.GetApproximationAttr().Set(method)
-        nphysapi += 1
+            # print("prim:",prim.GetPath()," schemas:",schemas)
+            if "PhysicsCollisionAPI" not in schemas:
+                UsdPhysics.CollisionAPI.Apply(prim)
+                ncolapi += 1
+                pass
+            if "PhysicsMeshCollisionAPI" not in schemas:
+                phycollApi = UsdPhysics.MeshCollisionAPI.Apply(prim)
+            else:
+                phycollApi = UsdPhysics.MeshCollisionAPI(prim)
+            if method is None:
+                method = UsdPhysics.Tokens.convexDecomposition
+            phycollApi.GetApproximationAttr().Set(method)
+            nphysapi += 1
     children = prim.GetChildren()
     for child_prim in children:
-        nmdt, coldt, npdt = apply_collisionapis_to_mesh_and_children_recur(stage, child_prim, level+1, exclude=exclude, include=include, method=method)
+        nmdt, coldt, npdt = apply_collisionapis_to_mesh_and_children_recur(stage, child_prim, level+1, exclude=exclude, include=include, method=method, remove=remove)
         nmesh += nmdt
         ncolapi += coldt
         nphysapi += npdt
     return nmesh,  ncolapi, nphysapi
 
 
-def apply_collisionapis_to_mesh_and_children(stage, primname, exclude=None, include=None, method=None):
+def apply_collisionapis_to_mesh_and_children(stage, primname, exclude=None, include=None, method=None, remove=False):
     prim = stage.GetPrimAtPath(primname)
-    nmesh, ncolapi, nphysapi  = apply_collisionapis_to_mesh_and_children_recur(stage, prim, 0, exclude=exclude, include=include, method=method)
+    nmesh, ncolapi, nphysapi  = apply_collisionapis_to_mesh_and_children_recur(stage, prim, 0, exclude=exclude, include=include, method=method, remove=remove)
     print(f"apply_collisionapis_to_mesh_and_children:{primname} nmesh:{nmesh} ncolapi:{ncolapi} nphysapi:{nphysapi}")
     return nmesh, ncolapi, nphysapi
 
@@ -451,9 +458,9 @@ def interp(x, x1, x2, y1, y2):
         return y1
     return y1 + (x-x1)*(y2-y1)/(x2-x1)
 
-def make_cam_view_window(camlst, wintitle="Cameras", wid=1280, heit=720):
+def make_rob_cam_view_window(robcamlst, wintitle="Robot Cameras", wid=1280, heit=720):
     # https://docs.omniverse.nvidia.com/kit/docs/omni.kit.viewport.docs/latest/overview.html
-    nrobcam = len(camlst)
+    nrobcam = len(robcamlst)
     camviews = omni.ui.Window(wintitle, width=wid, height=heit+20) # Add 20 for the title-bar
 
     with camviews.frame:
@@ -462,8 +469,8 @@ def make_cam_view_window(camlst, wintitle="Cameras", wid=1280, heit=720):
         else:
             with omni.ui.VStack():
                 vh = heit / nrobcam
-                for camname in camlst:
-                    cam = camlst[camname]
+                for camname in robcamlst:
+                    cam = robcamlst[camname]
                     viewport_widget = ViewportWidget(resolution = (wid, vh))
 
                     # Control of the ViewportTexture happens through the object held in the viewport_api property
@@ -537,3 +544,84 @@ def add_rob_cam(cam_root, ring_rot, mount_trans, point_quat, camname="camera"):
     ovcam.set_clipping_range(0.1, 1.0e5)
 
     return ovcam, camera_prim_path
+
+
+def StrToColor(colorstr: str):
+    nclr = colorstr
+    if colorstr[0] == "#":
+        nclr = colorstr[1:]
+    if len(nclr) != 6:
+        return (False, [(0.5, 0, 0)])
+    r = int(nclr[0:2], 16) / 255.0
+    g = int(nclr[2:4], 16) / 255.0
+    b = int(nclr[4:6], 16) / 255.0
+    color = [(r, g, b)]
+    return (True, color)
+
+def StrToGfColor(colorstr: str):
+    nclr = colorstr
+    if colorstr[0] == "#":
+        nclr = colorstr[1:]
+    if len(nclr) != 6:
+        return (False, [(0.5, 0, 0)])
+    r = int(nclr[0:2], 16) / 255.0
+    g = int(nclr[2:4], 16) / 255.0
+    b = int(nclr[4:6], 16) / 255.0
+    color = Gf.Vec3f(r, g, b)
+    return (True, color)
+
+
+def ColorInterpolate(lamda: float, c1l: tuple, c2l: tuple):
+    l1 = lamda
+    l2 = 1 - lamda
+    c1 = c1l[0]
+    c2 = c2l[0]
+    r = c1[0] * l1 + c2[0] * l2
+    g = c1[1] * l1 + c2[1] * l2
+    b = c1[2] * l1 + c2[2] * l2
+    return [(r, g, b)]
+
+
+def SetUsdPrimAttrString(graphPrim, attrName, attrValue: str):
+    prim: Usd.Prim = graphPrim.GetPrim()
+    attr = prim.CreateAttribute(attrName, Sdf.ValueTypeNames.String)
+    attr.Set(attrValue)
+
+
+def SetUsdPrimAttrFloat(graphPrim, attrName, attrValue: float):
+    prim: Usd.Prim = graphPrim.GetPrim()
+    attr = prim.CreateAttribute(attrName, Sdf.ValueTypeNames.Float)
+    attr.Set(attrValue)
+
+
+def SetUsdPrimAttrInt(graphPrim, attrName, attrValue: int):
+    prim: Usd.Prim = graphPrim.GetPrim()
+    attr = prim.CreateAttribute(attrName, Sdf.ValueTypeNames.Int)
+    attr.Set(attrValue)
+
+def SetUsdPrimAttrStringArray(graphPrim, attrName, attrValue: list):
+    prim: Usd.Prim = graphPrim.GetPrim()
+    attr = prim.CreateAttribute(attrName, Sdf.ValueTypeNames.StringArray)
+    attr.Set(attrValue)
+
+def SetUsdPrimAttrFloatArray(graphPrim, attrName, attrValue: list):
+    prim: Usd.Prim = graphPrim.GetPrim()
+    attr = prim.CreateAttribute(attrName, Sdf.ValueTypeNames.FloatArray)
+    attr.Set(attrValue)
+
+def DefinePrimFromString(stage, primname: str, formname: str):
+    if formname == "cone":
+        prim = UsdGeom.Cone.Define(stage, primname)
+        primlen = 2
+    elif formname == "cube":
+        prim = UsdGeom.Cube.Define(stage, primname)
+        primlen = 2
+    elif formname == "sphere":
+        prim = UsdGeom.Sphere.Define(stage, primname)
+        primlen = 2
+    else:
+        if formname != "cyl":
+            print(f"Unknown form: {formname}")
+        prim = UsdGeom.Cylinder.Define(stage, primname)
+        primlen = 2
+    return (prim, primlen)

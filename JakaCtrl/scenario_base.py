@@ -11,13 +11,17 @@ from pxr import Usd, UsdGeom, UsdShade, Gf, UsdPhysics
 from typing import List
 
 from omni.isaac.core.articulations import Articulation
+from omni.isaac.motion_generation import ArticulationMotionPolicy
+from omni.isaac.motion_generation import ArticulationKinematicsSolver
 
 from omni.isaac.core.utils.stage import get_current_stage
-from omni.isaac.motion_generation import RmpFlow, ArticulationMotionPolicy
+from omni.isaac.motion_generation import RmpFlow
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
 
 from omni.isaac.core.world import World
 from omni.isaac.core.objects import GroundPlane
+from omni.isaac.core.prims import XFormPrim
+from omni.isaac.core.prims.rigid_prim import RigidPrim
 
 from .scenario_robot_configs import create_and_populate_robot_config, init_configs
 
@@ -27,22 +31,37 @@ from .senut import build_material_dict, apply_material_to_prim_and_children
 from .senut import apply_matdict_to_prim_and_children
 from .senut import set_stiffness_for_joints, set_damping_for_joints
 
+from omni.isaac.core.utils.extensions import get_extension_path_from_name
 from omni.isaac.core.utils.stage import add_reference_to_stage
+
 from .senut import apply_convex_decomposition_to_mesh_and_children
 from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulationAPI_location_if_needed
 from .senut import add_sphere_light_to_stage, add_dome_light_to_stage
 from .senut import get_link_paths
-from .senut import make_cam_view_window
+from .senut import make_rob_cam_view_window
+
+from .senut import apply_convex_decomposition_to_mesh_and_children
+from .senut import apply_collisionapis_to_mesh_and_children
+from .senut import apply_diable_gravity_to_rigid_bodies
+
+from .franka.controllers import PickPlaceController as franka_PickPlaceController
+from omni.asimov.jaka.controllers.pick_place_controller import PickPlaceController as jaka_PickPlaceController
+from .universal_robots.omni.isaac.universal_robots.controllers import PickPlaceController as ur10_PickPlaceController
 
 from omni.asimov.manipulators.grippers.parallel_gripper import ParallelGripper
 from omni.asimov.manipulators.grippers.surface_gripper import SurfaceGripper
 
 class ScenarioBase:
-    rmpactive = True
+    rmpactive = False
     global_time = 0
     _nrobots = 0
     _rcfg_list = []
     _show_joints_close_to_limits = False
+
+    _moto50mp_list = []
+    _moto_tray_list = []
+    _colprims = None
+    _matman = None
 
     _show_rmp_target = False
     _show_rmp_target_opt = "invisible" # don't delete
@@ -50,6 +69,8 @@ class ScenarioBase:
     _show_collision_bounds_opt = "invisible" # don't delete
     _show_endeffector_box = False
     robcamviews = None
+    show_joint_limits_for_all_robots = False
+    current_robot_action = ""
 
     def __init__(self):
         self._scenario_name = "empty scenario"
@@ -58,7 +79,8 @@ class ScenarioBase:
         self._rcfg_list = []
         self._stage = get_current_stage()
         self.robcamlist = {}
-        self.rmpactive = True
+        self.rmpactive = False
+        self.current_extension_path = get_extension_path_from_name("JakaControl")
         init_configs()
         pass
 
@@ -206,25 +228,37 @@ class ScenarioBase:
             self._ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]),position=[0,0,-1.03313])
             world.scene.add(self._ground)
 
-    def get_gripper(self):
-        art = self._articulation
+    def activate_ee_collision(self, robidx, active):
+        rcfg = self.get_robot_config(robidx)
+        if rcfg is not None:
+            usdpath = rcfg.robot_prim_path
+            include = [f"{rcfg.eeframe_name}/visuals", f"{rcfg.eeframe_name}/collisions"]
+            remove = not active
+            apply_collisionapis_to_mesh_and_children(self._stage, usdpath, include=include, remove=remove)
+
+    robcamlist = {}
+
+    def get_or_create_gripper(self, ridx):
+        rcfg = self.get_robot_config(ridx)
+        art = rcfg._articulation
         if not hasattr(art, "_policy_robot_name"):
-            art._policy_robot_name = self._mopo_robot_name #ugly hack, should remove at some point
+            art._policy_robot_name = rcfg.mopo_robot_name #ugly hack, should remove at some point
         if hasattr(art,"gripper"):
             # this is the case for robots with pre-configured grippers
             if not hasattr(self,"grip_eeori"):
-                self.grip_eeori = euler_angles_to_quat(np.array([0,0,0]))
+                rcfg.grip_eeori = euler_angles_to_quat(np.array([0,0,0]))
             if not hasattr(self,"grip_eeoff"):
-                self.grip_eeoff = np.array([0,0,0])
+                rcfg.grip_eeoff = np.array([0,0,0])
             return art.gripper
         else:
-            art = self._articulation
-            self._gripper_type = "parallel"
-            art._policy_robot_name = self._mopo_robot_name
-            self.physics_sim_view = self._world.physics_sim_view
-            self.grip_eeori = euler_angles_to_quat(np.array([0,0,0]))
-            self.grip_eeoff = np.array([0,0,0])
-            grippername = self._robcfg.grippername
+            art = rcfg._articulation
+            rcfg._gripper_type = "parallel"
+            art._policy_robot_name = rcfg.mopo_robot_name
+            world = World.instance()
+            rcfg.physics_sim_view = world.physics_sim_view
+            rcfg.grip_eeori = euler_angles_to_quat(np.array([0,0,0]))
+            rcfg.grip_eeoff = np.array([0,0,0])
+            grippername = rcfg.grippername
 
             #if self._robot_name in ["franka","fancy_franka"]:   # franka gripper
             if grippername=="franka gripper":   # franka gripper
@@ -244,7 +278,7 @@ class ScenarioBase:
                     action_deltas=ad
                 )
                 pg.initialize(
-                    physics_sim_view=self.physics_sim_view,
+                    physics_sim_view=rcfg.physics_sim_view,
                     articulation_apply_action_func=art.apply_action,
                     get_joint_positions_func=art.get_joint_positions,
                     set_joint_positions_func=art.set_joint_positions,
@@ -254,8 +288,8 @@ class ScenarioBase:
 
             elif grippername=="rg2": # rg2 gripper / eepp, jpn, jop,jcp, ad
             # elif self._robot_name in ["rs007n","jaka-minicobo-2","minicobo-rg2-high"]: # rg2 gripper / eepp, jpn, jop,jcp, ad
-                art = self._articulation
-                if self._robot_name == "rs007n":
+                art = rcfg._articulation
+                if rcfg.robot_name == "rs007n":
                     eepp = "/World/roborg/khi_rs007n/gripper_center"
                 else:
                     eepp = "/World/roborg/minicobo_parallel_onrobot_rg2/minicobo_onrobot_rg2/gripper_center"
@@ -279,86 +313,140 @@ class ScenarioBase:
                     set_joint_positions_func=art.set_joint_positions,
                     dof_names=art.dof_names,
                 )
-                self._gripper_type = "parallel"
+                rcfg._gripper_type = "parallel"
                 return pg
-            # elif self._robot_name in ["ur10-suction-short","jaka-minicobo-1","jaka-minicobo-1a",
-            #                           "minicobo-suction-dual","minicobo-suction","minicobo-dual-sucker",
-            #                           "minicobo-dual-high","minicobo-suction-high"]:  # short suction gripper and dual sucker gripper
             elif grippername in ["short suction", "dual sucker"]:  # short suction gripper and dual sucker gripper
-                art = self._articulation
-                self._gripper_type = "suction"
-                # eepp = "/World/roborg/ur10_suction_short/ee_link/gripper_base/xf"
-                # UsdGeom.Xform.Define(get_current_stage(), eepp)
-                # self._end_effector = RigidPrim(prim_path=eepp, name= "ur10" + "_end_effector")
-                # self._end_effector.initialize(None)
+                art = rcfg._articulation
+                rcfg._gripper_type = "suction"
                 grip_direction = "x"
                 grip_threshold = 0.02
                 grip_translate = 0.1611
 
-                if self._robot_name == "ur10-suction-short":
+                if rcfg.robot_name == "ur10-suction-short":
                     eepp = "/World/roborg/ur10_suction_short/ee_link"
-                    self.grip_eeori = euler_angles_to_quat(np.array([0,np.pi/2,0]))
-                elif self._robot_name == "minicobo-suction":
+                    rcfg.grip_eeori = euler_angles_to_quat(np.array([0,np.pi/2,0]))
+                elif rcfg.robot_name == "minicobo-suction":
                     # eepp = "/World/roborg/minicobo_suction/short_gripper"
                     eepp = "/World/roborg/minicobo_suction_short/minicobo_suction/short_gripper"
-                elif self._robot_name == "minicobo-suction-high":
+                elif rcfg.robot_name == "minicobo-suction-high":
                     eepp = "/World/roborg/minicobo_suction_short/minicobo_suction/short_gripper"
-                elif self._robot_name in ["minicobo-suction-dual","minicobo-dual-high"]:
+                elif rcfg.robot_name in ["minicobo-suction-dual","minicobo-dual-high"]:
                     eepp = "/World/roborg/minicobo_suction_dual/minicobo_suction/dual_gripper"
-                    # eepp = "/World/roborg/minicobo_suction_dual/minicobo_suction/dual_gripper/JAKA___MOTO_200mp_v4"
-
-                    # self._end_effector = RigidPrim(prim_path=eepp, name= "minicobo_dual_gripper" + "_end_effector")
-                    # self._end_effector.initialize(self.physics_sim_view)
                     grip_direction = "y"
                     grip_threshold = 0.1
                     grip_translate = 0.17
-                    self.grip_eeori = euler_angles_to_quat(np.array([-np.pi/2,0,0]))
-                elif self._robot_name in ["jaka-minicobo-1a","minicobo-dual-sucker"]:
-                    eepp = "/World/roborg/minicobo_v1_4/tool0"
-                    # eepp = "/World/roborg/minicobo_suction_dual/minicobo_suction/dual_gripper/JAKA___MOTO_200mp_v4"
-
-                    # self._end_effector = RigidPrim(prim_path=eepp, name= "minicobo_dual_gripper" + "_end_effector")
-                    # self._end_effector.initialize(self.physics_sim_view)
+                    rcfg.grip_eeori = euler_angles_to_quat(np.array([-np.pi/2,0,0]))
+                elif rcfg.robot_name in ["jaka-minicobo-1a","minicobo-dual-sucker"]:
+                    # eepp = "/World/roborg/minicobo_v1_4/tool0"
+                    eepp = f"{rcfg.robot_prim_path}/{rcfg.eeframe_name}"
                     grip_direction = "y"
                     grip_threshold = 0.01
                     # grip_translate = -0.018 # 0.002 and -0.019 does not work, but 0.001 to -0.018 do work for jaka-minicobo-1a and minicobo-dual-sucker
                     grip_translate = 0.0
-                    self.grip_eeori = euler_angles_to_quat(np.array([-np.pi/2,0,0]))
+                    rcfg.grip_eeori = euler_angles_to_quat(np.array([-np.pi/2,0,0]))
 
-                elif self._robot_name == "jaka-minicobo-1":
+                elif rcfg.robot_name == "jaka-minicobo-1":
                     eepp = "/World/roborg/minicobo_v1_4/Link6/jaka_camera_endpoint/JAKA___MOTO_200mp_v4/ZPR25CNK10_06_A10_v007"
-                    self._end_effector = RigidPrim(prim_path=eepp, name= "jaka-minicobo-1" + "_end_effector")
-                    self._end_effector.initialize(self.physics_sim_view)
+                    rcfg._end_effector = RigidPrim(prim_path=eepp, name= "jaka-minicobo-1" + "_end_effector")
+                    rcfg._end_effector.initialize(rcfg.physics_sim_view)
                 else:
                     print("Unknown robot name for suction gripper")
-                # jpn = ["left_inner_finger_joint", "right_inner_finger_joint"]
-                # jop = np.array([0.05, 0.05])
-                # jcp = np.array([0, 0])
-                # ad = np.array([0.05, 0.05])
                 art._policy_robot_name = "UR10"
-                self._end_effector_prim_path = eepp
+                rcfg._end_effector_prim_path = eepp
                 sg = SurfaceGripper(
-                    end_effector_prim_path=self._end_effector_prim_path,
-                    #  translate=0.1611,
-                    # translate=0.223, # minicobo-suction works between -0.001 and 0.222 - fails at 0.223 and -0.002
+                    end_effector_prim_path=rcfg._end_effector_prim_path,
                     translate=grip_translate, # minicobo-suction works between -0.001 and 0.222 - fails at 0.223 and -0.002
                     direction=grip_direction,
                     grip_threshold=grip_threshold,  # between 0.01 and 0.5 work for minicobo-suction for the big cube
                 )
-                # self._end_effector = RigidPrim(prim_path=eeppgb, name= "ur10" + "_end_effector")
-                # self._end_effector.initialize(None)
                 sg.initialize(
-                    physics_sim_view=self.physics_sim_view,
+                    physics_sim_view=rcfg.physics_sim_view,
                     articulation_num_dofs=len(art.dof_names)
                 )
-
                 return sg
 
             else:
-                carb.log_error(f"Unknown gripper type: {grippername} for robot:{self._robot_name} - returning None")
+                carb.log_error(f"Unknown gripper type: {grippername} for robot:{rcfg.robot_name} - returning None")
                 return None
 
+    def add_pp_controllers_to_robots(self):
+        for idx in range(self._nrobots):
+            self.add_pp_controller(idx)
+
+    def add_pp_controller(self,ridx=0):
+
+        events_dt = [0.008, 0.005, 0.1,  0.1, 0.005, 0.005, 0.005, 0.1, 0.008, 0.08]
+        rcfg = self.get_robot_config(ridx)
+
+        gripper = rcfg.gripper
+        if gripper is not None:
+            artic = rcfg._articulation
+            if rcfg.pp_controller == "franka":
+            # if self._robot_name in ["fancy_franka", "franka", "rs007n"]:
+                rcfg._gripper_type = "parallel"
+                rcfg._controller = franka_PickPlaceController(
+                    name="pick_place_controller",
+                    gripper=gripper,
+                    robot_articulation=artic,
+                    events_dt=events_dt
+                )
+            elif rcfg.pp_controller in ["ur-rg2", "ur-ss"]:
+            # elif self._robot_name in ["ur10-suction-short"]:
+                rcfg._gripper_type = "suction" if rcfg.pp_controller == "ur10-ss" else "parallel"
+                rcfg._controller = ur10_PickPlaceController(
+                    name="pick_place_controller",
+                    gripper=gripper,
+                    robot_articulation=artic
+                )
+            elif rcfg.pp_controller in ["jaka-ss", "jaka-ds"]:
+            #elif self._robot_name in ["minicobo-suction","minicobo-suction-high","jaka-minicobo-1",
+            #                           "jaka-minicobo-1a","minicobo-dual-sucker","minicobo-suction-dual","minicobo-dual-high"]:
+                rcfg._gripper_type = "suction"
+                rmpconfig = {
+                    "end_effector_frame_name": rcfg.eeframe_name,
+                    "maximum_substep_size": rcfg.max_step_size,
+                    "ignore_robot_state_updates": False,
+                    "urdf_path": rcfg.urdf_path,
+                    "rmpflow_config_path": rcfg.rmp_config_path,
+                    "robot_description_path": rcfg.rdf_path
+                }
+                events_dt = [0.008, 0.005, 0.1,  0.1, 0.005, 0.005, 0.005, 0.1, 0.008, 0.08]
+                rcfg._controller = jaka_PickPlaceController(
+                    name="pick_place_controller",
+                    gripper=gripper,
+                    robot_articulation=artic,
+                    rmpconfig=rmpconfig,
+                    events_dt=events_dt,
+                    end_effector_initial_height=0.1
+                )
+            elif rcfg.pp_controller == "jaka-rg2":
+            # elif self._robot_name in ["jaka-minicobo-0","jaka-minicobo-2","minicobo-rg2-high"]:
+                rcfg._gripper_type = "parallel"
+
+                rmpconfig = {
+                    "end_effector_frame_name": rcfg.eeframe_name,
+                    "maximum_substep_size": rcfg.max_step_size,
+                    "ignore_robot_state_updates": False,
+                    "urdf_path": rcfg.urdf_path,
+                    "rmpflow_config_path": rcfg.rmp_config_path,
+                    "robot_description_path": rcfg.rdf_path
+                }
+                rcfg._controller = jaka_PickPlaceController(
+                    name="pick_place_controller",
+                    gripper=gripper,
+                    robot_articulation=artic,
+                    rmpconfig=rmpconfig,
+                    events_dt=events_dt
+                )
+            else:
+                print(f"add_pp_controllers - unknown controller: {rcfg.pp_controller}")
+                rcfg._controller = None
+
+
+
+
     robcamlist = {}
+
 
     def add_camera_to_robcamlist(self, cam_name, cam_display_name, campath):
         self.robcamlist[cam_name] = {}
@@ -366,28 +454,24 @@ class ScenarioBase:
         self.robcamlist[cam_name]["display_name"] = cam_display_name
         self.robcamlist[cam_name]["usdpath"] = campath
 
-    # def add_camera_to_robot(self,robot_name,robot_id,robot_prim_path):
-    #     campath = None
-    #     if robot_name in ["jaka-minicobo-1a","minicobo-dual-sucker"]:
-    #         camera_root = f"{robot_prim_path}/dummy_tcp"
-    #         campath = add_rob_cam(robot_name, camera_root)
-    #     return campath
+    def add_camera_to_robot(self, ridx=0):
+        rcfg = self.get_robot_config(ridx)
+        if rcfg.camera_root != "":
+            if rcfg.robot_name == "minicobo-dual-sucker":
+                ring_rot = Gf.Vec3f([0,0,-45])
+            else:
+                ring_rot = Gf.Vec3f([0,0,0])
+            mount_trans = Gf.Vec3f([0.011,0.147,-0.011])
+            point_quat = Gf.Quatf(0.80383,Gf.Vec3f(-0.19581,-0.46288,-0.31822))
+
+            camroot = rcfg.camera_root
+            camname = f"{rcfg.robot_id}_cam"
+            _, campath = add_rob_cam(camroot, ring_rot, mount_trans, point_quat, camname)
+            self.add_camera_to_robcamlist(rcfg.robot_id, rcfg.robot_name, campath)
 
     def add_cameras_to_robots(self):
         for idx in range(self._nrobots):
-            rcfg = self.get_robot_config(idx)
-            if rcfg.camera_root != "":
-                if rcfg.robot_name == "minicobo-dual-sucker":
-                    ring_rot = Gf.Vec3f([0,0,-45])
-                else:
-                    ring_rot = Gf.Vec3f([0,0,0])
-                mount_trans = Gf.Vec3f([0.011,0.147,-0.011])
-                point_quat = Gf.Quatf(0.80383,Gf.Vec3f(-0.19581,-0.46288,-0.31822))
-
-                camroot = rcfg.camera_root
-                camname = f"{rcfg.robot_id}_cam"
-                _, campath = add_rob_cam(camroot, ring_rot, mount_trans, point_quat, camname)
-                self.add_camera_to_robcamlist(rcfg.robot_id, rcfg.robot_name, campath)
+            self.add_camera_to_robot(idx)
 
     def check_alarm_status(self, rcfg):
         art = rcfg._articulation
@@ -409,15 +493,16 @@ class ScenarioBase:
             rcfg = self.get_robot_config(idx)
             self.register_articulation(rcfg._articulation, rcfg)
 
-    def toggle_show_joints_close_to_limits(self, ridx):
+    def toggle_show_joints_close_to_limits(self, ridx, notoggle=False):
         rcfg = self.get_robot_config(ridx)
-        rcfg.show_joints_close_to_limits = not rcfg.show_joints_close_to_limits
+        if not notoggle:
+            rcfg.show_joints_close_to_limits = not rcfg.show_joints_close_to_limits
         # print(f"toggle_show_joints_close_to_limits on {rcfg.robot_name} {rcfg.robot_id} - {rcfg.show_joints_close_to_limits}")
         if rcfg.show_joints_close_to_limits:
             self.assign_alarm_skin(ridx)
             self.check_alarm_status(rcfg)
             rcfg.dof_alarm_last = copy.deepcopy(rcfg.dof_alarm)
-            self.realize_joint_alarms(force=True)
+            self.realize_joint_alarms_for_one(ridx, force=True)
         else:
             if rcfg.robmatskin == "default":
                 # print("Reverting to original materials (default)")
@@ -435,37 +520,37 @@ class ScenarioBase:
         else:
             rcfg.alarmskin = "Red_Glass"
 
-    def realize_joint_alarms(self,force=False):
-         #print(f"realize_joint_alarms force:{force}")
+    def realize_joint_alarms_for_all(self,force=False):
         for ridx in range(0,self._nrobots):
-            rcfg = self.get_robot_config(ridx)
-            if rcfg.show_joints_close_to_limits:
-                self.assign_alarm_skin(ridx)
-                self.check_alarm_status(rcfg)
-                for j, jn in enumerate(rcfg.dof_names):
-                    if force or (rcfg.dof_alarm[j] != rcfg.dof_alarm_last[j]):
-                        link_path = rcfg.link_paths[j]
-                        joint_in_alarm = rcfg.dof_alarm[j]
-                        if joint_in_alarm:
-                            # print(f"   changing {link_path} to {rcfg.alarmskin} - inalarm:{joint_in_alarm}")
-                            # print(f"Joint {jn} is close to limit for {rcfg.robot_name} {rcfg.robot_id} link_path:{link_path}")
-                            apply_material_to_prim_and_children(self._stage, self._matman, rcfg.alarmskin, link_path)
-                        else:
-                            # print(f"Joint {jn} is not close to limit for {rcfg.robot_name} {rcfg.robot_id} link_path:{link_path}")
-                            if rcfg.robmatskin == "default":
-                                # print(f"   changing {link_path} to rcfg.orimat - inalarm:{joint_in_alarm}")
-                                apply_matdict_to_prim_and_children(self._stage, rcfg.orimat, link_path)
-                            else:
-                                # print(f"   changing {link_path} to {rcfg.robmatskin} - inalarm:{joint_in_alarm}")
-                                apply_material_to_prim_and_children(self._stage, self._matman, rcfg.robmatskin, link_path)
-                rcfg.dof_alarm_last = copy.deepcopy(rcfg.dof_alarm)
-        # print("realize_joint_alarms done")
+            self.realize_joint_alarms_for_one(ridx)
 
+    def realize_joint_alarms_for_one(self,ridx, force=False):
+         #print(f"realize_joint_alarms force:{force}")
+        rcfg = self.get_robot_config(ridx)
+        if rcfg.show_joints_close_to_limits:
+            self.assign_alarm_skin(ridx)
+            self.check_alarm_status(rcfg)
+            for j, jn in enumerate(rcfg.dof_names):
+                if force or (rcfg.dof_alarm[j] != rcfg.dof_alarm_last[j]):
+                    link_path = rcfg.link_paths[j]
+                    joint_in_alarm = rcfg.dof_alarm[j]
+                    if joint_in_alarm:
+                        # print(f"   changing {link_path} to {rcfg.alarmskin} - inalarm:{joint_in_alarm}")
+                        # print(f"Joint {jn} is close to limit for {rcfg.robot_name} {rcfg.robot_id} link_path:{link_path}")
+                        apply_material_to_prim_and_children(self._stage, self._matman, rcfg.alarmskin, link_path)
+                    else:
+                        # print(f"Joint {jn} is not close to limit for {rcfg.robot_name} {rcfg.robot_id} link_path:{link_path}")
+                        if rcfg.robmatskin == "default":
+                            # print(f"   changing {link_path} to rcfg.orimat - inalarm:{joint_in_alarm}")
+                            apply_matdict_to_prim_and_children(self._stage, rcfg.orimat, link_path)
+                        else:
+                            # print(f"   changing {link_path} to {rcfg.robmatskin} - inalarm:{joint_in_alarm}")
+                            apply_material_to_prim_and_children(self._stage, self._matman, rcfg.robmatskin, link_path)
+            rcfg.dof_alarm_last = copy.deepcopy(rcfg.dof_alarm)
 
     def register_articulation(self, articulation, rcfg=None):
         # this has to happen in post_load_scenario - some initialization must be happening before this
         # probably as a result of articuation being added to the world.scene
-        # self._articulation = articulation
         # TODO: once everthing uses register_robot_articulations we can get rid of the articulation parameters
         if rcfg is None:
             rcfg = self.get_robot_config(0)
@@ -482,14 +567,11 @@ class ScenarioBase:
         rcfg.upper_dof_lim = art.dof_properties["upper"]
         rcfg.njoints = art.num_dof
         rcfg.dof_zero_pos = np.zeros(rcfg.njoints)
-        rcfg.show_joints_close_to_limits = False
+        rcfg.show_joints_close_to_limits = self.show_joint_limits_for_all_robots
 
         pos = art.get_joint_positions()
         props = art.dof_properties
-        # stiffs = props["stiffness"]
-        # print(f"stiffs for {rcfg.robot_name} {rcfg.robot_id} - {stiffs}")
-        # damps = props["damping"]
-        # print(f"damps for {rcfg.robot_name} {rcfg.robot_id} - {damps}")
+
         rcfg.dof_alarm_llim = np.zeros(rcfg.njoints)
         rcfg.dof_alarm_ulim = np.zeros(rcfg.njoints)
         rcfg.orig_dof_pos =  copy.deepcopy(pos)
@@ -505,13 +587,22 @@ class ScenarioBase:
             rcfg.dof_alarm_llim[j] = llim + lower_alarm_gap*(ulim-llim)
             rcfg.dof_alarm_ulim[j] = ulim - upper_alarm_gap*(ulim-llim)
         self.check_alarm_status(rcfg)
+
+        self.toggle_show_joints_close_to_limits(rcfg.listidx, notoggle=True)
         # print("done senut.register_articulation")
 
-    def setup_robot_for_pose_movement(self, gprim, rcfg, pos, rot, ska=[1, 1, 1], order="ZYX"):
+    def setup_robot_for_pose_movement(self, gprim, rcfg, pos, rot, ska=[1, 1, 1], order="ZYX", pre_rot=[0, 0, 0]):
         pos = Gf.Vec3d(list(pos))
         rot = list(rot)
         rotv = rot.copy()
         rotv.reverse()
+
+        # Pre-rotation
+        prequat = euler_angles_to_quat(pre_rot, extrinsic=True)
+        rcfg.pre_rotquat = gprim.AddRotateXYZOp()
+        rvek = Gf.Vec3f(list(np.array(pre_rot)*np.pi/180))
+        rcfg.pre_rotquat.Set(rvek)
+
         rcfg.tranop = gprim.AddTranslateOp()
         rad = np.pi/180
         match order:
@@ -519,15 +610,15 @@ class ScenarioBase:
                 rcfg.xrotop = gprim.AddRotateXOp()
                 rcfg.yrotop = gprim.AddRotateYOp()
                 rcfg.zrotop = gprim.AddRotateZOp()
-                rotvek = np.array(rot)*rad
-                quat = euler_angles_to_quat(rotvek, extrinsic=True)
+                rvek = np.array(rot)*rad
+                quat = euler_angles_to_quat(rvek, extrinsic=True)
 
             case "XYZ":
                 rcfg.zrotop = gprim.AddRotateZOp()
                 rcfg.yrotop = gprim.AddRotateYOp()
                 rcfg.xrotop = gprim.AddRotateXOp()
-                rotvek = np.array(rot)*rad
-                quat = euler_angles_to_quat(rotvek, extrinsic=True)
+                rvek = np.array(rot)*rad
+                quat = euler_angles_to_quat(rvek, extrinsic=True)
         rcfg.tranop.Set(pos)
         rcfg.zrotop.Set(rot[2])
         rcfg.yrotop.Set(rot[1])
@@ -538,7 +629,7 @@ class ScenarioBase:
         rcfg.robot_rotvek = np.array(rotv)*np.pi/180
         rcfg.robot_rotquat = quat
 
-    def load_robot_into_scene(self, ridx=0, pos=[0, 0, 0], rot=[0, 0, 0], order="ZYX"):
+    def load_robot_into_scene(self, ridx=0, pos=[0, 0, 0], rot=[0, 0, 0], order="ZYX", prerot=[0, 0, 0]):
         stage = self._stage
         rcfg = self.get_robot_config(ridx)
 
@@ -552,7 +643,6 @@ class ScenarioBase:
         prim = self._stage.GetPrimAtPath(rcfg.robot_prim_path)
         # UsdPhysics.RigidBodyAPI.Apply(prim)
         # UsdPhysics.CollisionAPI.Apply(prim)
-
 
         adjust_articulationAPI_location_if_needed(stage, rcfg.robot_prim_path)
         rcfg._articulation = Articulation(rcfg.artpath,f"mico-{ridx}")
@@ -568,6 +658,21 @@ class ScenarioBase:
             if rcfg is not None:
                 rcfg._articulation.set_joint_positions(rcfg.dof_zero_pos)
 
+    def get_robot_world_pose(self, robidx):
+        rcfg = self.get_robot_config(robidx)
+        prim = self._stage.GetPrimAtPath(rcfg.robot_prim_path)
+        tc = Usd.TimeCode.Default()
+        xf = UsdGeom.Xformable(prim)
+        world_transform: Gf.Matrix4d = xf.ComputeLocalToWorldTransform(tc)
+        pos = world_transform.ExtractTranslation()
+        rot = world_transform.ExtractRotation().GetQuaternion()
+        posar = np.array([pos[0], pos[1], pos[2]])
+        # rotar = np.array([rot.GetImaginary()[0], rot.GetImaginary()[1], rot.GetImaginary()[2], rot.GetReal()])
+        im = rot.GetImaginary()
+        rotar = np.array([rot.GetReal(), im[0], im[1], im[2]])
+        return posar, rotar
+
+
     def make_rmpflow(self, rob_idx, oblist = []):
         rcfg = self.get_robot_config(rob_idx)
         rmpflow = RmpFlow(
@@ -578,20 +683,27 @@ class ScenarioBase:
             maximum_substep_size = rcfg.max_step_size
         )
         # quat = euler_angles_to_quat(rcfg.robot_rotvek, extrinsic=True)
-        quat = rcfg.robot_rotquat
-        rmpflow.set_robot_base_pose(rcfg.start_robot_pos, quat)
+
+
+        pos_a = np.array(rcfg.start_robot_pos)
+        quat_a = np.array(rcfg.robot_rotquat)
+        pos_b,quat_b = self.get_robot_world_pose(rob_idx)
+        print(f"robidx:{rob_idx}  pos:{pos_a} quat:{quat_a}")
+        print(f"       {rob_idx}  pos:{pos_b} quat:{quat_b}")
+        rmpflow.set_robot_base_pose(pos_b, quat_b)
 
         for ob in oblist:
             rmpflow.add_obstacle(ob)
 
         rmpflow.set_ignore_state_updates(True)
-
         if self._show_collision_bounds:
             rmpflow.visualize_collision_spheres()
-        articulation_rmpflow = ArticulationMotionPolicy(rcfg._articulation,rmpflow)
+
+        rcfg.articulation_rmpflow = ArticulationMotionPolicy(rcfg._articulation,rmpflow)
+        rcfg._kinematics_solver = rmpflow.get_kinematics_solver()
+
+        rcfg._articulation_kinematics_solver = ArticulationKinematicsSolver(rcfg._articulation, rcfg._kinematics_solver, rcfg.eeframe_name)
         rcfg.rmpflow = rmpflow
-        rcfg.articulation_rmpflow = articulation_rmpflow
-        return rmpflow, articulation_rmpflow
 
     def adjust_stiffness_and_damping_for_robots(self):
         for idx in range(self._nrobots):
@@ -724,9 +836,6 @@ class ScenarioBase:
         if not didone:
             carb.log_warn("realize_robot_skin - no robot config found")
 
-    _colprims = None
-    _matman = None
-
     def change_colliders_viz(self, action):
         stage = get_current_stage()
         if self._matman is None:
@@ -820,7 +929,6 @@ class ScenarioBase:
             except:
                 pass
 
-
     def make_rob_camera_views(self):
         if self.robcamviews is not None:
             self.robcamviews.destroy()
@@ -828,16 +936,13 @@ class ScenarioBase:
         wintitle = "Robot Cameras"
         wid = 1280
         heit = 720
-        self.robcamviews = make_cam_view_window(self.robcamlist, wintitle, wid, heit)
+        self.robcamviews = make_rob_cam_view_window(self.robcamlist, wintitle, wid, heit)
         self.rob_wintitle = wintitle
 
     def set_stiffness_and_damping_for_all_joints(self, rcfg):
-        # print(f"set_stiffness_and_damping_for_all_joints - {rcfg.robot_name} - {rcfg.robot_id}")
         if rcfg.stiffness>0:
-            # print(f"    setting stiffness - {rcfg.robot_name} stiffness:{rcfg.stiffness}")
             set_stiffness_for_joints(rcfg.dof_paths, rcfg.stiffness)
         if rcfg.damping>0:
-            # print(f"    setting damping - {rcfg.robot_name} damping:{rcfg.damping}")
             set_damping_for_joints(rcfg.dof_paths, rcfg.damping)
 
     def ensure_orimat(self):
@@ -850,11 +955,7 @@ class ScenarioBase:
         art = rcfg._articulation
         pos = art.get_joint_positions()
         props = art.dof_properties
-        # stiffs = props["stiffness"]
-        # damps = props["damping"]
         for j,jn in enumerate(rcfg.dof_names):
-            # stiff = stiffs[j]
-            # damp = damps[j]
             jpos = degs*pos[j]
             llim = degs*rcfg.lower_dof_lim[j]
             ulim = degs*rcfg.upper_dof_lim[j]
@@ -864,6 +965,20 @@ class ScenarioBase:
             pct = 100*(jpos - llim)/denom
             if pct<10 or 90>pct:
                 clr = "green"
+
+    def show_joint_limits_for_all_robots(self, showthem):
+        self.show_joint_limits_for_all_robots = showthem
+        for ridx,rcfg in enumerate(self._rcfg_list):
+            if rcfg.show_joints_close_to_limits != self.show_joint_limits_for_all_robots:
+                self.toggle_show_joints_close_to_limits(ridx)
+
+    def toggle_show_joint_limits(self, notoggle=False):
+        if not notoggle:
+            self.show_joint_limits_for_all_robots = not self.show_joint_limits_for_all_robots
+        self.uibuilder._joint_alarms = self.show_joint_limits_for_all_robots
+        for ridx,rcfg in enumerate(self._rcfg_list):
+            if rcfg.show_joints_close_to_limits != self.show_joint_limits_for_all_robots:
+                self.toggle_show_joints_close_to_limits(ridx)
 
     def joint_check(self):
         self.ensure_orimat()
@@ -890,19 +1005,46 @@ class ScenarioBase:
                     return
                 self.make_rob_camera_views()
                 # ui.Workspace.show_window(self.rob_wintitle,True)
-            case "Joint Check":
-                self.joint_check()
+            case "Show Joint Limits":
+                self.toggle_show_joint_limits()
 
     def get_scenario_actions(self):
-        return ["Robot Cam Views","Joint Check"]
+        rv =  ["Robot Cam Views","Show Joint Limits"]
+        return rv
 
-    def get_action_button_text(self, action_name,action_args=None):
+    def robot_action(self, action_name, action_args):
+        self.current_robot_action = action_name
+        match action_name:
+            case _:
+             pass
+
+    def get_robot_actions(self):
+        rv =  []
+        return rv
+
+    def get_scenario_action_button_text(self, action_name,action_args=None):
+        match action_name:
+            case "Show Joint Limits":
+                ltext = "is on" if self.show_joint_limits_for_all_robots else "is off"
+                msg = f"Show Joint Limits {ltext}"
+                return msg
+            case _:
+                rv = action_name
+        return rv
+
+    def get_scenario_action_button_tooltip(self, action_name, action_args=None):
+        match action_name:
+            case _:
+                rv = f"Tooltip for {action_name}"
+        return rv
+
+    def get_robot_action_button_text(self, action_name,action_args=None):
         match action_name:
             case _:
                 rv = action_name
         return rv
 
-    def get_action_button_tooltip(self, action_name, action_args=None):
+    def get_robot_action_button_tooltip(self, action_name, action_args=None):
         match action_name:
             case _:
                 rv = f"Tooltip for {action_name}"

@@ -246,7 +246,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
             camera_root = f"{robot_prim_path}/dummy_tcp"
 
             grippername = "dual sucker"
-            prefered_target = "phone_slab"
+            prefered_target = "moto50mp"
             pp_controller = "jaka-ds"
 
 
@@ -514,6 +514,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
     rc.desc = desc
 
     rc.root_usdpath = robot_root_usdpath
+    rc.current_robot_action = "None"
 
     if not skiplula:
         try:

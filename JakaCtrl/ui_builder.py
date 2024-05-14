@@ -60,11 +60,12 @@ class UIBuilder:
     _robot_name = "ur3e"
     _ground_opts = ["none", "default", "groundplane", "groundplane-blue"]
     _ground_opt = "default"
+    _joint_alarms = True
     _modes = ["CollisionSpheres","none"]
     _mode = "none"
     _choices = ["choice 1","choice 2"]
     _choice = "choice 1"
-    _action_list = ["--none--"]
+    _scenario_action_list = ["--none--"]
     _action = "--none--"
     _colprims = None
     _colvis_opts = ["Invisible", "Red", "RedGlass", "Glass"]
@@ -107,6 +108,8 @@ class UIBuilder:
             save_setting("p_mode", self._mode)
             save_setting("p_choice", self._choice)
             save_setting("p_action", self._action)
+            save_setting("p_joint_alarms", self._joint_alarms)
+            print(f"SaveSettings p_joint_alarms:{self._joint_alarms}")
 
         except Exception as e:
             carb.log_error(f"Exception in SaveSettings: {e}")
@@ -116,11 +119,18 @@ class UIBuilder:
         self._robot_name = get_setting("p_robot_name", self._robot_name)
         self._ground_opt = get_setting("p_ground_opt", self._ground_opt)
         self._robskin_opt = get_setting("p_robskin_opt", self._robskin_opt)
+        self._joint_alarms = get_setting("p_joint_alarms", self._joint_alarms)
+        print(f"LoadSettings p_joint_alarms:{self._joint_alarms}")
 
         self._scenario_name = get_setting("p_scenario_name", self._scenario_name)
-        self._action_list = ScenarioBase.get_scenario_actions(self._scenario_name)
+        self._base_scenario_action_list = ScenarioBase.get_scenario_actions(self._scenario_name)
+        self._scenario_action_list = ScenarioBase.get_scenario_actions(self._scenario_name)
+        self._base_robot_action_list = ScenarioBase.get_robot_actions(self._scenario_name)
+        self._robot_action_list = ScenarioBase.get_robot_actions(self._scenario_name)
+
+        # set the default action in the UI
         action = get_setting("p_action", self._action)
-        self._action = action if action in self._action_list else self._action_list[0]
+        self._action = action if action in self._scenario_action_list else self._scenario_action_list[0]
 
         self._mode = get_setting("p_mode", self._mode)
         self._choice = get_setting("p_choice", self._choice)
@@ -275,9 +285,14 @@ class UIBuilder:
         scenario_actions_frame = CollapsableFrame("Scenario Actions", collapsed=False)
 
         with scenario_actions_frame:
-            self._action_vstack = ui.VStack(style=get_style(), spacing=5, height=0)
-            self.load_action_vstack()
+            self._scenario_action_vstack = ui.VStack(style=get_style(), spacing=5, height=0)
+            self.load_scenario_action_vstack()
 
+        robot_actions_frame = CollapsableFrame("Robot Actions", collapsed=False)
+
+        with robot_actions_frame:
+            self._robot_action_vstack = ui.VStack(style=get_style(), spacing=5, height=0)
+            self.load_robot_action_vstack()
 
         rob_appearance_frame = CollapsableFrame("Robot Appearance", collapsed=False)
 
@@ -413,20 +428,43 @@ class UIBuilder:
     ######################################################################################
 
     custbuttdict = {}
-    def load_action_vstack(self):
-        self._action_vstack.clear()
-        with self._action_vstack:
-            self._action_list = self._cur_scenario.get_scenario_actions()
-            for action in self._action_list:
+    def load_scenario_action_vstack(self):
+        self._scenario_action_vstack.clear()
+        with self._scenario_action_vstack:
+            self._scenario_action_list = self._cur_scenario.get_scenario_actions()
+            for action in self._scenario_action_list:
+                btnclr = self.dkred
+                if action in self._base_scenario_action_list:
+                    btnclr = self.dkblue
                 def do_action(action):
-                    return lambda x,y,b,m: self._do_action(action, x,y,b,m)
-                button_text = self._cur_scenario.get_action_button_text( action, None )
-                tool_tip = self._cur_scenario.get_action_button_tooltip( action, None )
+                    return lambda x,y,b,m: self._do_scenario_action(action, x,y,b,m)
+                button_text = self._cur_scenario.get_scenario_action_button_text( action, None )
+                tool_tip = self._cur_scenario.get_scenario_action_button_tooltip( action, None )
                 print(f"load_action_vstack {action} {button_text}")
                 butt = Button(
                     button_text, mouse_pressed_fn=do_action(action),
                     tooltip = tool_tip,
-                    style={'background_color': self.dkred}
+                    style={'background_color': btnclr}
+                )
+                self.custbuttdict[action] = butt
+
+    def load_robot_action_vstack(self):
+        self._robot_action_vstack.clear()
+        with self._robot_action_vstack:
+            self._robot_action_list = self._cur_scenario.get_robot_actions()
+            for action in self._robot_action_list:
+                btnclr = self.dkpurple
+                if action in self._base_robot_action_list:
+                    btnclr = self.dkblue
+                def do_action(action):
+                    return lambda x,y,b,m: self._do_robot_action(action, x,y,b,m)
+                button_text = self._cur_scenario.get_scenario_action_button_text( action, None )
+                tool_tip = self._cur_scenario.get_scenario_action_button_tooltip( action, None )
+                print(f"load_action_vstack {action} {button_text}")
+                butt = Button(
+                    button_text, mouse_pressed_fn=do_action(action),
+                    tooltip = tool_tip,
+                    style={'background_color': btnclr}
                 )
                 self.custbuttdict[action] = butt
 
@@ -715,31 +753,34 @@ class UIBuilder:
             for (robot_idx,j,_) in self.joint_ui_dict:
                 if j>=0:
                     self.refresh_robot_joint_values(robot_idx, j)
-        self._cur_scenario.realize_joint_alarms()
+        self._cur_scenario.realize_joint_alarms_for_all()
 
     def pick_scenario(self, scenario_name):
         if scenario_name == "sinusoid-joint":
-            self._cur_scenario = SinusoidJointScenario()
+            self._cur_scenario = SinusoidJointScenario(self)
         elif scenario_name == "pick-and-place":
-            self._cur_scenario = PickAndPlaceScenario()
+            self._cur_scenario = PickAndPlaceScenario(self)
         elif scenario_name == "pick-and-place-new":
-            self._cur_scenario = PickAndPlaceNewScenario()
+            self._cur_scenario = PickAndPlaceNewScenario(self)
         elif scenario_name == "franka-pick-and-place":
-            self._cur_scenario = FrankaPickAndPlaceScenario()
+            self._cur_scenario = FrankaPickAndPlaceScenario(self)
         elif scenario_name == "rmpflow":
-            self._cur_scenario = RMPflowScenario()
+            self._cur_scenario = RMPflowScenario(self)
         elif scenario_name == "rmpflow-new":
-            self._cur_scenario = RMPflowNewScenario()
+            self._cur_scenario = RMPflowNewScenario(self)
         elif scenario_name == "object-inspection":
             self._cur_scenario = ObjectInspectionScenario()
         elif scenario_name == "cage-rmpflow":
-            self._cur_scenario = CageRmpflowScenario()
+            self._cur_scenario = CageRmpflowScenario(self)
         elif scenario_name == "inverse-kinematics":
-            self._cur_scenario = InvkinScenario()
+            self._cur_scenario = InvkinScenario(self)
         elif scenario_name == "gripper":
-            self._cur_scenario = GripperScenario()
+            self._cur_scenario = GripperScenario(self)
         else:
-            self._cur_scenario = SinusoidJointScenario()
+            self._cur_scenario = SinusoidJointScenario(self)
+        self._cur_scenario.show_joint_limits_for_all_robots(showthem=self._joint_alarms)
+
+        # self._cur_scenario.show_joint_limits_for_all_robots = self._joint_alarms
 
     def _on_init(self):
         # self._articulation = None
@@ -758,14 +799,15 @@ class UIBuilder:
 
         self._cur_scenario.realize_robot_skin(self._robskin_opt)
 
-        self._action_list = self._cur_scenario.get_scenario_actions()
-        if len(self._action_list) > 0:
-            self._action = self._action_list[0]
+        self._scenario_action_list = self._cur_scenario.get_scenario_actions()
+        if len(self._scenario_action_list) > 0:
+            self._action = self._scenario_action_list[0]
         else:
             self._action = ""
         self._actionsel_btn.text = self._action
         self._last_created_robot_name = self._robot_name
-        self.load_action_vstack()
+        self.load_scenario_action_vstack()
+        self.load_robot_action_vstack()
 
     def get_next_val_safe(self, lst, val, inc=1):
         try:
@@ -779,15 +821,29 @@ class UIBuilder:
 
     binc = [-1, 1]
 
-    def _do_action(self, action, x,y,b,m):
+    def _do_scenario_action(self, action, x,y,b,m):
         argdict = {"m":m, "b":b, "x":x, "y":y}
         self._cur_scenario.scenario_action(action, argdict)
         butt = self.custbuttdict.get(action)
         if butt is not None:
-            butt.text = self._cur_scenario.get_action_button_text( action, argdict )
+            butt.text = self._cur_scenario.get_scenario_action_button_text( action, argdict )
+
+    def _do_robot_action(self, action, x,y,b,m):
+        argdict = {"m":m, "b":b, "x":x, "y":y}
+        self._cur_scenario.robot_action(action, argdict)
+        self._refresh_robot_action_button_texts()
+        # butt = self.custbuttdict.get(action)
+        # if butt is not None:
+        #     butt.text = self._cur_scenario.get_robot_action_button_text( action, argdict )
+
+    def _refresh_robot_action_button_texts(self):
+        for action in self._robot_action_list:
+            butt = self.custbuttdict.get(action)
+            if butt is not None:
+                butt.text = self._cur_scenario.get_robot_action_button_text( action, None )
 
     def _change_action(self, x, y, b, m):
-        self._action = self.get_next_val_safe(self._action_list, self._action, self.binc[b])
+        self._action = self.get_next_val_safe(self._scenario_action_list, self._action, self.binc[b])
         self._actionsel_btn.text = self._action
 
     def _change_choice(self):

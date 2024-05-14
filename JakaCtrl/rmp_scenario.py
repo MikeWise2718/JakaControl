@@ -43,13 +43,12 @@ class RMPflowScenario(ScenarioBase):
     _colorScheme = ""
     _enable_obstacle = False
 
-    def __init__(self):
+    def __init__(self, uibuilder=None):
         super().__init__()
         self._scenario_name = "rmpflow"
         self._scenario_desc = ScenarioBase.get_scenario_desc(self._scenario_name)
         self._nrobots = 1
-
-        pass
+        self.uibuilder = uibuilder
 
     def load_scenario(self, robot_name, ground_opt):
         # Here we do object loading and simple initialization
