@@ -21,7 +21,7 @@ from .senut import apply_material_to_prim_and_children, GetXformOps, GetXformOps
 from .senut import add_rob_cam
 
 from .scenario_base import ScenarioBase
-from .senut import make_cam_view_window
+from .senut import make_rob_cam_view_window
 
 
 from .motomod import MotoMan
@@ -212,7 +212,7 @@ class CageRmpflowScenario(ScenarioBase):
                     moto_pos = np.array([cp[0],cp[1],cp[2]+0.013])
                     current_joint_positions = rcfg._articulation.get_joint_positions()
                     args = dict(
-                        picking_position=moto_pos ,
+                        picking_position=moto_pos,
                         placing_position=rcfg.targpos,
                         current_joint_positions=current_joint_positions,
                         end_effector_offset=eeoff,
@@ -220,6 +220,7 @@ class CageRmpflowScenario(ScenarioBase):
                     )
                     actions = rcfg._controller.forward(**args)
                     rcfg._articulation.apply_action(actions)
+                    # for debugging only:
                     ee_pos, ee_rot = rcfg._articulation_kinematics_solver.compute_end_effector_pose()
                     elap = self.global_time - self.lasttime
                     if elap>1:
@@ -233,7 +234,6 @@ class CageRmpflowScenario(ScenarioBase):
                     action.joint_efforts = None
                     rcfg._articulation.apply_action(action)
                     pass
-
 
     def update_scenario(self, step: float):
         if not self._running_scenario:
@@ -275,7 +275,7 @@ class CageRmpflowScenario(ScenarioBase):
         wintitle = "Cage Cameras"
         wid = 1280
         heit = 720
-        self.cagecamviews = make_cam_view_window(self.cagecamlist, wintitle, wid, heit)
+        self.cagecamviews = make_rob_cam_view_window(self.cagecamlist, wintitle, wid, heit)
         self.cage_wintitle = wintitle
 
 
@@ -403,9 +403,6 @@ class CageRmpflowScenario(ScenarioBase):
         rcfg.targpos = targpos
         rcfg.targori = targori
 
-
-
-
     def get_robot_action_button_text(self, action_name, action_args=None):
         if action_name in self.base_robot_actions:
             rv = super().get_robot_action_button_text(action_name, action_args)
@@ -428,6 +425,14 @@ class CageRmpflowScenario(ScenarioBase):
                 rcfg = self.get_robot_config(1)
                 word = actwrd if rcfg.current_robot_action == "PickAndPlace" else ""
                 rv = f"PickAndPlace 1  {word}"
+            case "MoveToZero 0":
+                rcfg = self.get_robot_config(0)
+                word = actwrd if rcfg.current_robot_action == "MoveToZero" else ""
+                rv = f"MoveToZero 0 {word}"
+            case "MoveToZero 1":
+                rcfg = self.get_robot_config(1)
+                word = actwrd if rcfg.current_robot_action == "MoveToZero" else ""
+                rv = f"MoveToZero 1 {word}"
             case _:
                 rv = f"{action_name}"
         return rv

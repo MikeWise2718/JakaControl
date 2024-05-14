@@ -458,9 +458,9 @@ def interp(x, x1, x2, y1, y2):
         return y1
     return y1 + (x-x1)*(y2-y1)/(x2-x1)
 
-def make_cam_view_window(camlst, wintitle="Cameras", wid=1280, heit=720):
+def make_rob_cam_view_window(robcamlst, wintitle="Robot Cameras", wid=1280, heit=720):
     # https://docs.omniverse.nvidia.com/kit/docs/omni.kit.viewport.docs/latest/overview.html
-    nrobcam = len(camlst)
+    nrobcam = len(robcamlst)
     camviews = omni.ui.Window(wintitle, width=wid, height=heit+20) # Add 20 for the title-bar
 
     with camviews.frame:
@@ -469,8 +469,8 @@ def make_cam_view_window(camlst, wintitle="Cameras", wid=1280, heit=720):
         else:
             with omni.ui.VStack():
                 vh = heit / nrobcam
-                for camname in camlst:
-                    cam = camlst[camname]
+                for camname in robcamlst:
+                    cam = robcamlst[camname]
                     viewport_widget = ViewportWidget(resolution = (wid, vh))
 
                     # Control of the ViewportTexture happens through the object held in the viewport_api property

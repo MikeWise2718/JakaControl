@@ -38,7 +38,7 @@ from .senut import apply_convex_decomposition_to_mesh_and_children
 from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulationAPI_location_if_needed
 from .senut import add_sphere_light_to_stage, add_dome_light_to_stage
 from .senut import get_link_paths
-from .senut import make_cam_view_window
+from .senut import make_rob_cam_view_window
 
 from .senut import apply_convex_decomposition_to_mesh_and_children
 from .senut import apply_collisionapis_to_mesh_and_children
@@ -416,7 +416,8 @@ class ScenarioBase:
                     gripper=gripper,
                     robot_articulation=artic,
                     rmpconfig=rmpconfig,
-                    events_dt=events_dt
+                    events_dt=events_dt,
+                    end_effector_initial_height=0.1
                 )
             elif rcfg.pp_controller == "jaka-rg2":
             # elif self._robot_name in ["jaka-minicobo-0","jaka-minicobo-2","minicobo-rg2-high"]:
@@ -590,11 +591,18 @@ class ScenarioBase:
         self.toggle_show_joints_close_to_limits(rcfg.listidx, notoggle=True)
         # print("done senut.register_articulation")
 
-    def setup_robot_for_pose_movement(self, gprim, rcfg, pos, rot, ska=[1, 1, 1], order="ZYX"):
+    def setup_robot_for_pose_movement(self, gprim, rcfg, pos, rot, ska=[1, 1, 1], order="ZYX", pre_rot=[0, 0, 0]):
         pos = Gf.Vec3d(list(pos))
         rot = list(rot)
         rotv = rot.copy()
         rotv.reverse()
+
+        # Pre-rotation
+        prequat = euler_angles_to_quat(pre_rot, extrinsic=True)
+        rcfg.pre_rotquat = gprim.AddRotateXYZOp()
+        rvek = Gf.Vec3f(list(np.array(pre_rot)*np.pi/180))
+        rcfg.pre_rotquat.Set(rvek)
+
         rcfg.tranop = gprim.AddTranslateOp()
         rad = np.pi/180
         match order:
@@ -602,15 +610,15 @@ class ScenarioBase:
                 rcfg.xrotop = gprim.AddRotateXOp()
                 rcfg.yrotop = gprim.AddRotateYOp()
                 rcfg.zrotop = gprim.AddRotateZOp()
-                rotvek = np.array(rot)*rad
-                quat = euler_angles_to_quat(rotvek, extrinsic=True)
+                rvek = np.array(rot)*rad
+                quat = euler_angles_to_quat(rvek, extrinsic=True)
 
             case "XYZ":
                 rcfg.zrotop = gprim.AddRotateZOp()
                 rcfg.yrotop = gprim.AddRotateYOp()
                 rcfg.xrotop = gprim.AddRotateXOp()
-                rotvek = np.array(rot)*rad
-                quat = euler_angles_to_quat(rotvek, extrinsic=True)
+                rvek = np.array(rot)*rad
+                quat = euler_angles_to_quat(rvek, extrinsic=True)
         rcfg.tranop.Set(pos)
         rcfg.zrotop.Set(rot[2])
         rcfg.yrotop.Set(rot[1])
@@ -621,7 +629,7 @@ class ScenarioBase:
         rcfg.robot_rotvek = np.array(rotv)*np.pi/180
         rcfg.robot_rotquat = quat
 
-    def load_robot_into_scene(self, ridx=0, pos=[0, 0, 0], rot=[0, 0, 0], order="ZYX"):
+    def load_robot_into_scene(self, ridx=0, pos=[0, 0, 0], rot=[0, 0, 0], order="ZYX", prerot=[0, 0, 0]):
         stage = self._stage
         rcfg = self.get_robot_config(ridx)
 
@@ -660,7 +668,8 @@ class ScenarioBase:
         rot = world_transform.ExtractRotation().GetQuaternion()
         posar = np.array([pos[0], pos[1], pos[2]])
         # rotar = np.array([rot.GetImaginary()[0], rot.GetImaginary()[1], rot.GetImaginary()[2], rot.GetReal()])
-        rotar = np.array([rot.GetReal(), rot.GetImaginary()[2], rot.GetImaginary()[1], rot.GetImaginary()[0]])
+        im = rot.GetImaginary()
+        rotar = np.array([rot.GetReal(), im[0], im[1], im[2]])
         return posar, rotar
 
 
@@ -676,14 +685,12 @@ class ScenarioBase:
         # quat = euler_angles_to_quat(rcfg.robot_rotvek, extrinsic=True)
 
 
-        pos = np.array(rcfg.start_robot_pos)
-        quat = np.array(rcfg.robot_rotquat)
-        pos1,quat1 = self.get_robot_world_pose(rob_idx)
-        # print("pos:",pos)
-        # print("quat:",quat)
-        # print("pos1:",pos1)
-        # print("quat1:",quat1)
-        rmpflow.set_robot_base_pose(pos1, quat1)
+        pos_a = np.array(rcfg.start_robot_pos)
+        quat_a = np.array(rcfg.robot_rotquat)
+        pos_b,quat_b = self.get_robot_world_pose(rob_idx)
+        print(f"robidx:{rob_idx}  pos:{pos_a} quat:{quat_a}")
+        print(f"       {rob_idx}  pos:{pos_b} quat:{quat_b}")
+        rmpflow.set_robot_base_pose(pos_b, quat_b)
 
         for ob in oblist:
             rmpflow.add_obstacle(ob)
@@ -929,7 +936,7 @@ class ScenarioBase:
         wintitle = "Robot Cameras"
         wid = 1280
         heit = 720
-        self.robcamviews = make_cam_view_window(self.robcamlist, wintitle, wid, heit)
+        self.robcamviews = make_rob_cam_view_window(self.robcamlist, wintitle, wid, heit)
         self.rob_wintitle = wintitle
 
     def set_stiffness_and_damping_for_all_joints(self, rcfg):
