@@ -108,6 +108,7 @@ class MotoTray:
         self.h = 0.16156
         usdpath = f"/World/moto_tray_{idx}"
         self.usdpath = usdpath
+        self.phone_list = []
         self.construct()
 
     colormap = {
@@ -139,9 +140,27 @@ class MotoTray:
         "0": "skip"
     }
 
+    def GetPose(self):
+        tc = Usd.TimeCode.Default()
+        xf = UsdGeom.Xformable(self.prim)
+        world_transform: Gf.Matrix4d = xf.ComputeLocalToWorldTransform(tc)
+        pos = world_transform.ExtractTranslation()
+        rot = world_transform.ExtractRotation().GetQuaternion()
+        return pos, rot
+
+    def get_world_pose(self):
+        rv = self.GetPose()
+        return rv
+
     def get_first_empty_slot(self):
         for idx,c in enumerate(self.fillstr):
             if c=="0":
+                return idx
+        return -1
+
+    def get_first_full_slot(self):
+        for idx,c in enumerate(self.fillstr):
+            if c!="0":
                 return idx
         return -1
 
@@ -149,6 +168,30 @@ class MotoTray:
         iw = idx % 3
         ih = idx // 3
         return iw,ih
+
+    def get_first_phone(self):
+        for m in self.phone_list:
+            if m is not None:
+                return m
+        return None
+
+    def get_first_empty_slot_pose(self):
+        idx = self.get_first_empty_slot()
+        if idx<0:
+            return False, (0,0,0), (0,0,0)
+        iw,ih = self.get_iw_ih(idx)
+        rv = self.get_trayslot_pos(iw,ih)
+        ori = self.rot
+        return True, rv, ori
+
+    def get_first_full_slot_pose(self):
+        idx = self.get_first_full_slot()
+        if idx<0:
+            return False, (0,0,0), (0,0,0)
+        iw,ih = self.get_iw_ih(idx)
+        rv = self.get_trayslot_pos(iw,ih)
+        ori = self.rot
+        return True, rv, ori
 
     def construct(self):
         mm: MotoMan = self._mm
@@ -167,6 +210,8 @@ class MotoTray:
         meth = UsdPhysics.Tokens.convexHull
         apply_collisionapis_to_mesh_and_children(mm._stage, usdpath, include=["Body2"],method=meth )
         prim = mm._stage.GetPrimAtPath(usdpath)
+        self.prim = prim
+
         UsdPhysics.RigidBodyAPI.Apply(prim)
         mapi = UsdPhysics.MassAPI.Apply(prim)
         mapi.CreateMassAttr(0.2)
@@ -185,7 +230,10 @@ class MotoTray:
             clr = self.colormap.get(c, "default_clr")
 
             if clr!="skip":
-                mm.AddMoto50mp(f"{self.name}_moto_t{self.idx}",pos=[xp,yp,zp],rot=[-a90,0,a90+zrot],ska=[1,1,1],clr=clr)
+                moto = mm.AddMoto50mp(f"{self.name}_moto_t{self.idx}",pos=[xp,yp,zp],rot=[-a90,0,a90+zrot],ska=[1,1,1],clr=clr)
+                self.phone_list.append(moto)
+            else:
+                self.phone_list.append(None)
 
     def get_trayslot_pos_delt(self, iw,ih):
         # iw range is 0,1,2 and ih range is  0,1
@@ -214,6 +262,7 @@ class MotoTray:
         s = np.sin(self.rot[2])
         c = np.cos(self.rot[2])
         deltrot = np.array([c*delt[0]-s*delt[1], s*delt[0]+c*delt[1], delt[2]])
+        self.pos, rot = self.get_world_pose()
         rv = self.pos + deltrot
         return rv
 

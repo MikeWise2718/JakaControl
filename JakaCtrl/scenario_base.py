@@ -11,9 +11,11 @@ from pxr import Usd, UsdGeom, UsdShade, Gf, UsdPhysics
 from typing import List
 
 from omni.isaac.core.articulations import Articulation
+from omni.isaac.motion_generation import ArticulationMotionPolicy
+from omni.isaac.motion_generation import ArticulationKinematicsSolver
 
 from omni.isaac.core.utils.stage import get_current_stage
-from omni.isaac.motion_generation import RmpFlow, ArticulationMotionPolicy
+from omni.isaac.motion_generation import RmpFlow
 from omni.isaac.core.utils.rotations import euler_angles_to_quat
 
 from omni.isaac.core.world import World
@@ -691,6 +693,9 @@ class ScenarioBase:
             rmpflow.visualize_collision_spheres()
 
         rcfg.articulation_rmpflow = ArticulationMotionPolicy(rcfg._articulation,rmpflow)
+        rcfg._kinematics_solver = rmpflow.get_kinematics_solver()
+
+        rcfg._articulation_kinematics_solver = ArticulationKinematicsSolver(rcfg._articulation, rcfg._kinematics_solver, rcfg.eeframe_name)
         rcfg.rmpflow = rmpflow
 
     def adjust_stiffness_and_damping_for_robots(self):
@@ -824,7 +829,6 @@ class ScenarioBase:
         if not didone:
             carb.log_warn("realize_robot_skin - no robot config found")
 
-
     def change_colliders_viz(self, action):
         stage = get_current_stage()
         if self._matman is None:
@@ -917,7 +921,6 @@ class ScenarioBase:
                     gprim.MakeInvisible()
             except:
                 pass
-
 
     def make_rob_camera_views(self):
         if self.robcamviews is not None:

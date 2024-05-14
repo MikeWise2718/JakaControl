@@ -1,5 +1,6 @@
 import numpy as np
 from pxr import Usd, UsdGeom, Gf, UsdPhysics, PhysxSchema
+from types import SimpleNamespace
 
 import omni
 import carb
@@ -83,8 +84,8 @@ class CageRmpflowScenario(ScenarioBase):
         # (pos1, rot1) = ([-0.08, 0, 0.77], [0, -150, 0])
         # self.load_robot_into_scene(1, pos1, rot1, order=order)
 
-        order = "ZYX"
-        (pos0, rot0) = ([0.14, 0, 0.77], [0, 150, 0])
+        order = "XYZ"
+        (pos0, rot0) = ([0.14, 0, 0.77], [0, -150, 180])
         self.load_robot_into_scene(0, pos0, rot0, order=order)
 
 
@@ -116,14 +117,14 @@ class CageRmpflowScenario(ScenarioBase):
         a90 = np.pi/2
 
         # moto_50mp
-        mm.AddMoto50mp("moto1",rot=[-a90,0,a90],pos=[0,0,0.1])
-        mm.AddMoto50mp("moto2",rot=[-a90,0,a90],pos=[0.1,0.1,0.1])
+        # mm.AddMoto50mp("moto1",rot=[-a90,0,a90],pos=[0,0,0.1])
+        # mm.AddMoto50mp("moto2",rot=[-a90,0,a90],pos=[0.1,0.1,0.1])
 
         # moto_tray
         zang = 5*np.pi/4
         zang = 0
-        xoff = 0.35
-        yoff = 0.25
+        xoff = 0.20
+        yoff = 0.15
         self.mototray1 = mm.AddMotoTray("tray1", "rgbmyc", rot=[a90,0,zang],pos=[+xoff,+yoff,0.0])
         self.mototray2 = mm.AddMotoTray("tray2", "000000", rot=[a90,0,zang],pos=[-xoff,+yoff,0.0])
         self.mototray3 = mm.AddMotoTray("tray3", "rgbmyc", rot=[a90,0,zang],pos=[-xoff,-yoff,0.0])
@@ -162,7 +163,7 @@ class CageRmpflowScenario(ScenarioBase):
         newpos = Gf.Vec3d([xp+radius*np.cos(self.gang), yp+radius*np.sin(self.gang), zp])
         top.Set(newpos)
 
-    def physics_step(self, step_size):
+    def physics_step_old(self, step_size):
         self.global_time += step_size
 
         if self.rmpactive:
@@ -180,6 +181,59 @@ class CageRmpflowScenario(ScenarioBase):
             self.set_end_effector_target_for_robot(0, target0_position, target0_orientation)
             self.set_end_effector_target_for_robot(1, target1_position, target1_orientation)
             self.forward_rmpflow_step_for_robots(step_size)
+
+    lasttime = 0
+    def physics_step(self, step_size):
+        self.global_time += step_size
+
+        if self.rotate_target0:
+            self.rotate_target(self._target0, self.targ0top, [+0.3, 0.00, 0.02], 0.15, step_size)
+        if self.rotate_target1:
+            self.rotate_target(self._target1, self.targ1top, [-0.3, 0.00, 0.02], 0.15, step_size)
+
+        for i in range(self._nrobots):
+            rcfg = self.get_robot_config(i)
+
+            if self.rmpactive:
+                if rcfg.current_robot_action == "FollowTarget":
+                    rcfg.rmpflow.update_world()
+
+                    if i==0:
+                        targ_pos, targ_ori = self._target0.get_world_pose()
+                    elif i==1:
+                        targ_pos, targ_ori = self._target1.get_world_pose()
+
+                    self.set_end_effector_target_for_robot(i, targ_pos, targ_ori)
+                    action = rcfg.articulation_rmpflow.get_next_articulation_action(step_size)
+                    rcfg._articulation.apply_action(action)
+                elif rcfg.current_robot_action == "PickAndPlace":
+                    eeoff = np.array([0,0,-0.01])
+                    cp, _ = rcfg.pickobj.get_world_pose()
+                    moto_pos = np.array([cp[0],cp[1],cp[2]+0.013])
+                    current_joint_positions = rcfg._articulation.get_joint_positions()
+                    args = dict(
+                        picking_position=moto_pos ,
+                        placing_position=rcfg.targpos,
+                        current_joint_positions=current_joint_positions,
+                        end_effector_offset=eeoff,
+                        end_effector_orientation=rcfg.grip_eeori
+                    )
+                    actions = rcfg._controller.forward(**args)
+                    rcfg._articulation.apply_action(actions)
+                    ee_pos, ee_rot = rcfg._articulation_kinematics_solver.compute_end_effector_pose()
+                    elap = self.global_time - self.lasttime
+                    if elap>1:
+                        print(f"ee_pos:{ee_pos}  cp:{cp}  targpos:{rcfg.targpos}  elap:{elap}")
+                        self.lasttime = self.global_time
+                elif rcfg.current_robot_action == "MoveToZero":
+                    action = SimpleNamespace()
+                    action.joint_indices = [0,1,2,3,4,5]
+                    action.joint_positions = rcfg.dof_zero_pos
+                    action.joint_velocities = None
+                    action.joint_efforts = None
+                    rcfg._articulation.apply_action(action)
+                    pass
+
 
     def update_scenario(self, step: float):
         if not self._running_scenario:
@@ -213,7 +267,6 @@ class CageRmpflowScenario(ScenarioBase):
             self.add_1_ccam(cagepath, "cage_cam_3", "Cage Cam 1", cc_rr, Gf.Vec3f([-cx,-cy,cz]), cc_pt)
             # _, campath = add_rob_cam(cc_path, cc_ring_rot, cc_mount, cc_pt_quat)
             # self.add_camera_to_cagecamlist(cc_name, cc_display_name, campath)
-
 
     def make_cage_cam_views(self):
         if self.cagecamviews is not None:
@@ -293,11 +346,88 @@ class CageRmpflowScenario(ScenarioBase):
                                       "ChangeSpeed","CageCamViews"]
         return combo
 
+    def robot_action(self, action_name, action_args):
+        if action_name in self.base_scenario_actions:
+            rv = super().robot_action(action_name, action_args)
+            return rv
+        match action_name:
+            case "FollowTarget 0":
+                rcfg = self.get_robot_config(0)
+                rcfg.current_robot_action = "FollowTarget"
+            case "FollowTarget 1":
+                rcfg = self.get_robot_config(1)
+                rcfg.current_robot_action = "FollowTarget"
+            case "PickAndPlace 0":
+                rcfg = self.get_robot_config(0)
+                rcfg.current_robot_action = "PickAndPlace"
+                self.setup_pick_and_place(0)
+            case "PickAndPlace 1":
+                rcfg = self.get_robot_config(1)
+                rcfg.current_robot_action = "PickAndPlace"
+                self.setup_pick_and_place(1)
+            case "MoveToZero 0":
+                rcfg = self.get_robot_config(0)
+                rcfg.current_robot_action = "MoveToZero"
+                self.setup_pick_and_place(0)
+            case "MoveToZero 1":
+                rcfg = self.get_robot_config(1)
+                rcfg.current_robot_action = "MoveToZero"
+                self.setup_pick_and_place(1)
+            case _:
+                print(f"Action {action_name} not implemented")
+                return False
+
+    def setup_pick_and_place(self, robot_id):
+        if robot_id == 0:
+            sourcetray = self.mototray1
+            targettray = self.mototray2
+        else:
+            sourcetray = self.mototray3
+            targettray = self.mototray4
+        rcfg = self.get_robot_config(robot_id)
+        moto = sourcetray.get_first_phone()
+        ok, pickpos, pickori = sourcetray.get_first_full_slot_pose()
+        if not ok:
+            carb.log_error("No object in source tray")
+            return
+        ok, targpos, targori = targettray.get_first_empty_slot_pose()
+        if not ok:
+            carb.log_error("No space in target tray")
+            return
+        print(f"setuppap - r:{robot_id} pickpos:{pickpos} targpos:{targpos}")
+
+        self.activate_ee_collision( robot_id, False)
+        rcfg.pickobj = moto
+        rcfg.pickpos = pickpos
+        rcfg.pickori = pickori
+        rcfg.targpos = targpos
+        rcfg.targori = targori
+
+
+
+
     def get_robot_action_button_text(self, action_name, action_args=None):
         if action_name in self.base_robot_actions:
             rv = super().get_robot_action_button_text(action_name, action_args)
             return rv
+        actwrd = "- active"
         match action_name:
+            case "FollowTarget 0":
+                rcfg = self.get_robot_config(0)
+                word = actwrd if rcfg.current_robot_action == "FollowTarget" else ""
+                rv = f"Follow Target 0 {word}"
+            case "FollowTarget 1":
+                rcfg = self.get_robot_config(1)
+                word = actwrd if rcfg.current_robot_action == "FollowTarget" else ""
+                rv = f"Follow Target 1 {word}"
+            case "PickAndPlace 0":
+                rcfg = self.get_robot_config(0)
+                word = actwrd if rcfg.current_robot_action == "PickAndPlace" else ""
+                rv = f"PickAndPlace 0 {word}"
+            case "PickAndPlace 1":
+                rcfg = self.get_robot_config(1)
+                word = actwrd if rcfg.current_robot_action == "PickAndPlace" else ""
+                rv = f"PickAndPlace 1  {word}"
             case _:
                 rv = f"{action_name}"
         return rv
@@ -311,9 +441,13 @@ class CageRmpflowScenario(ScenarioBase):
                 rv = f"No tooltip for action {action_name}"
         return rv
 
-
-
     def get_robot_actions(self):
         self.base_robot_actions = super().get_robot_actions()
-        combo  = self.base_robot_actions + ["FollowTarget","PickAndPlace"]
+        baselist = ["FollowTarget", "PickAndPlace", "MoveToZero"]
+        newlist = []
+        for act in baselist:
+            for i in range(self._nrobots):
+                actname = f"{act} {i}"
+                newlist.append(actname)
+        combo  = self.base_robot_actions + newlist
         return combo

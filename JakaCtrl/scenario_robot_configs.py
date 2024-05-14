@@ -514,6 +514,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
     rc.desc = desc
 
     rc.root_usdpath = robot_root_usdpath
+    rc.current_robot_action = "None"
 
     if not skiplula:
         try:
