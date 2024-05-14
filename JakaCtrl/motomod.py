@@ -97,6 +97,7 @@ class MotoTray:
             fillstr += "0"
         fillstr = fillstr[:6]
 
+        self.inifillstr = fillstr
         self.fillstr = fillstr
         self.inipos = np.array(pos)
         self.rot = np.array(rot)
@@ -108,6 +109,46 @@ class MotoTray:
         usdpath = f"/World/moto_tray_{idx}"
         self.usdpath = usdpath
         self.construct()
+
+    colormap = {
+        "b": "#2020ff",
+        "r": "#ff2040",
+        "g": "#20ff20",
+        "y": "#ffff20",
+        "o": "#ff8010",
+        "p": "#ff20ff",
+        "c": "#20ffff",
+        "m": "#201020",
+        "w": "#ffffff",
+        "k": "#000000",
+        "1": "default_clr",
+        "0": "skip"
+    }
+    colormap_bright = {
+        "b": "#0000ff",
+        "r": "#ff0000",
+        "g": "#00ff00",
+        "y": "#ffff00",
+        "o": "#ff8000",
+        "p": "#ff00ff",
+        "c": "#00ffff",
+        "m": "#800080",
+        "w": "#ffffff",
+        "k": "#000000",
+        "1": "default_clr",
+        "0": "skip"
+    }
+
+    def get_first_empty_slot(self):
+        for idx,c in enumerate(self.fillstr):
+            if c=="0":
+                return idx
+        return -1
+
+    def get_iw_ih(self, idx):
+        iw = idx % 3
+        ih = idx // 3
+        return iw,ih
 
     def construct(self):
         mm: MotoMan = self._mm
@@ -134,43 +175,17 @@ class MotoTray:
         a90 = np.pi/2
         zrot = self.rot[2]
 
-        iw = 0 # 0,1,2  - corresponds to width of mp50 which is 0.07382 meters
-        ih = 0 # 0,1    - corresponds to height of mp50 which is 0.16156 meters
+        # iw = 0 - ranges over 0,1,2  - corresponds to width of mp50 which is 0.07382 meters
+        # ih = 0 - ranges over 0,1    - corresponds to height of mp50 which is 0.16156 meters
 
-        for c in self.fillstr:
+        for idx,c in enumerate(self.fillstr):
+            iw,ih = self.get_iw_ih(idx)
             (xp,yp,zp) = self.get_trayslot_pos(iw,ih)
-            clr = "default_clr"
-            match c:
-                case "1": clr = "default_clr"
-                # case "b": clr = "#0000ff"
-                # case "r": clr = "#ff0000"
-                # case "g": clr = "#00ff00"
-                # case "y": clr = "#ffff00"
-                # case "o": clr = "#ff8000"
-                # case "p": clr = "#ff00ff"
-                # case "w": clr = "#ffffff"
-                # case "c": clr = "#00ffff"
-                # case "m": clr = "#800080"
-                # case "k": clr = "#000000"
-                case "b": clr = "#2020ff"
-                case "r": clr = "#ff2040"
-                case "g": clr = "#20ff20"
-                case "y": clr = "#ffff20"
-                case "o": clr = "#ff8010"
-                case "p": clr = "#ff20ff"
-                case "c": clr = "#20ffff"
-                case "m": clr = "#201020"
-                case "w": clr = "#ffffff"
-                case "k": clr = "#000000"
-                case "0": clr = "skip"
 
+            clr = self.colormap.get(c, "default_clr")
 
             if clr!="skip":
                 mm.AddMoto50mp(f"{self.name}_moto_t{self.idx}",pos=[xp,yp,zp],rot=[-a90,0,a90+zrot],ska=[1,1,1],clr=clr)
-            iw += 1
-            if iw>2:
-                iw  = 0
-                ih += 1
 
     def get_trayslot_pos_delt(self, iw,ih):
         # iw range is 0,1,2 and ih range is  0,1
@@ -187,6 +202,11 @@ class MotoTray:
         xp = iih*self.h + iih*0.01
         zp = 0.02 + self.pos[2]
         rv = np.array([xp,yp,zp])
+        return rv
+
+    def get_trayslot_pos_idx(self, idx):
+        iw,ih = MotoTray.get_iw_ih(idx)
+        rv = self.get_trayslot_pos(iw,ih)
         return rv
 
     def get_trayslot_pos(self, iw,ih):

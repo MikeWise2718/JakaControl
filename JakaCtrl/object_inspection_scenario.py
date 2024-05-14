@@ -159,9 +159,9 @@ class ObjectInspectionScenario(ScenarioBase):
                 print(f"Action {action_name} not implemented")
                 return False
 
-    def get_action_button_text(self, action_name, action_args=None):
+    def get_scenario_action_button_text(self, action_name, action_args=None):
         if action_name in self.base_scenario_actions:
-            rv = super().get_action_button_text(action_name, action_args)
+            rv = super().get_scenario_action_button_text(action_name, action_args)
             return rv
         match action_name:
             case "RotateTarget0":
@@ -174,9 +174,9 @@ class ObjectInspectionScenario(ScenarioBase):
                 rv = f"{action_name} TBD"
         return rv
 
-    def get_action_button_tooltip(self, action_name, action_args=None):
+    def get_scenario_action_button_tooltip(self, action_name, action_args=None):
         if action_name in self.base_scenario_actions:
-            rv = super().get_action_button_tooltip(action_name, action_args)
+            rv = super().get_scenario_action_button_tooltip(action_name, action_args)
             return rv
         match action_name:
             case "ChangeSpeed":

@@ -437,9 +437,9 @@ class UIBuilder:
                 if action in self._base_scenario_action_list:
                     btnclr = self.dkblue
                 def do_action(action):
-                    return lambda x,y,b,m: self._do_action(action, x,y,b,m)
-                button_text = self._cur_scenario.get_action_button_text( action, None )
-                tool_tip = self._cur_scenario.get_action_button_tooltip( action, None )
+                    return lambda x,y,b,m: self._do_scenario_action(action, x,y,b,m)
+                button_text = self._cur_scenario.get_scenario_action_button_text( action, None )
+                tool_tip = self._cur_scenario.get_scenario_action_button_tooltip( action, None )
                 print(f"load_action_vstack {action} {button_text}")
                 butt = Button(
                     button_text, mouse_pressed_fn=do_action(action),
@@ -457,9 +457,9 @@ class UIBuilder:
                 if action in self._base_robot_action_list:
                     btnclr = self.dkblue
                 def do_action(action):
-                    return lambda x,y,b,m: self._do_action(action, x,y,b,m)
-                button_text = self._cur_scenario.get_action_button_text( action, None )
-                tool_tip = self._cur_scenario.get_action_button_tooltip( action, None )
+                    return lambda x,y,b,m: self._do_robot_action(action, x,y,b,m)
+                button_text = self._cur_scenario.get_scenario_action_button_text( action, None )
+                tool_tip = self._cur_scenario.get_scenario_action_button_tooltip( action, None )
                 print(f"load_action_vstack {action} {button_text}")
                 butt = Button(
                     button_text, mouse_pressed_fn=do_action(action),
@@ -821,12 +821,20 @@ class UIBuilder:
 
     binc = [-1, 1]
 
-    def _do_action(self, action, x,y,b,m):
+    def _do_scenario_action(self, action, x,y,b,m):
         argdict = {"m":m, "b":b, "x":x, "y":y}
         self._cur_scenario.scenario_action(action, argdict)
         butt = self.custbuttdict.get(action)
         if butt is not None:
-            butt.text = self._cur_scenario.get_action_button_text( action, argdict )
+            butt.text = self._cur_scenario.get_scenario_action_button_text( action, argdict )
+
+    def _do_robot_action(self, action, x,y,b,m):
+        argdict = {"m":m, "b":b, "x":x, "y":y}
+        self._cur_scenario.robot_action(action, argdict)
+        butt = self.custbuttdict.get(action)
+        if butt is not None:
+            butt.text = self._cur_scenario.get_scenario_action_button_text( action, argdict )
+
 
     def _change_action(self, x, y, b, m):
         self._action = self.get_next_val_safe(self._scenario_action_list, self._action, self.binc[b])

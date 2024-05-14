@@ -48,6 +48,7 @@ class CageRmpflowScenario(ScenarioBase):
         self._scenario_description = ScenarioBase.get_scenario_desc(self._scenario_name)
         self._nrobots = 2
         self.uibuilder = uibuilder
+        self.current_robot_action = "FollowTarget"
 
     def load_scenario(self, robot_name, ground_opt, light_opt="dome_light"):
         super().load_scenario(robot_name, ground_opt)
@@ -125,8 +126,8 @@ class CageRmpflowScenario(ScenarioBase):
         yoff = 0.25
         self.mototray1 = mm.AddMotoTray("tray1", "rgbmyc", rot=[a90,0,zang],pos=[+xoff,+yoff,0.0])
         self.mototray2 = mm.AddMotoTray("tray2", "000000", rot=[a90,0,zang],pos=[-xoff,+yoff,0.0])
-        self.mototray3 = mm.AddMotoTray("tray2", "000000", rot=[a90,0,zang],pos=[-xoff,-yoff,0.0])
-        self.mototray4 = mm.AddMotoTray("tray2", "000000", rot=[a90,0,zang],pos=[+xoff,-yoff,0.0])
+        self.mototray3 = mm.AddMotoTray("tray3", "rgbmyc", rot=[a90,0,zang],pos=[-xoff,-yoff,0.0])
+        self.mototray4 = mm.AddMotoTray("tray4", "000000", rot=[a90,0,zang],pos=[+xoff,-yoff,0.0])
 
     def add_grippers_to_robots(self):
         for i in range(self._nrobots):
@@ -149,6 +150,7 @@ class CageRmpflowScenario(ScenarioBase):
 
     def reset_scenario(self):
         self.reset_robot_rmpflows()
+
 
     gang = 0
     def rotate_target(self, target, top, cen, radius, step_size):
@@ -252,9 +254,9 @@ class CageRmpflowScenario(ScenarioBase):
                 print(f"Action {action_name} not implemented")
                 return False
 
-    def get_action_button_text(self, action_name, action_args=None):
+    def get_scenario_action_button_text(self, action_name, action_args=None):
         if action_name in self.base_scenario_actions:
-            rv = super().get_action_button_text(action_name, action_args)
+            rv = super().get_scenario_action_button_text(action_name, action_args)
             return rv
         match action_name:
             case "RotateRmp":
@@ -271,12 +273,12 @@ class CageRmpflowScenario(ScenarioBase):
             case "CageCamViews":
                 rv = "Cage Cam Views"
             case _:
-                rv = f"{action_name} TBD"
+                rv = f"{action_name}"
         return rv
 
-    def get_action_button_tooltip(self, action_name, action_args=None):
+    def get_scenario_action_button_tooltip(self, action_name, action_args=None):
         if action_name in self.base_scenario_actions:
-            rv = super().get_action_button_tooltip(action_name, action_args)
+            rv = super().get_scenario_action_button_tooltip(action_name, action_args)
             return rv
         match action_name:
             case "ChangeSpeed":
@@ -285,13 +287,31 @@ class CageRmpflowScenario(ScenarioBase):
                 rv = f"No tooltip for action {action_name}"
         return rv
 
-
     def get_scenario_actions(self):
         self.base_scenario_actions = super().get_scenario_actions()
         combo  = self.base_scenario_actions + ["RotateRmp","RotateTarget0", "RotateTarget1",
-                                      "ChangeSpeed",
-                                      "CageCamViews"]
+                                      "ChangeSpeed","CageCamViews"]
         return combo
+
+    def get_robot_action_button_text(self, action_name, action_args=None):
+        if action_name in self.base_robot_actions:
+            rv = super().get_robot_action_button_text(action_name, action_args)
+            return rv
+        match action_name:
+            case _:
+                rv = f"{action_name}"
+        return rv
+
+    def get_robot_action_button_tooltip(self, action_name, action_args=None):
+        if action_name in self.base_robot_actions:
+            rv = super().get_robot_action_button_tooltip(action_name, action_args)
+            return rv
+        match action_name:
+            case _:
+                rv = f"No tooltip for action {action_name}"
+        return rv
+
+
 
     def get_robot_actions(self):
         self.base_robot_actions = super().get_robot_actions()

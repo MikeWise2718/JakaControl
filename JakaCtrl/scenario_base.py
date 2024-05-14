@@ -68,6 +68,7 @@ class ScenarioBase:
     _show_endeffector_box = False
     robcamviews = None
     show_joint_limits_for_all_robots = False
+    current_robot_action = ""
 
     def __init__(self):
         self._scenario_name = "empty scenario"
@@ -1001,11 +1002,17 @@ class ScenarioBase:
         rv =  ["Robot Cam Views","Show Joint Limits"]
         return rv
 
+    def robot_action(self, action_name, action_args):
+        self.current_robot_action = action_name
+        match action_name:
+            case _:
+             pass
+
     def get_robot_actions(self):
         rv =  []
         return rv
 
-    def get_action_button_text(self, action_name,action_args=None):
+    def get_scenario_action_button_text(self, action_name,action_args=None):
         match action_name:
             case "Show Joint Limits":
                 ltext = "is on" if self.show_joint_limits_for_all_robots else "is off"
@@ -1015,7 +1022,19 @@ class ScenarioBase:
                 rv = action_name
         return rv
 
-    def get_action_button_tooltip(self, action_name, action_args=None):
+    def get_scenario_action_button_tooltip(self, action_name, action_args=None):
+        match action_name:
+            case _:
+                rv = f"Tooltip for {action_name}"
+        return rv
+
+    def get_robot_action_button_text(self, action_name,action_args=None):
+        match action_name:
+            case _:
+                rv = action_name
+        return rv
+
+    def get_robot_action_button_tooltip(self, action_name, action_args=None):
         match action_name:
             case _:
                 rv = f"Tooltip for {action_name}"
