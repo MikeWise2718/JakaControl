@@ -38,6 +38,9 @@ class MotoMP50:
         usdpath = f"/World/moto50mp_{idx}"
         self.usdpath = usdpath
         self.clr = clr
+        self.clr1 = clr
+        if clr=="default_clr":
+            self.clr1 = "1"
         self.Construct()
 
     def Construct(self):
@@ -208,7 +211,7 @@ class MotoTray:
         # apply_collisionapis_to_mesh_and_children(mm._stage, usdpath,
         #                                          filt_end_path=["Body1"],method=meth )
         meth = UsdPhysics.Tokens.convexHull
-        apply_collisionapis_to_mesh_and_children(mm._stage, usdpath, include=["Body2"],method=meth )
+        apply_collisionapis_to_mesh_and_children(mm._stage, usdpath, include=["Body1"],method=meth )
         prim = mm._stage.GetPrimAtPath(usdpath)
         self.prim = prim
 
@@ -248,12 +251,12 @@ class MotoTray:
         iih = ih - 0.5
         yp = iiw*self.w + iiw*0.01
         xp = iih*self.h + iih*0.01
-        zp = 0.02 + self.pos[2]
+        zp = 0.03
         rv = np.array([xp,yp,zp])
         return rv
 
     def get_trayslot_pos_idx(self, idx):
-        iw,ih = MotoTray.get_iw_ih(idx)
+        iw,ih = self.get_iw_ih(idx)
         rv = self.get_trayslot_pos(iw,ih)
         return rv
 
@@ -263,9 +266,25 @@ class MotoTray:
         c = np.cos(self.rot[2])
         deltrot = np.array([c*delt[0]-s*delt[1], s*delt[0]+c*delt[1], delt[2]])
         self.pos, rot = self.get_world_pose()
+        # print(f"tray {self.name} get_world_pose: pos {self.pos}")
         rv = self.pos + deltrot
         return rv
 
+    def empty_slot(self,idx):
+        if idx<0 or 5<idx:
+            carb.log_error(f"empty_slot: idx {idx} out of range")
+            return
+        self.phone_list[idx] = None
+        self.fillstr = self.fillstr[:idx] + "0" + self.fillstr[idx+1:]
+
+    def fill_slot(self,idx, moto):
+        if idx<0 or 5<idx:
+            carb.log_error(f"empty_slot: idx {idx} out of range")
+            return
+        self.phone_list[idx] = moto
+        c = moto.clr1
+        c = c[0].lower()
+        self.fillstr = self.fillstr[:idx] + c + self.fillstr[idx+1:]
 
 class MotoMan:
     def __init__(self, stage, matman: MatMan):
@@ -335,7 +354,9 @@ class MotoMan:
         else:
             ppath1 = "ACRYLIC___FIXTURE_V1_v8_1/ACRYLIC___FIXTURE_V1_v8/Body1/Body1"
             ppath2 = "ACRYLIC___FIXTURE_V1_v8_2/ACRYLIC___FIXTURE_V1_v8/Body1/Body1"
-            meth = UsdPhysics.Tokens.convexHull
+
+            # options are: boundingCube, convexHull, convexDecomposition and probably a few more
+            meth = UsdPhysics.Tokens.boundingCube
             apply_collisionapis_to_mesh_and_children(self._stage, usdpath, include=[ppath1,ppath2],method=meth )
 
         apply_material_to_prim_and_children(self._stage, self._matman, "Steel_Blued", usdpath)
