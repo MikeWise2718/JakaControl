@@ -1,6 +1,11 @@
 import math
 import numpy as np
 import os
+import asyncio
+import websocket
+import websockets
+from datetime import datetime
+
 from pxr import Usd, UsdGeom, Gf
 
 from omni.isaac.core.utils.nucleus import get_assets_root_path
@@ -35,13 +40,58 @@ from .scenario_base import ScenarioBase
 # distribution of this software and related documentation without an express
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 #
+ws = websocket
+open = False
+
+
+async def Connect2Websocket(self):
+    ws = websocket.WebSocketApp("wss://integrationhubwebsocket.azurewebsites.net/8888",
+                                on_message=on_message,
+                                on_error=on_error,
+                                on_close=on_close, on_open=on_open)
+    ws.on_open = on_open
+    ws.run_forever()
+def on_message(ws, message):
+    print(f"Received message: {message}")
+def on_open(ws):
+    print("Connection opened")
+    ws.send("Hello, Server!")
+    open = True
+def on_error(ws, error):
+    print(f"Encountered error: {error}")
+
+def on_close(ws, close_status_code, close_msg):
+    print("Connection closed")
+
 
 
 class ObjectInspectionScenario(ScenarioBase):
     _running_scenario = False
     _show_collision_bounds = True
     _colorScheme = "transparent"
+    websocketWS = websockets
+    open = False
+    async def Connect2WebsocketWS(self):
+        self.websocketWS =  await websockets.connect("wss://integrationhubwebsocket.azurewebsites.net/8888", ping_interval=None)
+        await self.websocketWS.send("OPEN")
+        open = True
+    async def send_positions_by_websocket(self,mess):
+       # await self.websocketWS.send(mess)
+        try:
+            if open:
+                await self.websocketWS.send(mess)
+       #     else:
+       #         await self.Connect2WebsocketWS(self)
+        except:
+           open = False
 
+
+        #async with websockets.connect("wss://integrationhubwebsocket.azurewebsites.net/8888") as websocket:
+            #robot_name_split = self._selected_prim_path.split("/")
+            #current_time_str = datetime.now ().strftime ('%Y-%m-%d %H:%M:%S')
+            #val = "[\""+ robot_name_split[-1] + "\",\""+ current_time_str +"\"," + ", ".join(map(str, self.positions)) + "]"            
+            #print(val)
+         #   await websocket.send(mess)
     def __init__(self):
         pass
 
@@ -167,6 +217,14 @@ class ObjectInspectionScenario(ScenarioBase):
             apply_material_to_prim_and_children(stage, self._matman, "Steel_Blued", cagepath)
 
         self._world = world
+        asyncio.ensure_future(self.Connect2WebsocketWS())
+        
+        #ws.on_open = on_open
+        #ws.run_forever()
+
+
+   
+
 
     def setup_scenario(self):
         print("ObjectInspection setup_scenario")
@@ -320,9 +378,18 @@ class ObjectInspectionScenario(ScenarioBase):
         action1 = self._articulation_rmpflow1.get_next_articulation_action(step_size)
         self._articulation1.apply_action(action1)
 
+        strs = ','.join(str(x) for x in (self._rmpflow._robot_joint_positions))
+        print("joints:",strs)
+        current_time_str = datetime.now ().strftime ('%Y-%m-%d %H:%M:%S')
+        valRight = "[R,"+ current_time_str + ", "+ ", ".join(map(str, self._rmpflow._robot_joint_positions)) + "]"        
+        asyncio.ensure_future(self.send_positions_by_websocket(valRight))
+        valLeft = "[L,"+ current_time_str + ", "+ ", ".join(map(str, self._rmpflow1._robot_joint_positions)) + "]" 
+        asyncio.ensure_future(self.send_positions_by_websocket(valLeft))
+        #self.websocketWS.send("HERE2")
     def teardown_scenario(self):
         pass
 
     def update_scenario(self, step: float):
         if not self._running_scenario:
             return
+   

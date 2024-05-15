@@ -49,7 +49,7 @@ class UIBuilder:
     dkpurple = uiclr("#400040")
     dkcyan = uiclr("#004040")
     _scenario_names = [ "inverse-kinematics","gripper","rmpflow","object-inspection","sinusoid-joint","franka-pick-and-place","pick-and-place"]
-    _scenario_name = "pick-and-placet"
+    _scenario_name = "pick-and-place"
     _robot_names = ["ur3e"]
     _robot_name = "ur3e"
     _ground_opts = ["none", "default", "groundplane", "groundplane-blue"]
