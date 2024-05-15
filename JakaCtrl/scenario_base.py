@@ -594,14 +594,17 @@ class ScenarioBase:
     def setup_robot_for_pose_movement(self, gprim, rcfg, pos, rot, ska=[1, 1, 1], order="ZYX", pre_rot=[0, 0, 0]):
         pos = Gf.Vec3d(list(pos))
         rot = list(rot)
-        rotv = rot.copy()
-        rotv.reverse()
 
         # Pre-rotation
-        prequat = euler_angles_to_quat(pre_rot, extrinsic=True)
-        rcfg.pre_rotquat = gprim.AddRotateXYZOp()
-        rvek = Gf.Vec3f(list(np.array(pre_rot)*np.pi/180))
-        rcfg.pre_rotquat.Set(rvek)
+        if "/ring" in rcfg.robot_prim_path:
+            rprimpath = f"{rcfg.root_usdpath}/ring"
+            rprim = self._stage.GetPrimAtPath(rprimpath)
+            if not rprim.IsValid():
+                rprim = UsdGeom.Xform.Define(self._stage, rprimpath)
+            rcfg.pre_rotxyzop = rprim.AddRotateXYZOp()
+            rvek = Gf.Vec3f(list(np.array(pre_rot)*np.pi/180))
+            rvek = Gf.Vec3f(list(pre_rot))
+            rcfg.pre_rotxyzop.Set(rvek)
 
         rcfg.tranop = gprim.AddTranslateOp()
         rad = np.pi/180
@@ -625,16 +628,14 @@ class ScenarioBase:
         rcfg.xrotop.Set(rot[0])
         rcfg.start_robot_pos = pos
         rcfg.start_robot_rot = rot
-        # rcfg.robot_rotvek = np.array(rot)*np.pi/180
-        rcfg.robot_rotvek = np.array(rotv)*np.pi/180
         rcfg.robot_rotquat = quat
 
-    def load_robot_into_scene(self, ridx=0, pos=[0, 0, 0], rot=[0, 0, 0], order="ZYX", prerot=[0, 0, 0]):
+    def load_robot_into_scene(self, ridx=0, pos=[0, 0, 0], rot=[0, 0, 0], order="ZYX", pre_rot=[0, 0, 0]):
         stage = self._stage
         rcfg = self.get_robot_config(ridx)
 
         roborg = UsdGeom.Xform.Define(stage, rcfg.root_usdpath)
-        self.setup_robot_for_pose_movement(roborg, rcfg, pos, rot, order=order)
+        self.setup_robot_for_pose_movement(roborg, rcfg, pos, rot, order=order, pre_rot=pre_rot)
 
         add_reference_to_stage(rcfg.robot_usd_file_path, rcfg.robot_prim_path)
         apply_convex_decomposition_to_mesh_and_children(stage, rcfg.robot_prim_path)
@@ -682,7 +683,6 @@ class ScenarioBase:
             end_effector_frame_name = rcfg.eeframe_name,
             maximum_substep_size = rcfg.max_step_size
         )
-        # quat = euler_angles_to_quat(rcfg.robot_rotvek, extrinsic=True)
 
 
         pos_a = np.array(rcfg.start_robot_pos)

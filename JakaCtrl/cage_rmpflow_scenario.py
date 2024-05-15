@@ -62,7 +62,6 @@ class CageRmpflowScenario(ScenarioBase):
 
         # Robots
         # (pos0, rot0) = ([0.14, 0, 0.77], [0, 150, 180])
-        # this seems to be related to robot_rotvek
         # used in set_robot_base_pose in scenario_base self.make_rmpflow()
         # the latter uses a quaternion so we really should just be using that
         #
@@ -85,12 +84,14 @@ class CageRmpflowScenario(ScenarioBase):
         # self.load_robot_into_scene(1, pos1, rot1, order=order)
 
         order = "XYZ"
+        pre_rot = [0,0,-60]
         (pos0, rot0) = ([0.14, 0, 0.77], [0, -150, 180])
-        self.load_robot_into_scene(0, pos0, rot0, order=order)
+        self.load_robot_into_scene(0, pos0, rot0, order=order, pre_rot=pre_rot)
 
 
-        (pos1, rot1) = ([-0.08, 0, 0.77], [0, -150, 0])
-        self.load_robot_into_scene(1, pos1, rot1, order=order)
+        pre_rot = [0,0,60]
+        (pos1, rot1) = ([-0.08, 0, 0.77], [0, 150, 180])
+        self.load_robot_into_scene(1, pos1, rot1, order=order, pre_rot=pre_rot)
 
         self.add_cameras_to_robots()
 
