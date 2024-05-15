@@ -84,7 +84,7 @@ class CageRmpflowScenario(ScenarioBase):
         # self.load_robot_into_scene(1, pos1, rot1, order=order)
 
         order = "XYZ"
-        pre_rot = [0,0,-60]
+        pre_rot = [0,0,-90]
         (pos0, rot0) = ([0.14, 0, 0.77], [0, -150, 180])
         self.load_robot_into_scene(0, pos0, rot0, order=order, pre_rot=pre_rot)
 
@@ -123,12 +123,13 @@ class CageRmpflowScenario(ScenarioBase):
 
         # moto_tray
         zang = 5*np.pi/4
+        zang = np.pi/2
         zang = 0
         xoff = 0.20
         yoff = 0.15
-        self.mototray1 = mm.AddMotoTray("tray1", "rgbmyc", rot=[a90,0,zang],pos=[+xoff,+yoff,0.0])
+        self.mototray1 = mm.AddMotoTray("tray1", "rgb000", rot=[a90,0,zang],pos=[+xoff,+yoff,0.0])
         self.mototray2 = mm.AddMotoTray("tray2", "000000", rot=[a90,0,zang],pos=[-xoff,+yoff,0.0])
-        self.mototray3 = mm.AddMotoTray("tray3", "rgbmyc", rot=[a90,0,zang],pos=[-xoff,-yoff,0.0])
+        self.mototray3 = mm.AddMotoTray("tray3", "myc000", rot=[a90,0,zang],pos=[-xoff,-yoff,0.0])
         self.mototray4 = mm.AddMotoTray("tray4", "000000", rot=[a90,0,zang],pos=[+xoff,-yoff,0.0])
 
     def add_grippers_to_robots(self):
@@ -223,9 +224,15 @@ class CageRmpflowScenario(ScenarioBase):
                     rcfg._articulation.apply_action(actions)
                     # for debugging only:
                     ee_pos, ee_rot = rcfg._articulation_kinematics_solver.compute_end_effector_pose()
+
+                    if rcfg._controller.is_done() and rcfg.pickobj is not None:
+                        self.finish_pick_and_place(i)
+                        rcfg._controller.reset()
+                        rcfg.current_robot_action = "None"
+
                     elap = self.global_time - self.lasttime
-                    if elap>1:
-                        print(f"ee_pos:{ee_pos}  cp:{cp}  targpos:{rcfg.targpos}  elap:{elap}")
+                    if elap>0.5:
+                        print(f"ee_pos:{ee_pos}  phone:{cp}  targpos:{rcfg.targpos}  elap:{elap:.2f}")
                         self.lasttime = self.global_time
                 elif rcfg.current_robot_action == "MoveToZero":
                     action = SimpleNamespace()
@@ -234,7 +241,6 @@ class CageRmpflowScenario(ScenarioBase):
                     action.joint_velocities = None
                     action.joint_efforts = None
                     rcfg._articulation.apply_action(action)
-                    pass
 
     def update_scenario(self, step: float):
         if not self._running_scenario:
@@ -369,40 +375,65 @@ class CageRmpflowScenario(ScenarioBase):
             case "MoveToZero 0":
                 rcfg = self.get_robot_config(0)
                 rcfg.current_robot_action = "MoveToZero"
-                self.setup_pick_and_place(0)
             case "MoveToZero 1":
                 rcfg = self.get_robot_config(1)
                 rcfg.current_robot_action = "MoveToZero"
-                self.setup_pick_and_place(1)
             case _:
                 print(f"Action {action_name} not implemented")
                 return False
 
+    def finish_pick_and_place(self, robot_id):
+        rcfg = self.get_robot_config(robot_id)
+        rcfg.sourcetray.empty_slot(rcfg.sourceidx)
+        rcfg.targettray.fill_slot(rcfg.targetidx, rcfg.pickobj)
+        rcfg.pickobj = None
+        rcfg.pickpos = None
+        rcfg.pickori = None
+        rcfg.targpos = None
+        rcfg.targori = None
+        rcfg.sourcetray = None
+        rcfg.sourceidx = None
+        rcfg.targettray = None
+        rcfg.targetidx = None
+
     def setup_pick_and_place(self, robot_id):
         if robot_id == 0:
             sourcetray = self.mototray1
-            targettray = self.mototray2
+            targettray = self.mototray4
         else:
             sourcetray = self.mototray3
-            targettray = self.mototray4
+            targettray = self.mototray2
         rcfg = self.get_robot_config(robot_id)
         moto = sourcetray.get_first_phone()
+
         ok, pickpos, pickori = sourcetray.get_first_full_slot_pose()
         if not ok:
             carb.log_error("No object in source tray")
             return
+
         ok, targpos, targori = targettray.get_first_empty_slot_pose()
         if not ok:
             carb.log_error("No space in target tray")
             return
         print(f"setuppap - r:{robot_id} pickpos:{pickpos} targpos:{targpos}")
 
+        sourceidx = sourcetray.get_first_full_slot()
+        targetidx = targettray.get_first_empty_slot()
+
         self.activate_ee_collision( robot_id, False)
+        rcfg.sourcetray = sourcetray
+        rcfg.sourceidx = sourceidx
+        rcfg.targettray = targettray
+        rcfg.targetidx = targetidx
         rcfg.pickobj = moto
         rcfg.pickpos = pickpos
         rcfg.pickori = pickori
         rcfg.targpos = targpos
         rcfg.targori = targori
+
+        for i in range(6):
+            pos = targettray.get_trayslot_pos_idx(i)
+            print(f"   targettray slot positions - idx:{i} pos:{pos}")
 
     def get_robot_action_button_text(self, action_name, action_args=None):
         if action_name in self.base_robot_actions:
