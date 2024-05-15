@@ -440,7 +440,7 @@ class UIBuilder:
                     return lambda x,y,b,m: self._do_scenario_action(action, x,y,b,m)
                 button_text = self._cur_scenario.get_scenario_action_button_text( action, None )
                 tool_tip = self._cur_scenario.get_scenario_action_button_tooltip( action, None )
-                print(f"load_action_vstack {action} {button_text}")
+                # print(f"load_action_vstack {action} {button_text}")
                 butt = Button(
                     button_text, mouse_pressed_fn=do_action(action),
                     tooltip = tool_tip,
@@ -460,7 +460,7 @@ class UIBuilder:
                     return lambda x,y,b,m: self._do_robot_action(action, x,y,b,m)
                 button_text = self._cur_scenario.get_scenario_action_button_text( action, None )
                 tool_tip = self._cur_scenario.get_scenario_action_button_tooltip( action, None )
-                print(f"load_action_vstack {action} {button_text}")
+                # print(f"load_robot_action_vstack {action} {button_text}")
                 butt = Button(
                     button_text, mouse_pressed_fn=do_action(action),
                     tooltip = tool_tip,

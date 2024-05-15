@@ -395,7 +395,7 @@ def apply_collisionapis_to_mesh_and_children_recur(stage, prim, level, exclude=N
 def apply_collisionapis_to_mesh_and_children(stage, primname, exclude=None, include=None, method=None, remove=False):
     prim = stage.GetPrimAtPath(primname)
     nmesh, ncolapi, nphysapi  = apply_collisionapis_to_mesh_and_children_recur(stage, prim, 0, exclude=exclude, include=include, method=method, remove=remove)
-    print(f"apply_collisionapis_to_mesh_and_children:{primname} nmesh:{nmesh} ncolapi:{ncolapi} nphysapi:{nphysapi}")
+    # print(f"apply_collisionapis_to_mesh_and_children:{primname} nmesh:{nmesh} ncolapi:{ncolapi} nphysapi:{nphysapi}")
     return nmesh, ncolapi, nphysapi
 
 
