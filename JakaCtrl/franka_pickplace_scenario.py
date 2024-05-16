@@ -15,7 +15,7 @@ from .universal_robots.omni.isaac.universal_robots.controllers import PickPlaceC
 
 from omni.isaac.core.world import World
 
-from .senut import add_light_to_stage
+from .senut import add_sphere_light_to_stage
 from .scenario_base import ScenarioBase
 
 from omni.asimov.manipulators.grippers.surface_gripper import SurfaceGripper
@@ -36,26 +36,32 @@ from omni.isaac.core.utils.rotations import euler_angles_to_quat
 class FrankaPickAndPlaceScenario(ScenarioBase):
     _running_scenario = False
     _rmpflow = None
-    _show_collision_bounds = True
     _rob_base_pos = Gf.Vec3d([0, 0, 0])
     _rob_base_xang = 0
     _gripper_type = "parallel"
     _show_rmp_target = False
     _show_rmp_target_opt = "invisible"
 
-    def __init__(self):
-        pass
+    def __init__(self, uibuilder=None):
+        super().__init__()
+        self._scenario_name = "franka-pick-and-place"
+        self._scenario_description = ScenarioBase.get_scenario_desc(self._scenario_name)
+        self._nrobots = 1
+        self.uibuilder = uibuilder
+
 
     def load_scenario(self, robot_name, ground_opt):
         super().load_scenario(robot_name, ground_opt)
-        self._robcfg = self.get_robcfg(robot_name, ground_opt)
+        self._robcfg = self.create_robot_config(robot_name, ground_opt)
+
+
 
         # self.get_robot_config(robot_name, ground_opt)
 
         self._robot_name = robot_name
         self._ground_opt = ground_opt
 
-        add_light_to_stage()
+        add_sphere_light_to_stage()
 
        # print("Assets root path: ", get_assets_root_path())
         need_to_add_articulation = False
@@ -119,7 +125,7 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
         self._world = world
         print("load_scenario done - self._object", self._object)
 
-    def get_gripper(self):
+    def get_franka_gripper(self):
         art = self._articulation
         art._policy_robot_name = self._robcfg.mopo_robot_name
         if hasattr(art,"gripper"):
@@ -233,7 +239,10 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
 
 
     def post_load_scenario(self):
-        gripper = self.get_gripper()
+
+        self.register_articulation(self._articulation) # this has to happen in post_load_scenario
+
+        gripper = self.get_franka_gripper()
         if gripper is not None:
             if self._robot_name in ["fancy_franka", "franka", "rs007n"]:
                 self._controller = franka_PickPlaceController(
@@ -251,10 +260,12 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
             xqrot = euler_angles_to_quat(np.array([self._rob_base_xang*np.pi/180, 0, 0]))
             self._controller._cspace_controller._motion_policy.set_robot_base_pose(self._rob_base_pos, xqrot)
             self._rmpflow = self._controller._cspace_controller.rmp_flow
+
             if self._show_collision_bounds:
-                # self._rmpflow.reset()
                 self._rmpflow.visualize_collision_spheres()
+            if self._show_endeffector_box:
                 self._rmpflow.visualize_end_effector_position()
+            if self._show_rmp_target:
                 self.realize_rmptarg_vis(self._show_rmp_target_opt)
 
 
@@ -265,16 +276,19 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
 
 
     def reset_scenario(self):
-        gripper = self.get_gripper()
+        gripper = self.get_franka_gripper()
 
         self._controller.reset()
 
         if self._show_collision_bounds:
             if self._rmpflow is not None:
                 self._rmpflow.reset()
-                self._rmpflow.visualize_collision_spheres()
-                self._rmpflow.visualize_end_effector_position()
-                self.realize_rmptarg_vis(self._show_rmp_target_opt)
+                if self._show_collision_bounds:
+                    self._rmpflow.visualize_collision_spheres()
+                if self._show_endeffector_box:
+                    self._rmpflow.visualize_end_effector_position()
+                if self._show_rmp_target:
+                    self.realize_rmptarg_vis(self._show_rmp_target_opt)
 
 
         if gripper is not None:
@@ -306,8 +320,8 @@ class FrankaPickAndPlaceScenario(ScenarioBase):
 
         # Only for the pick and place controller, indicating if the state
         # machine reached the final state.
-        if self._controller.is_done():
-            self._world.pause()
+        # if self._controller.is_done():
+        #     self._world.pause()
         return
 
     def setup_scenario(self):

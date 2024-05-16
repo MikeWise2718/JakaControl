@@ -174,7 +174,7 @@
 
 <link name="tool0">
     <visual>
-        <origin xyz = "0 -0.15 0" />
+        <origin xyz = "0 -0.15 0" rpy = "0 0.7853 0" />
         <geometry>
            <mesh filename="package://minicobo_v14/meshes/jaka_camera_endpoint.dae" scale="0.01 0.01 0.01" />
          </geometry>
@@ -244,7 +244,7 @@
         <parent link="Link6" />
         <child link="dummy_tcp" />
   </joint>
-  
+
 
   <joint name="flange_tool0" type="fixed">
     <!-- default toolframe - X+ left, Y+ up, Z+ front -->

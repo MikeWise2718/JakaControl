@@ -18,7 +18,7 @@ from omni.isaac.core.utils.numpy.rotations import euler_angles_to_quats, rot_mat
 from omni.isaac.motion_generation import RmpFlow, ArticulationMotionPolicy
 from omni.isaac.motion_generation import ArticulationKinematicsSolver
 
-from .senut import add_light_to_stage
+from .senut import add_sphere_light_to_stage
 from .scenario_base import ScenarioBase
 
 from omni.isaac.core.utils.stage import add_reference_to_stage,  get_current_stage
@@ -26,7 +26,7 @@ from omni.isaac.motion_generation.lula.interface_helper import LulaInterfaceHelp
 
 from .senut import adjust_joint_values, set_stiffness_for_joints, set_damping_for_joints
 from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
-from .senut import apply_diable_gravity_to_rigid_bodies
+from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulationAPI_location_if_needed
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
@@ -40,12 +40,15 @@ from .senut import apply_diable_gravity_to_rigid_bodies
 
 class RMPflowScenario(ScenarioBase):
     _running_scenario = False
-    _show_collision_bounds = True
     _colorScheme = ""
     _enable_obstacle = False
 
-    def __init__(self):
-        pass
+    def __init__(self, uibuilder=None):
+        super().__init__()
+        self._scenario_name = "rmpflow"
+        self._scenario_desc = ScenarioBase.get_scenario_desc(self._scenario_name)
+        self._nrobots = 1
+        self.uibuilder = uibuilder
 
     def load_scenario(self, robot_name, ground_opt):
         # Here we do object loading and simple initialization
@@ -53,7 +56,9 @@ class RMPflowScenario(ScenarioBase):
 
         # self.get_robot_config(robot_name, ground_opt)
 
-        self._robcfg = self.get_robcfg(robot_name, ground_opt)
+        self._robcfg = self.create_robot_config(robot_name, "/World/roborg", ground_opt)
+
+        # self._robcfg = self.create_robot_config(robot_name, ground_opt)
 
         self.tot_damping_factor = 1.0
         self.tot_stiffness_factor = 1.0
@@ -67,19 +72,8 @@ class RMPflowScenario(ScenarioBase):
         self._obstacle_start_pos = np.array([0.4, 0.0, 0.65])
         self._obstacle_start_rot = euler_angles_to_quats([0, np.pi, 0])
 
-        add_light_to_stage()
-
-        world = World.instance()
-        if self._ground_opt == "default":
-            world.scene.add_default_ground_plane()
-
-        elif self._ground_opt == "groundplane":
-            ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.5, 0.5, 0.5]))
-            world.scene.add(ground)
-
-        elif self._ground_opt == "groundplane-blue":
-            ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]))
-            world.scene.add(ground)
+        self.add_light("sphere_light")
+        self.add_ground(ground_opt)
 
 
         self._start_robot_pos = Gf.Vec3d([0, 0, 0])
@@ -90,10 +84,10 @@ class RMPflowScenario(ScenarioBase):
         elif self._robot_name == "fancy_franka":
             self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
             self._start_robot_rot = [180, 0, 0]
-        # elif self._robot_name == "jaka-minicobo-1a":
-        #     self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
-        #     self._start_robot_rot = [180, 0, 0]
         elif self._robot_name == "jaka-minicobo-1a":
+             self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
+             self._start_robot_rot = [180, 0, 0]
+        elif self._robot_name == "minicobo-dual-sucker":
              self._start_robot_pos = Gf.Vec3d([0, 0, 1.1])
              self._start_robot_rot = [180, 0, 0]
         elif self._robot_name == "rs007n":
@@ -107,12 +101,14 @@ class RMPflowScenario(ScenarioBase):
 
 
 
-        # Setup Robot ARm
+        # Setup Robot Arm
         add_reference_to_stage(self._robcfg.robot_usd_file_path, self._robcfg.robot_prim_path)
         apply_convex_decomposition_to_mesh_and_children(stage, self._robcfg.robot_prim_path)
         apply_diable_gravity_to_rigid_bodies(stage, self._robcfg.robot_prim_path)
+        adjust_articulationAPI_location_if_needed(stage, self._robcfg.robot_prim_path)
 
         self._articulation = Articulation(self._robcfg.artpath)
+        world = World.instance()
         world.scene.add(self._articulation)
 
 
@@ -134,7 +130,7 @@ class RMPflowScenario(ScenarioBase):
         self.register_articulation(self._articulation) # this has to happen in post_load_scenario
 
         # # teleport robot to its zero position
-        self._articulation.set_joint_positions(self._robcfg.joint_zero_pos)
+        self._articulation.set_joint_positions(self._robcfg.dof_zero_pos)
 
         # Initialize an RmpFlow object
         self._rmpflow = RmpFlow(
@@ -167,7 +163,7 @@ class RMPflowScenario(ScenarioBase):
 
     def reset_scenario(self):
         # teleport robot to its zero position
-        self._articulation.set_joint_positions(self._robcfg.joint_zero_pos)
+        self._articulation.set_joint_positions(self._robcfg.dof_zero_pos)
 
         # self._target.set_world_pose(np.array([.5,0,.7]),euler_angles_to_quats([0,np.pi,0]))
         self._target.set_world_pose(self._target_start_pos,self._target_start_rot)
@@ -177,19 +173,22 @@ class RMPflowScenario(ScenarioBase):
 
 
         self._rmpflow.reset()
+        self.realize_rmptarg_vis(self._show_rmp_target_opt)
         if self._show_collision_bounds:
-       #     self._rmpflow.set_ignore_state_updates(True)
             self._rmpflow.visualize_collision_spheres()
+            self.realize_collider_vis_opt(self._show_collision_bounds_opt)
+        if self._show_endeffector_box:
             self._rmpflow.visualize_end_effector_position()
 
 
+
     def set_stiffness_for_all_joints(self, stiffness):
-        joint_names = self.lulaHelper.get_active_joints()
-        set_stiffness_for_joints(joint_names, stiffness)
+        active_joints = self.lulaHelper.get_active_joints()
+        set_stiffness_for_joints(active_joints, stiffness)
 
     def set_damping_for_all_joints(self, damping):
-        joint_names = self.lulaHelper.get_active_joints()
-        set_damping_for_joints(joint_names, damping)
+        active_joints = self.lulaHelper.get_active_joints()
+        set_damping_for_joints(active_joints, damping)
 
     def physics_step(self, step_size):
         robot_base_translation,robot_base_orientation = self._articulation.get_world_pose()
@@ -225,15 +224,15 @@ class RMPflowScenario(ScenarioBase):
         return rv
 
     def adjust_stiffness_for_all_joints(self,fak):
-        joint_names = self.lulaHelper.get_active_joints()
-        # print(f"joint_names:{joint_names} fak:{fak:.2f} tot_stiffness:{self.tot_stiffness_factor:.4e}")
-        adjust_joint_values(joint_names,"stiffness",fak)
+        active_joints = self.lulaHelper.get_active_joints()
+        # print(f"active_joints:{active_joints} fak:{fak:.2f} tot_stiffness:{self.tot_stiffness_factor:.4e}")
+        adjust_joint_values(active_joints,"stiffness",fak)
         self.tot_stiffness_factor = self.tot_stiffness_factor * fak
 
     def adjust_damping_for_all_joints(self,fak):
-        joint_names = self.lulaHelper.get_active_joints()
-        # print(f"joint_names:{joint_names} fak:{fak:.2f} tot_damping:{self.tot_damping_factor:.4e}")
-        adjust_joint_values(joint_names,"damping",fak)
+        active_joints = self.lulaHelper.get_active_joints()
+        # print(f"active_joints:{active_joints} fak:{fak:.2f} tot_damping:{self.tot_damping_factor:.4e}")
+        adjust_joint_values(active_joints,"damping",fak)
         self.tot_damping_factor = self.tot_damping_factor * fak
 
     def scenario_action(self, actionname, mouse_button=0 ):

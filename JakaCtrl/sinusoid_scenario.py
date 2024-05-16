@@ -13,7 +13,7 @@ from omni.isaac.core.objects import GroundPlane
 from omni.isaac.core.utils.types import ArticulationAction
 from omni.isaac.core.world import World
 
-from .senut import add_light_to_stage
+from .senut import add_sphere_light_to_stage
 from .scenario_base import ScenarioBase
 
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
@@ -25,8 +25,6 @@ from .scenario_base import ScenarioBase
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 #
 
-
-
 """
 This scenario takes in a robot Articulation and makes it move through its joint DOFs.
 Additionally, it adds a cuboid prim to the stage that moves in a circle around the robot.
@@ -37,12 +35,13 @@ in this template, this particular structure served to improve code readability a
 the logic that runs the example from the UI design.
 """
 
-
-
 class SinusoidJointScenario(ScenarioBase):
-    def __init__(self):
-        self._object = None
-        self._articulation = None
+    def __init__(self, uibuilder=None):
+        super().__init__()
+        self._scenario_name = "sinusoid-joint"
+        self._scenario_description = ScenarioBase.get_scenario_desc(self._scenario_name)
+        self._nrobots = 1
+        self.uibuilder = uibuilder
 
         self._running_scenario = False
 
@@ -54,8 +53,6 @@ class SinusoidJointScenario(ScenarioBase):
 
         self._joint_index = 0
         self._max_joint_speed = 4  # rad/sec
-        # self._lower_joint_limits = None
-        # self._upper_joint_limits = None
 
         self._joint_time = 0
         self._path_duration = 0
@@ -66,66 +63,25 @@ class SinusoidJointScenario(ScenarioBase):
     def load_scenario(self, robot_name, ground_opt):
         super().load_scenario(robot_name, ground_opt)
 
-        self._robcfg = self.get_robcfg(robot_name, ground_opt)
+        self.add_light("sphere_light")
+        self.add_ground(ground_opt)
 
-        # self.get_robot_config(robot_name, ground_opt)
-
-        add_light_to_stage()
-
-        # print("Assets root path: ", get_assets_root_path())
-        need_to_add_articulation = False
-        self._robot_name = robot_name
-        self._ground_opt = ground_opt
-
-        # Setup Robot ARm
-        add_reference_to_stage(self._robcfg.robot_usd_file_path, self._robcfg.robot_prim_path)
-
-        if need_to_add_articulation:
-            prim = get_current_stage().GetPrimAtPath(self._robcfg.artpath)
-            UsdPhysics.ArticulationRootAPI.Apply(prim)
-
-        if self._robot_name == "fancy_franka":
-            from omni.isaac.franka import Franka
-            self._fancy_robot = Franka(prim_path="/World/Fancy_Franka", name="fancy_franka")
-            self._articulation = self._fancy_robot
-        else:
-            self._articulation = Articulation(self._robcfg.artpath)
-
+        self.create_robot_config(robot_name,"/World/roborg", ground_opt)
+        self.load_robot_into_scene()
 
         # mode specific initialization
         self._cuboid = FixedCuboid(
             "/Scenario/cuboid", position=np.array([0.3, 0.3, 0.15]), size=0.05, color=np.array([128, 0, 128])
         )
 
-
         # Add user-loaded objects to the World
         world = World.instance()
-        if self._articulation is not None:
-            world.scene.add(self._articulation)
-        if self._cuboid is not None:
-            world.scene.add(self._cuboid)
-
-        if self._ground_opt == "default":
-            world.scene.add_default_ground_plane()
-
-        elif self._ground_opt == "groundplane":
-            ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.5, 0.5, 0.5]))
-            world.scene.add(ground)
-
-        elif self._ground_opt == "groundplane-blue":
-            ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]))
-            world.scene.add(ground)
+        world.scene.add(self._cuboid)
 
         self._object = self._cuboid
         print("load_scenario done - self._object", self._object)
 
-
-
     def post_load_scenario(self):
-        # self._articulation = articulation
-        # self._object = object_prim
-
-
         print("setup_scenario - self._object", self._object)
 
         self._initial_object_position = self._object.get_world_pose()[0]
@@ -136,30 +92,16 @@ class SinusoidJointScenario(ScenarioBase):
 
         self._joint_index = 0
 
-        self.register_articulation(self._articulation) # this has to happen in post_load_scenario
-
-        # self._lower_joint_limits = self._articulation.dof_properties["lower"]
-        # self._upper_joint_limits = self._articulation.dof_properties["upper"]
-        # self._zeros = np.zeros(len(self._lower_joint_limits))
-        # self._njoints = len(self._lower_joint_limits)
-        # print(f"jaka - njoints:{self._njoints} lower:{self._lower_joint_limits} upper:{self._upper_joint_limits}")
-
-        # teleport robot to lower joint range
-        # epsilon = 0.001
-        # articulation.set_joint_positions(self._lower_joint_limits + epsilon)
-        self._articulation.set_joint_positions(self._robcfg.joint_zero_pos)
+        self.register_robot_articulations()
+        self.teleport_robots_to_zeropos()
 
         self._derive_sinusoid_params(0)
 
     def teardown_scenario(self):
         self._time = 0.0
-        # self._object = None
-        # self._articulation = None
         self._running_scenario = False
 
         self._joint_index = 0
-        # self._lower_joint_limits = None
-        # self._upper_joint_limits = None
 
         self._joint_time = 0
         self._path_duration = 0
@@ -182,63 +124,43 @@ class SinusoidJointScenario(ScenarioBase):
 
     def _derive_sinusoid_params(self, joint_index: int):
         # Derive the parameters of the joint target sinusoids for joint {joint_index}
-        start_position = self._robcfg.lower_joint_limits[joint_index]
+        rcfg = self.get_robot_config(0)
+        start_position = rcfg.lower_dof_lim[joint_index]
         start_position = 0
-        llim = self._robcfg.lower_joint_limits[joint_index]
-        ulim = self._robcfg.upper_joint_limits[joint_index]
+        llim = rcfg.lower_dof_lim[joint_index]
+        ulim = rcfg.upper_dof_lim[joint_index]
         mjs = self._max_joint_speed
 
         print(f"jaka - jidx:{joint_index} start_position:{start_position:.3f} llim:{llim:.3f} ulim:{ulim:.3f}")
 
-        P_max = self._robcfg.upper_joint_limits[joint_index] - start_position
+        P_max = rcfg.upper_dof_lim[joint_index] - start_position
         V_max = self._max_joint_speed
         T = P_max * np.pi / V_max
         print(f"jaka - P_max:{P_max:.3f} V_max:{V_max:.3f} path_duration (T):{T:.3f}")
 
         # T is the expected time of the joint path
-
         self._path_duration = T
         self._path_duration = 10
         self._calculate_position = (
             lambda time, path_duration: start_position
-            + -P_max / 2 * np.cos(time * 2 * np.pi / path_duration)
-            + P_max / 2
+                                        - (P_max / 2 * np.cos(time * 2 * np.pi / path_duration))
+                                        + (P_max / 2)
         )
         self.lastprint_time = 0
         self._calculate_velocity = lambda time, path_duration: V_max * np.sin(2 * np.pi * time / path_duration)
 
-
-    def _calculate_position_new(self, time, path_duration):
-        start_position = self._robcfg.lower_joint_limits[self._joint_index]
-        P_max = self._robcfg.upper_joint_limits[self._joint_index] - start_position
-        t1 = start_position
-        t2 = -P_max / 2 * np.cos(time * 2 * np.pi / path_duration)
-        t3 = P_max / 2
-        rv = start_position + -P_max / 2 * np.cos(time * 2 * np.pi / path_duration)+ P_max / 2
-        rv = t1 + t2 + t3
-
-        # print(f"jaka - t1 {t1:.3f}  \\  t2 {t2:.3f}    \\    t3 {t3:.3f}      \\      rv {rv:.3f} time {time:.3f} path_duration {path_duration:.3f}")
-
-        return rv
-
-
     def _update_sinusoidal_joint_path(self, step):
         # Update the target for the robot joints
         self._joint_time += step
+        rcfg = self.get_robot_config(0)
 
         if self._joint_time > self._path_duration:
             self._joint_time = 0
-            ojidx = self._joint_index
-            self._joint_index = (self._joint_index + 1) % self._articulation.num_dof
+            self._joint_index = (self._joint_index + 1) % rcfg._articulation.num_dof
             print(f"Changing to joint {self._joint_index} at time {self._time:.3f}")
             self._derive_sinusoid_params(self._joint_index)
-            action = ArticulationAction(
-                np.array([0]),
-                np.array([0]),
-                joint_indices=np.array([ojidx])
-            )
 
-        joint_position_target = self._calculate_position_new(self._joint_time, self._path_duration, )
+        joint_position_target = self._calculate_position(self._joint_time, self._path_duration)
         joint_velocity_target = self._calculate_velocity(self._joint_time, self._path_duration)
 
         if self._joint_time - self.lastprint_time > 1:
@@ -246,10 +168,9 @@ class SinusoidJointScenario(ScenarioBase):
            print(f"jaka - idx:{self._joint_index} joint time: {self._joint_time:.3f} path duration: {self._path_duration:.3f}")
            print(f"jaka - joint_position_target:{joint_position_target:.3f} joint_velocity_target:{joint_velocity_target:.3f}")
 
-
         action = ArticulationAction(
             np.array([joint_position_target]),
             np.array([joint_velocity_target]),
             joint_indices=np.array([self._joint_index])
         )
-        self._articulation.apply_action(action)
+        rcfg._articulation.apply_action(action)
