@@ -440,7 +440,7 @@ class GripperScenario(ScenarioBase):
 
         print("setup_scenario - self._object", self._object)
 
-    laststat = "None"
+    laststat = "NoStatus"
     def check_gripper_status(self):
         newstat = "Closed" if self.surface_gripper.is_closed() else "Open"
         if newstat != self.laststat:

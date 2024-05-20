@@ -45,20 +45,20 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
         case "cone"|"inverted-cone"|"sphere"|"cube"|"cube-yrot"|"cylinder"|"suction-short"|"suction-dual"|"suction-dual-0":
             robot_prim_path = f"/{robot_name}"
             artpath = robot_prim_path
-            robot_usd_file_path = "None"
+            robot_usd_file_path = "NoPath"
             mopo_robot_name = robot_name
 
-            rmp_param_dir = "None"
-            rdf_path = "None"
-            urdf_path = "None"
-            rmp_config_path = "None"
+            rmp_param_dir = "NoPath"
+            rdf_path = "NoPath"
+            urdf_path = "NoPath"
+            rmp_config_path = "NoPath"
             eeframe_name = robot_prim_path
             max_step_size = 0.00334
 
-            grippername = "none"
+            grippername = "NoGripper"
 
-            mfg = "None"
-            model = "None"
+            mfg = "NoMfg"
+            model = "NoModel"
             desc = "Gripper testing proxy robot"
 
         case "ur3e":
@@ -223,7 +223,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
 
             mfg = "Jaka"
             model = "Minicobo"
-            desc = "Jaka Minicobo with a dual sucker gripper (old)"
+            desc = "Jaka Minicobo with a dual sucker gripper (old) - can't attach a surface gripper as it doesn't have the frame with a rigid body at the end of the arm"
 
         case "jaka-minicobo-1a":
             # robot_prim_path = "/World/roborg/minicobo_v1_4"
@@ -454,7 +454,7 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
         case _:
             print("Bad robot type name", robot_name)
 
-    if rdf_path != "None":
+    if rdf_path != "NoPath":
         if rdf_path=="" or urdf_path=="":
             msg = f"Robot {robot_name} rdf_path or urdf_path not specified"
             carb.log_warn(msg)
@@ -514,7 +514,8 @@ def create_and_populate_robot_config(robot_name, robot_root_usdpath="/world/robo
     rc.desc = desc
 
     rc.root_usdpath = robot_root_usdpath
-    rc.current_robot_action = "None"
+    rc.robot_action_planning_method = "RobPlan.UiInitiated" # "RobPlan.UiInitiated" or "RobPlan.ReadFromFile"
+    rc.current_robot_action = "NoAction"
 
     if not skiplula:
         try:

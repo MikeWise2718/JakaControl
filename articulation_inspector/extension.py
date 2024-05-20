@@ -568,7 +568,7 @@ class Extension(omni.ext.IExt):
         async with websockets.connect(uri) as websocket:
             robot_name_split = self._selected_prim_path.split("/")
             current_time_str = datetime.now ().strftime ('%Y-%m-%d %H:%M:%S')
-            val = "[\""+ robot_name_split[-1] + "\",\""+ current_time_str +"\"," + ", ".join(map(str, self.positions)) + "]"            
+            val = "[\""+ robot_name_split[-1] + "\",\""+ current_time_str +"\"," + ", ".join(map(str, self.positions)) + "]"
             print(val)
             await websocket.send(val)
 
@@ -576,10 +576,10 @@ class Extension(omni.ext.IExt):
         async with websockets.connect(uri) as websocket:
             robot_name_split = self._selected_prim_path.split("/")
             current_time_str = datetime.now ().strftime ('%Y-%m-%d %H:%M:%S')
-            val = "['"+ robot_name_split[-1] + "','"+ current_time_str +"','action:" + action+ "']"              
+            val = "['"+ robot_name_split[-1] + "','"+ current_time_str +"','action:" + action+ "']"
             print(val)
             await websocket.send(val)
-    
+
 
     # ------------------------------------
 
@@ -988,14 +988,14 @@ class Extension(omni.ext.IExt):
 
         # ------------------------------------
         # Code to send positons to websockets
-        if self._previous_position_val != val: 
+        if self._previous_position_val != val:
             if self._previous_time_str!=datetime.now ().strftime ('%Y-%m-%d %H:%M:%S'):
                 asyncio.ensure_future(self.send_positions_by_websocket('ws://integrationhubwebsocket.azurewebsites.net/67'))
 
         self._previous_time_str = datetime.now ().strftime ('%Y-%m-%d %H:%M:%S')
         self._previous_position_val = val
         # ------------------------------------
-        
+
         self._models["dof_property_positions"].set_value(f"{val}")
         val = "[" + ", ".join(map(str, self.velocities)) + "]"
         self._models["dof_property_velocities"].set_value(f"{val}")

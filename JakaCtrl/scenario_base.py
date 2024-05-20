@@ -260,7 +260,7 @@ class ScenarioBase:
             rcfg.grip_eeoff = np.array([0,0,0])
             grippername = rcfg.grippername
 
-            #if self._robot_name in ["franka","fancy_franka"]:   # franka gripper
+            # if self._robot_name in ["franka","fancy_franka"]:   # franka gripper
             if grippername=="franka gripper":   # franka gripper
                 eepp = "/World/roborg/franka/panda_rightfinger"
                 jpn = ["panda_finger_joint1", "panda_finger_joint2"]
@@ -336,7 +336,7 @@ class ScenarioBase:
                     grip_threshold = 0.1
                     grip_translate = 0.17
                     rcfg.grip_eeori = euler_angles_to_quat(np.array([-np.pi/2,0,0]))
-                elif rcfg.robot_name in ["jaka-minicobo-1a","minicobo-dual-sucker"]:
+                elif rcfg.robot_name in ["jaka-minicobo-1a", "minicobo-dual-sucker"]:
                     # eepp = "/World/roborg/minicobo_v1_4/tool0"
                     eepp = f"{rcfg.robot_prim_path}/{rcfg.eeframe_name}"
                     grip_direction = "y"
@@ -347,8 +347,10 @@ class ScenarioBase:
 
                 elif rcfg.robot_name == "jaka-minicobo-1":
                     eepp = "/World/roborg/minicobo_v1_4/Link6/jaka_camera_endpoint/JAKA___MOTO_200mp_v4/ZPR25CNK10_06_A10_v007"
-                    rcfg._end_effector = RigidPrim(prim_path=eepp, name= "jaka-minicobo-1" + "_end_effector")
-                    rcfg._end_effector.initialize(rcfg.physics_sim_view)
+                    # eepp = f"{rcfg.robot_prim_path}/{rcfg.eeframe_name}"
+                    # rcfg._end_effector = RigidPrim(prim_path=eepp, name= "jaka-minicobo-1" + "_end_effector")
+
+                    # rcfg._end_effector.initialize(rcfg.physics_sim_view)
                 else:
                     print("Unknown robot name for suction gripper")
                 art._policy_robot_name = "UR10"
@@ -541,6 +543,7 @@ class ScenarioBase:
                     else:
                         # print(f"Joint {jn} is not close to limit for {rcfg.robot_name} {rcfg.robot_id} link_path:{link_path}")
                         if rcfg.robmatskin == "default":
+                            self.ensure_orimat()
                             # print(f"   changing {link_path} to rcfg.orimat - inalarm:{joint_in_alarm}")
                             apply_matdict_to_prim_and_children(self._stage, rcfg.orimat, link_path)
                         else:
