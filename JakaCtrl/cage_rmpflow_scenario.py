@@ -23,6 +23,7 @@ from .senut import add_rob_cam
 from .scenario_base import ScenarioBase
 from .senut import make_rob_cam_view_window
 
+from .remcmdmod import RemCmd, RemCmdList
 
 from .motomod import MotoMan
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
@@ -42,6 +43,8 @@ class CageRmpflowScenario(ScenarioBase):
     rotate_target1 = False
     target_rot_speed = 2*np.pi/10 # 10 seconds for a full rotation
     cagecamviews = None
+    load_remote_commands = False
+    execute_remote_commands = False
 
     def __init__(self, uibuilder=None):
         super().__init__()
@@ -50,6 +53,7 @@ class CageRmpflowScenario(ScenarioBase):
         self._nrobots = 2
         self.uibuilder = uibuilder
         self.current_robot_action = "FollowTarget"
+        self.rmtcmdlist = None
 
     def load_scenario(self, robot_name, ground_opt, light_opt="dome_light"):
         super().load_scenario(robot_name, ground_opt)
@@ -59,29 +63,6 @@ class CageRmpflowScenario(ScenarioBase):
 
         self.add_light(light_opt)
         self.add_ground(ground_opt)
-
-        # Robots
-        # (pos0, rot0) = ([0.14, 0, 0.77], [0, 150, 180])
-        # used in set_robot_base_pose in scenario_base self.make_rmpflow()
-        # the latter uses a quaternion so we really should just be using that
-        #
-        # This works but we have no good way to rotate the robot arm around its long axis
-        # order = "XYZ"
-        # (pos0, rot0) = ([0.14, 0, 0.77], [0, -150, 180])
-        # self.load_robot_into_scene(0, pos0, rot0, order=order)
-
-
-        # (pos1, rot1) = ([-0.08, 0, 0.77], [0, -150, 0])
-        # self.load_robot_into_scene(1, pos1, rot1, order=order)
-
-        # This works but it is oriented the same as the other robot which is wrong
-        # order = "ZYX"
-        # (pos0, rot0) = ([0.14, 0, 0.77], [0, 150, 0])
-        # self.load_robot_into_scene(0, pos0, rot0, order=order)
-
-
-        # (pos1, rot1) = ([-0.08, 0, 0.77], [0, -150, 0])
-        # self.load_robot_into_scene(1, pos1, rot1, order=order)
 
         order = "XYZ"
         pre_rot = [0,0,-90]
@@ -95,16 +76,16 @@ class CageRmpflowScenario(ScenarioBase):
 
         self.add_cameras_to_robots()
 
-        # tagets
+        # tagets - cage floor is at around -0.05 so we need to raise the targets
         quat = euler_angles_to_quat([-np.pi/2,0,0])
         t0path = "/World/target0"
-        self._target0 = XFormPrim(t0path, scale=[.04,.04,.04], position=[0.15, 0.00, 0.02], orientation=quat)
+        self._target0 = XFormPrim(t0path, scale=[.04,.04,.04], position=[0.15, 0.00, 0.05], orientation=quat)
         (self.targ0top,_,_,_) = GetXformOpsFromPath(t0path)
         add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", t0path)
 
         quat = euler_angles_to_quat([-np.pi/2,0,np.pi])
         t1path = "/World/target1"
-        self._target1 = XFormPrim(t1path, scale=[.04,.04,.04], position=[-0.15, 0.00, 0.02], orientation=quat)
+        self._target1 = XFormPrim(t1path, scale=[.04,.04,.04], position=[-0.15, 0.00, 0.05], orientation=quat)
         (self.targ1top,_,_,_) = GetXformOpsFromPath(t1path)
         add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", t1path)
 
@@ -184,7 +165,8 @@ class CageRmpflowScenario(ScenarioBase):
             self.set_end_effector_target_for_robot(1, target1_position, target1_orientation)
             self.forward_rmpflow_step_for_robots(step_size)
 
-    lasttime = 0
+    lasttime1 = 0
+    lasttime2 = 0
     def physics_step(self, step_size):
         self.global_time += step_size
 
@@ -210,6 +192,10 @@ class CageRmpflowScenario(ScenarioBase):
                     rcfg._articulation.apply_action(action)
                 elif rcfg.current_robot_action == "PickAndPlace":
                     eeoff = np.array([0,0,-0.01])
+                    if rcfg.pickobj is None:
+                        carb.log_error("physics_step - PickAndPlace - pickobj is None - terminating action")
+                        rcfg.current_robot_action = "NoAction"
+                        continue
                     cp, _ = rcfg.pickobj.get_world_pose()
                     moto_pos = np.array([cp[0],cp[1],cp[2]+0.013])
                     current_joint_positions = rcfg._articulation.get_joint_positions()
@@ -228,12 +214,15 @@ class CageRmpflowScenario(ScenarioBase):
                     if rcfg._controller.is_done() and rcfg.pickobj is not None:
                         self.finish_pick_and_place(i)
                         rcfg._controller.reset()
-                        rcfg.current_robot_action = "None"
+                        rcfg.current_robot_action = "NoAction"
+                        if self.execute_remote_commands:
+                            cmdid = rcfg.remote_command_id
+                            self.rmtcmdlist.set_status_command(cmdid, "done")
 
-                    elap = self.global_time - self.lasttime
+                    elap = self.global_time - self.lasttime1
                     if elap>0.5:
                         print(f"ee_pos:{ee_pos}  phone:{cp}  targpos:{rcfg.targpos}  elap:{elap:.2f}")
-                        self.lasttime = self.global_time
+                        self.lasttime1 = self.global_time
                 elif rcfg.current_robot_action == "MoveToZero":
                     action = SimpleNamespace()
                     action.joint_indices = [0,1,2,3,4,5]
@@ -241,6 +230,22 @@ class CageRmpflowScenario(ScenarioBase):
                     action.joint_velocities = None
                     action.joint_efforts = None
                     rcfg._articulation.apply_action(action)
+
+                elif rcfg.current_robot_action == "NoAction":
+                    if self.execute_remote_commands and self.rmtcmdlist is not None:
+                        cmd = self.rmtcmdlist.get_next_command(i)
+                        if cmd is not None:
+                            ok = self.setup_pick_and_place(i, cmd)
+                        if cmd is None or not ok:
+                            elap = self.global_time - self.lasttime1
+                            if elap>5:
+                                ncmd, nexe, npend, ndone, ninv =  self.rmtcmdlist.get_cmd_stats()
+                                line = f"No pending messages found - time:{self.global_time:.1f}"
+                                line += f" ncmd:{ncmd} nexe:{nexe} npend:{npend} ndone:{ndone} ninv:{ninv}"
+                                print(line)
+                                carb.log_warn(line)
+                                self.lasttime1 = self.global_time
+                    pass
 
     def update_scenario(self, step: float):
         if not self._running_scenario:
@@ -286,6 +291,26 @@ class CageRmpflowScenario(ScenarioBase):
         self.cage_wintitle = wintitle
 
 
+
+    nextcmdid = 1
+    def toggle_load_remote_commands(self):
+        self.load_remote_commands = not self.load_remote_commands
+        if self.load_remote_commands:
+            self.rmtcmdlist = RemCmdList()
+            self.rmtcmdlist.add_preset_remote_commands()
+        else:
+            self.rmtcmdlist = None
+
+
+    def toggle_execute_remote_commands(self):
+        self.execute_remote_commands = not self.execute_remote_commands
+
+    def dump_remote_commands(self):
+        if self.rmtcmdlist is not None:
+            self.rmtcmdlist.dump_commands()
+        else:
+            print("No remote commands loaded or defined")
+
     def scenario_action(self, action_name, action_args):
         if action_name in self.base_scenario_actions:
             rv = super().scenario_action(action_name, action_args)
@@ -310,6 +335,12 @@ class CageRmpflowScenario(ScenarioBase):
             case "CageCamViews":
                 self.make_cage_cameras()
                 self.make_cage_cam_views()
+            case "LoadRemoteCommands":
+                self.toggle_load_remote_commands()
+            case "ExecRemoteCommands":
+                self.toggle_execute_remote_commands()
+            case "DumpRemoteCommands":
+                self.dump_remote_commands()
             case _:
                 print(f"Action {action_name} not implemented")
                 return False
@@ -332,6 +363,14 @@ class CageRmpflowScenario(ScenarioBase):
                 rv = f"Change Speed {self.target_rot_speed:.1f}"
             case "CageCamViews":
                 rv = "Cage Cam Views"
+            case "LoadRemoteCommands":
+                word = "loaded" if self.load_remote_commands else "unloaded"
+                rv = f"Load Remote Commands - {word}"
+            case "ExecRemoteCommands":
+                word = "executing" if self.execute_remote_commands else "stopped"
+                rv = f"Execute Remote Commands - {word}"
+            case "DumpRemoteCommands":
+                rv = "Dump Remote Commands"
             case _:
                 rv = f"{action_name}"
         return rv
@@ -350,7 +389,8 @@ class CageRmpflowScenario(ScenarioBase):
     def get_scenario_actions(self):
         self.base_scenario_actions = super().get_scenario_actions()
         combo  = self.base_scenario_actions + ["RotateRmp","RotateTarget0", "RotateTarget1",
-                                      "ChangeSpeed","CageCamViews"]
+                                      "ChangeSpeed","CageCamViews",
+                                      "LoadRemoteCommands", "DumpRemoteCommands","ExecRemoteCommands"]
         return combo
 
     def robot_action(self, action_name, action_args):
@@ -382,10 +422,8 @@ class CageRmpflowScenario(ScenarioBase):
                 print(f"Action {action_name} not implemented")
                 return False
 
-    def finish_pick_and_place(self, robot_id):
+    def clear_pick_and_place(self, robot_id):
         rcfg = self.get_robot_config(robot_id)
-        rcfg.sourcetray.empty_slot(rcfg.sourceidx)
-        rcfg.targettray.fill_slot(rcfg.targetidx, rcfg.pickobj)
         rcfg.pickobj = None
         rcfg.pickpos = None
         rcfg.pickori = None
@@ -396,29 +434,70 @@ class CageRmpflowScenario(ScenarioBase):
         rcfg.targettray = None
         rcfg.targetidx = None
 
-    def setup_pick_and_place(self, robot_id):
-        if robot_id == 0:
-            sourcetray = self.mototray1
-            targettray = self.mototray4
-        else:
-            sourcetray = self.mototray3
-            targettray = self.mototray2
+    def finish_pick_and_place(self, robot_id):
         rcfg = self.get_robot_config(robot_id)
-        moto = sourcetray.get_first_phone()
+        rcfg.sourcetray.empty_slot(rcfg.sourceidx)
+        rcfg.targettray.fill_slot(rcfg.targetidx, rcfg.pickobj)
+        self.clear_pick_and_place(robot_id)
 
-        ok, pickpos, pickori = sourcetray.get_first_full_slot_pose()
-        if not ok:
-            carb.log_error("No object in source tray")
-            return
+    def get_tray_by_name(self, name):
+        match name:
+            case "tray1":
+                rv = self.mototray1
+            case "tray2":
+                rv = self.mototray2
+            case "tray3":
+                rv = self.mototray3
+            case "tray4":
+                rv = self.mototray4
+            case _:
+                rv = None
+        return rv
 
-        ok, targpos, targori = targettray.get_first_empty_slot_pose()
-        if not ok:
-            carb.log_error("No space in target tray")
-            return
-        print(f"setuppap - r:{robot_id} pickpos:{pickpos} targpos:{targpos}")
+    def setup_pick_and_place(self, robot_id, cmd=None) -> bool:
+        rcfg = self.get_robot_config(robot_id)
+        if cmd is None:
+            if robot_id == 0:
+                sourcetray = self.mototray1
+                targettray = self.mototray4
+            else:
+                sourcetray = self.mototray3
+                targettray = self.mototray2
+            ok, pickpos, pickori = sourcetray.get_first_full_slot_pose()
+            if not ok:
+                carb.log_error("No object in source tray")
+                self.clear_pick_and_place(robot_id)
+                return False
 
-        sourceidx = sourcetray.get_first_full_slot()
-        targetidx = targettray.get_first_empty_slot()
+            ok, targpos, targori = targettray.get_first_empty_slot_pose()
+            if not ok:
+                carb.log_error("No space in target tray")
+                self.clear_pick_and_place(robot_id)
+                return False
+            print(f"setuppap - r:{robot_id} pickpos:{pickpos} targpos:{targpos}")
+
+            sourceidx = sourcetray.get_first_full_slot()
+            targetidx = targettray.get_first_empty_slot()
+            moto = sourcetray.get_phone_by_index(sourceidx)
+            cmdid = 0
+        else:
+            sourcetray = self.get_tray_by_name(cmd["sourcetray"])
+            targettray = self.get_tray_by_name(cmd["targettray"])
+            sourceidx = cmd["sourceslot"]
+            targetidx = cmd["targetslot"]
+            pickpos, pickori = sourcetray.get_trayslot_pose_idx(sourceidx)
+            targpos, targori = targettray.get_trayslot_pose_idx(targetidx)
+            moto = sourcetray.get_phone_by_index(sourceidx)
+            cmdid = cmd["id"]
+            if moto==None:
+                carb.log_error(f"No object in source tray:{sourcetray.name} slot:{sourceidx} - cmd invalid")
+                self.rmtcmdlist.set_status_command(cmdid, "invalid")
+                self.clear_pick_and_place(robot_id)
+                return False
+            self.rmtcmdlist.set_status_command(cmdid, "executing")
+
+        rcfg.current_robot_action = "PickAndPlace"
+        rcfg.remote_command_id = cmdid
 
         self.activate_ee_collision( robot_id, False)
         rcfg.sourcetray = sourcetray
@@ -431,9 +510,11 @@ class CageRmpflowScenario(ScenarioBase):
         rcfg.targpos = targpos
         rcfg.targori = targori
 
-        for i in range(6):
-            pos = targettray.get_trayslot_pos_idx(i)
-            print(f"   targettray slot positions - idx:{i} pos:{pos}")
+        return True
+
+        # for i in range(6):
+        #     pos = targettray.get_trayslot_pos_idx(i)
+        #     print(f"   targettray slot positions - idx:{i} pos:{pos}")
 
     def get_robot_action_button_text(self, action_name, action_args=None):
         if action_name in self.base_robot_actions:

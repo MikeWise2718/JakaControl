@@ -172,6 +172,12 @@ class MotoTray:
         ih = idx // 3
         return iw,ih
 
+    def get_phone_by_index(self, idx):
+        if idx<0 or 5<idx:
+            carb.log_error(f"get_phone_by_index: idx {idx} out of range")
+            return None
+        return self.phone_list[idx]
+
     def get_first_phone(self):
         for m in self.phone_list:
             if m is not None:
@@ -254,6 +260,17 @@ class MotoTray:
         zp = 0.03
         rv = np.array([xp,yp,zp])
         return rv
+
+    def get_trayslot_pose_idx(self, idx):
+        iw,ih = self.get_iw_ih(idx)
+        pos, ori = self.get_trayslot_pose(iw,ih)
+        return pos, ori
+
+    def get_trayslot_pose(self, iw, ih):
+        pos = self.get_trayslot_pos(iw,ih)
+        ori = self.rot
+        return pos, ori
+
 
     def get_trayslot_pos_idx(self, idx):
         iw,ih = self.get_iw_ih(idx)
