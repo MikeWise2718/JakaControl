@@ -304,6 +304,9 @@ class CageRmpflowScenario(ScenarioBase):
 
     def toggle_execute_remote_commands(self):
         self.execute_remote_commands = not self.execute_remote_commands
+        if self.execute_remote_commands and self.rmtcmdlist is not None:
+            self.rmtcmdlist.start_execution()
+
 
     def dump_remote_commands(self):
         if self.rmtcmdlist is not None:
@@ -341,6 +344,9 @@ class CageRmpflowScenario(ScenarioBase):
                 self.toggle_execute_remote_commands()
             case "DumpRemoteCommands":
                 self.dump_remote_commands()
+            case "ReverseRemoteCommands":
+                if self.rmtcmdlist is not None:
+                    self.rmtcmdlist.reverse_commands()
             case _:
                 print(f"Action {action_name} not implemented")
                 return False
@@ -365,12 +371,17 @@ class CageRmpflowScenario(ScenarioBase):
                 rv = "Cage Cam Views"
             case "LoadRemoteCommands":
                 word = "loaded" if self.load_remote_commands else "unloaded"
+                if word == "loaded":
+                    ncmd, nexe, npend, ndone, ninv = self.rmtcmdlist.get_cmd_stats()
+                    word = f"{word} - ncmd: {ncmd}"
                 rv = f"Load Remote Commands - {word}"
             case "ExecRemoteCommands":
                 word = "executing" if self.execute_remote_commands else "stopped"
                 rv = f"Execute Remote Commands - {word}"
             case "DumpRemoteCommands":
                 rv = "Dump Remote Commands"
+            case "ReverseRemoteCommands":
+                rv = "Reverse Remote Commands"
             case _:
                 rv = f"{action_name}"
         return rv
@@ -390,7 +401,7 @@ class CageRmpflowScenario(ScenarioBase):
         self.base_scenario_actions = super().get_scenario_actions()
         combo  = self.base_scenario_actions + ["RotateRmp","RotateTarget0", "RotateTarget1",
                                       "ChangeSpeed","CageCamViews",
-                                      "LoadRemoteCommands", "DumpRemoteCommands","ExecRemoteCommands"]
+                                      "LoadRemoteCommands", "ReverseRemoteCommands", "DumpRemoteCommands","ExecRemoteCommands"]
         return combo
 
     def robot_action(self, action_name, action_args):
