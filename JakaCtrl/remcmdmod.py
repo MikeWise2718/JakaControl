@@ -62,7 +62,7 @@ class RemCmdList:
         return rv
 
 
-    def add_preset_remote_command(self, arm, sourcetray, sourceslot, targettray, targetslot, precmdid="---") -> str:
+    def add_preset_remote_command(self, arm, sourcetray, sourceslot, targettray, targetslot, precmdid=None) -> str:
         cmdid = f"cmd-{self.nextcmdid}"
         cmd = RemCmd()
         cmd["arm"] = arm
@@ -71,7 +71,10 @@ class RemCmdList:
         cmd["targettray"] = targettray
         cmd["targetslot"] = targetslot
         cmd["id"] = cmdid
-        cmd["precmdid"] = precmdid
+        if precmdid is None:
+            cmd["precmdid"] = []
+        else:
+            cmd["precmdid"] = precmdid
         cmd["status"] = "pending"
         cmd["tbeg"] = 0.0
         cmd["tfin"] = 0.0
@@ -112,10 +115,11 @@ class RemCmdList:
         cid4 = self.add_preset_remote_command("arm_1", "tray3", 0, "tray2", 0)
         cid5 = self.add_preset_remote_command("arm_1", "tray3", 1, "tray2", 1, precmdid=[cid4])
         cid6 = self.add_preset_remote_command("arm_1", "tray3", 2, "tray2", 2, precmdid=[cid5,cid3])
+        self.dump_commands()
 
     def cmd_prequisites_met(self, cmd) -> bool:
         prereq = cmd["precmdid"]
-        if prereq is None or prereq == "---":
+        if prereq is None or prereq == []:
             return True
         # make sure we have a list of prereqs
         if type(prereq) == list:
@@ -191,8 +195,19 @@ class RemCmdList:
         return maxcmd
 
     def reverse_commands(self):
+
+        old_to_new_map = {}
+
+        # make a list of dependencies - we will need to add these back in
+        old_dependencies = []
         for cmdid in self.lookup:
             cmd = self.lookup[cmdid]
+            for d_id in cmd["precmdid"]:
+                if d_id in self.lookup:
+                    # remember that cmd["id"] depends on key being executed first
+                    old_dependencies.append([cmd["id"],d_id])
+                else:
+                    carb.log_error(f"reverse_commands - building old_dependencies could not find key {d_id} - this should not happen")
             cmd["revstatus"] = "pending"
 
         maxiter = len(self.lookup)+1
@@ -207,6 +222,8 @@ class RemCmdList:
             cmdstack.append(cmd)
             iter += 1
 
+        # now we have a stack of commands in the reverse order they were executed
+
         self.initialize(self.narms)
         for cmd in cmdstack:
             arm = cmd["arm"]
@@ -214,9 +231,33 @@ class RemCmdList:
             sourceslot = cmd["targetslot"]
             targettray = cmd["sourcetray"]
             targetslot = cmd["sourceslot"]
-            precmdid = "---"
-            if "old_prereq" in cmd:
-                precmdid = cmd["old_prereq"]
-            newcmdid = self.add_preset_remote_command(arm, sourcetray, sourceslot, targettray, targetslot, precmdid=precmdid)
-            newcmd = self.lookup[newcmdid]
-            newcmd["old_prereq"] = cmd["precmdid"]
+            newcmdid = self.add_preset_remote_command(arm, sourcetray, sourceslot, targettray, targetslot)
+            old_to_new_map[cmd["id"]] = newcmdid
+
+        # print("old_to_new_map")
+        # print(old_to_new_map)
+
+        # print("old_dependencies")
+        # print(old_dependencies)
+
+        # now add the dependencies back, translating the old ids to the new ids
+        for dep in old_dependencies:
+            o_id0 = dep[0]
+            o_id1 = dep[1]
+            if o_id0 not in old_to_new_map:
+                carb.log_error(f"reverse_commands - could not find old key {o_id0} - this should not happen")
+                continue
+            if o_id1 not in old_to_new_map:
+                carb.log_error(f"reverse_commands - could not find old key {o_id1} - this should not happen")
+                continue
+            n_id0 = old_to_new_map[o_id0]
+            n_id1 = old_to_new_map[o_id1]
+            if n_id0 not in self.lookup:
+                carb.log_error(f"reverse_commands - could not find new key {n_id0} - this should not happen")
+                continue
+            if n_id1 not in self.lookup:
+                carb.log_error(f"reverse_commands - could not find new key {n_id1} - this should not happen")
+                continue
+            newcmd = self.lookup[n_id1]
+            # print(f"Adding prereq {n_id0} to {n_id1}  - original {o_id0} {o_id1}")
+            newcmd["precmdid"].append(n_id0)
