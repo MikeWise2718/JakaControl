@@ -146,9 +146,9 @@ class ObjectInspectionScenario(ScenarioBase):
             case "RotateTarget1":
                 self.rotate_target1 = not self.rotate_target1
             case "ChangeSpeed":
-                m = action_args.get("m",0)
-                b = action_args.get("b",0)
-                if m!=0:
+                keymod = action_args.get("k",0)
+                mbutt = action_args.get("b",0)
+                if keymod!=0: # no shift, ctrl, or alt was pushed
                     self.target_rot_speed *= -1
                 else:
                     if b>0:

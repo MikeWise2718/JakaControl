@@ -2,10 +2,12 @@ import os
 import numpy as np
 import copy
 import time
-
+import glob
+import json
 import carb
 import carb.settings
-
+from omni.isaac.core.utils.extensions import get_extension_path_from_name # why do we need this?
+from .senut import cleanup_path
 
 
 class RemCmd:
@@ -30,6 +32,8 @@ class RemCmd:
 
 class RemCmdList:
 
+    reverse_count = 0
+
     def __init__(self, narms=2):
         self.initialize(narms)
 
@@ -40,7 +44,7 @@ class RemCmdList:
         self["arms"] = []
         armlist = []
         for i in range(self.narms):
-            armid = f"arm_{i}"
+            armid = f"arm{i}"
             armlist.append(armid)
             self[armid] = []
         self["arms"] = armlist
@@ -62,8 +66,9 @@ class RemCmdList:
         return rv
 
 
-    def add_preset_remote_command(self, arm, sourcetray, sourceslot, targettray, targetslot, precmdid=None) -> str:
-        cmdid = f"cmd-{self.nextcmdid}"
+    def add_remote_command(self, arm, sourcetray, sourceslot, targettray, targetslot, precmdid=None, cmdid=None) -> str:
+        if cmdid is None:
+            cmdid = f"cmd-{self.nextcmdid}"
         cmd = RemCmd()
         cmd["arm"] = arm
         cmd["sourcetray"] = sourcetray
@@ -106,16 +111,75 @@ class RemCmdList:
                 cmd["status"] = "pending"
         self.startime = time.time()
 
+    @staticmethod
+    def get_gpt_remote_command_options() -> list[str]:
+        current_extension_dir = cleanup_path(get_extension_path_from_name("JakaControl"))
+        # get a directory listing of the gpt files (in json format)
+        mask = f"{current_extension_dir}/gptcommands/*.json"
+        gpt_files = glob.glob(mask)
+        for i,fname in enumerate(gpt_files):
+            newfname = cleanup_path(fname)
+            if newfname != fname:
+                gpt_files[i] = newfname
+        gpt_files.sort()
+        return gpt_files
+
+    def crack_tray_slot(self, tray_slot_str) -> tuple[str,int]:
+        ok = False
+        tray_slot_str = tray_slot_str.strip().lower()
+        if not tray_slot_str.startswith("tray"):
+            carb.log_error(f"Invalid tray_slot {tray_slot_str}")
+            return ok, 0, 0
+        traystr, slotstr = tray_slot_str.split("_")
+        traynum = int(traystr[-1])
+        slotnum = int(slotstr[-1])
+        ok = True
+        return ok, traynum, slotnum
+
+    def process_move(self, carr) -> None:
+        if len(carr) < 6:
+            carb.log_error(f"Invalid move command {carr}")
+            return
+        id = carr[1]
+        arm = carr[2].strip().lower()
+        phone = carr[3].strip().lower()
+        ok, sourcetray, sourceslot = self.crack_tray_slot( carr[4] )
+        if not ok:
+            carb.log_error(f"Invalid source tray_slot {carr[1]}")
+            return
+        ok, targettray, targetslot = self.crack_tray_slot( carr[5] )
+        if not ok:
+            carb.log_error(f"Invalid target tray_slot {carr[2]}")
+            return
+        self.add_remote_command(arm, sourcetray, sourceslot, targettray, targetslot, cmdid=id)
+
+
+    def read_commands_from_file(self, fullpathname) -> None:
+        with open(fullpathname) as fd:
+            json_data = json.load(fd)
+        rcmdseq = json_data["sequence"]
+        for rcmd in rcmdseq:
+            rcmd = rcmd.replace("(",",")
+            rcmd= rcmd.replace(")",",")
+            carr = rcmd.split(",")
+            if len(carr) == 0:
+                carb.log_error(f"Invalid command {rcmd}")
+                continue
+            key = carr[0].lower().strip()
+            match key:
+                case "move":
+                    self.process_move(carr)
+                case "_":
+                    carb.log_error(f"Invalid or unimplemented command {rcmd}")
 
     def add_preset_remote_commands(self) -> None:
-        cid1 = self.add_preset_remote_command("arm_0", "tray1", 0, "tray4", 0)
-        cid2 = self.add_preset_remote_command("arm_0", "tray1", 1, "tray4", 1, precmdid=[cid1])
-        cid3 = self.add_preset_remote_command("arm_0", "tray1", 2, "tray4", 2, precmdid=[cid2])
+        cid1 = self.add_remote_command("arm0", "tray1", 0, "tray4", 0)
+        cid2 = self.add_remote_command("arm0", "tray1", 1, "tray4", 1, precmdid=[cid1])
+        cid3 = self.add_remote_command("arm0", "tray1", 2, "tray4", 2, precmdid=[cid2])
 
-        cid4 = self.add_preset_remote_command("arm_1", "tray3", 0, "tray2", 0)
-        cid5 = self.add_preset_remote_command("arm_1", "tray3", 1, "tray2", 1, precmdid=[cid4])
-        cid6 = self.add_preset_remote_command("arm_1", "tray3", 2, "tray2", 2, precmdid=[cid5,cid3])
-        self.dump_commands()
+        cid4 = self.add_remote_command("arm1", "tray3", 0, "tray2", 0)
+        cid5 = self.add_remote_command("arm1", "tray3", 1, "tray2", 1, precmdid=[cid4])
+        cid6 = self.add_remote_command("arm1", "tray3", 2, "tray2", 2, precmdid=[cid5,cid3])
 
     def cmd_prequisites_met(self, cmd) -> bool:
         prereq = cmd["precmdid"]
@@ -138,7 +202,7 @@ class RemCmdList:
         return True
 
     def get_next_command(self, arm):
-        armid = f"arm_{arm}"
+        armid = f"arm{arm}"
         cmds = self[armid]
         if cmds is None:
             return None
@@ -231,7 +295,7 @@ class RemCmdList:
             sourceslot = cmd["targetslot"]
             targettray = cmd["sourcetray"]
             targetslot = cmd["sourceslot"]
-            newcmdid = self.add_preset_remote_command(arm, sourcetray, sourceslot, targettray, targetslot)
+            newcmdid = self.add_remote_command(arm, sourcetray, sourceslot, targettray, targetslot)
             old_to_new_map[cmd["id"]] = newcmdid
 
         # print("old_to_new_map")
@@ -261,3 +325,5 @@ class RemCmdList:
             newcmd = self.lookup[n_id1]
             # print(f"Adding prereq {n_id0} to {n_id1}  - original {o_id0} {o_id1}")
             newcmd["precmdid"].append(n_id0)
+
+        self.reverse_count += 1

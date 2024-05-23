@@ -18,10 +18,11 @@ from omni.isaac.core.utils.rotations import euler_angles_to_quat
 from omni.isaac.core.utils.viewports import set_camera_view
 
 from .senut import apply_material_to_prim_and_children, GetXformOps, GetXformOpsFromPath
-from .senut import add_rob_cam
+from .senut import add_rob_cam, pvk
 
 from .scenario_base import ScenarioBase
 from .senut import make_rob_cam_view_window
+
 
 from .remcmdmod import RemCmd, RemCmdList
 
@@ -54,6 +55,8 @@ class CageRmpflowScenario(ScenarioBase):
         self.uibuilder = uibuilder
         self.current_robot_action = "FollowTarget"
         self.rmtcmdlist = None
+        self.current_gtpcommand_file = ""
+        self.current_gptcommand_options = []
 
     def load_scenario(self, robot_name, ground_opt, light_opt="dome_light"):
         super().load_scenario(robot_name, ground_opt)
@@ -63,6 +66,7 @@ class CageRmpflowScenario(ScenarioBase):
 
         self.add_light(light_opt)
         self.add_ground(ground_opt)
+
 
         order = "XYZ"
         pre_rot = [0,0,-90]
@@ -132,9 +136,19 @@ class CageRmpflowScenario(ScenarioBase):
 
         self._running_scenario = True
 
+        self.init_remote_commands()
+
     def reset_scenario(self):
         self.reset_robot_rmpflows()
+        self.init_remote_commands()
 
+    def init_remote_commands(self):
+        self.rmtcmdlist = RemCmdList()
+        self.current_gptcommand_options = self.rmtcmdlist.get_gpt_remote_command_options()
+        if len(self.current_gptcommand_options)>0:
+            self.current_gtpcommand_file = self.current_gptcommand_options[0]
+        else:
+            self.current_gtpcommand_file = ""
 
     gang = 0
     def rotate_target(self, target, top, cen, radius, step_size):
@@ -221,7 +235,9 @@ class CageRmpflowScenario(ScenarioBase):
 
                     elap = self.global_time - self.lasttime1
                     if elap>0.5:
-                        print(f"ee_pos:{ee_pos}  phone:{cp}  targpos:{rcfg.targpos}  elap:{elap:.2f}")
+                        eepos_s = pvk(ee_pos)
+                        cp_s = pvk(cp)
+                        print(f"ee_pos:{eepos_s}  phone:{cp_s}  targpos:{rcfg.targpos}  elap:{elap:.2f}")
                         self.lasttime1 = self.global_time
                 elif rcfg.current_robot_action == "MoveToZero":
                     action = SimpleNamespace()
@@ -292,14 +308,36 @@ class CageRmpflowScenario(ScenarioBase):
 
 
 
-    nextcmdid = 1
-    def toggle_load_remote_commands(self):
+    def toggle_load_preset_remote_commands(self):
         self.load_remote_commands = not self.load_remote_commands
         if self.load_remote_commands:
             self.rmtcmdlist = RemCmdList()
             self.rmtcmdlist.add_preset_remote_commands()
         else:
             self.rmtcmdlist = None
+
+    def toggle_load_remote_commands(self, keymod):
+        cur = self.current_gtpcommand_file
+        if keymod!=0:
+            if self.rmtcmdlist is None:
+                carb.log_error("No remote command list, scene probably not defined")
+            else:
+                self.rmtcmdlist.read_commands_from_file(cur)
+        else:
+            self.current_gptcommand_options = RemCmdList.get_gpt_remote_command_options()
+            opts = self.current_gptcommand_options
+            if (cur != "") and (cur in opts):
+                idx = opts.index(cur)
+                idx += 1
+                if idx>=len(opts):
+                    idx = 0
+                self.current_gtpcommand_file = opts[idx]
+            elif len(opts)>0:
+                self.current_gtpcommand_file = opts[0]
+            else:
+                # do nothing I guess
+                carb.log_warn("No remote command files found (json)")
+                pass
 
 
     def toggle_execute_remote_commands(self):
@@ -318,6 +356,10 @@ class CageRmpflowScenario(ScenarioBase):
         if action_name in self.base_scenario_actions:
             rv = super().scenario_action(action_name, action_args)
             return rv
+        button = action_args.get("b",0)
+        keymod = action_args.get("k",0)
+        x = action_args.get("x",0)
+        y = action_args.get("y",0)
         match action_name:
             case "RotateRmp":
                 self.rmpactive = not self.rmpactive
@@ -338,8 +380,10 @@ class CageRmpflowScenario(ScenarioBase):
             case "CageCamViews":
                 self.make_cage_cameras()
                 self.make_cage_cam_views()
+            case "LoadPresetRemoteCommands":
+                self.toggle_load_preset_remote_commands()
             case "LoadRemoteCommands":
-                self.toggle_load_remote_commands()
+                self.toggle_load_remote_commands(keymod)
             case "ExecRemoteCommands":
                 self.toggle_execute_remote_commands()
             case "DumpRemoteCommands":
@@ -369,19 +413,30 @@ class CageRmpflowScenario(ScenarioBase):
                 rv = f"Change Speed {self.target_rot_speed:.1f}"
             case "CageCamViews":
                 rv = "Cage Cam Views"
-            case "LoadRemoteCommands":
+            case "LoadPresetRemoteCommands":
                 word = "loaded" if self.load_remote_commands else "unloaded"
                 if word == "loaded":
                     ncmd, nexe, npend, ndone, ninv = self.rmtcmdlist.get_cmd_stats()
                     word = f"{word} - ncmd: {ncmd}"
-                rv = f"Load Remote Commands - {word}"
+                rv = f"Load Preset Remote Commands - {word}"
+            case "LoadRemoteCommands":
+                fullpathname = self.current_gtpcommand_file
+                fname = fullpathname.split("/")[-1]
+                rv = f"Load Remote Commands - {fname}"
             case "ExecRemoteCommands":
                 word = "executing" if self.execute_remote_commands else "stopped"
                 rv = f"Execute Remote Commands - {word}"
             case "DumpRemoteCommands":
-                rv = "Dump Remote Commands"
+                extra = ""
+                if self.rmtcmdlist is not None:
+                    ncmd, nexe, npend, ndone, ninv = self.rmtcmdlist.get_cmd_stats()
+                    extra = f" ncmd:{ncmd} nexe:{nexe} npend:{npend} ndone:{ndone} ninv:{ninv}"
+                rv = f"Dump Remote Commands - {extra}"
             case "ReverseRemoteCommands":
-                rv = "Reverse Remote Commands"
+                word = ""
+                if self.rmtcmdlist is not None:
+                    word = f" revcount {self.rmtcmdlist.reverse_count}"
+                rv = f"Reverse Remote Commands {word}"
             case _:
                 rv = f"{action_name}"
         return rv
@@ -401,7 +456,8 @@ class CageRmpflowScenario(ScenarioBase):
         self.base_scenario_actions = super().get_scenario_actions()
         combo  = self.base_scenario_actions + ["RotateRmp","RotateTarget0", "RotateTarget1",
                                       "ChangeSpeed","CageCamViews",
-                                      "LoadRemoteCommands", "ReverseRemoteCommands", "DumpRemoteCommands","ExecRemoteCommands"]
+                                      "LoadPresetRemoteCommands", "LoadRemoteCommands", "ReverseRemoteCommands",
+                                      "DumpRemoteCommands","ExecRemoteCommands"]
         return combo
 
     def robot_action(self, action_name, action_args):
@@ -453,13 +509,13 @@ class CageRmpflowScenario(ScenarioBase):
 
     def get_tray_by_name(self, name):
         match name:
-            case "tray1":
+            case "tray1" | 1 | "1":
                 rv = self.mototray1
-            case "tray2":
+            case "tray2" | 2 | "2":
                 rv = self.mototray2
-            case "tray3":
+            case "tray3" | 3 | "3":
                 rv = self.mototray3
-            case "tray4":
+            case "tray4" | 4 | "4":
                 rv = self.mototray4
             case _:
                 rv = None
