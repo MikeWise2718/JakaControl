@@ -50,6 +50,20 @@ def save_setting(name, value):
     key = f"{SETTING_NAME}/{name}"
     settings.set(key, value)
 
+
+def pvk(vek, fmt="{:0.3f}"):
+    core = [fmt.format(x) for x in vek]
+    # other possibl
+    typ = type(vek)
+    if typ is list:
+        rv = "[" + ", ".join(core) + "]"
+    elif typ is tuple:
+        rv = "(" + ", ".join(core) + ")"
+    elif typ is Gf.Vec3f:
+        rv = "g(" + ", ".join(core) + ")"
+    else:
+        rv = "[" + ", ".join(core) + "]"
+    return rv
 # Misc Utilities
 
 def truncf(number, digits) -> float:

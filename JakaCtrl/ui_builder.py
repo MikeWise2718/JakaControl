@@ -821,15 +821,15 @@ class UIBuilder:
 
     binc = [-1, 1]
 
-    def _do_scenario_action(self, action, x,y,b,m):
-        argdict = {"m":m, "b":b, "x":x, "y":y}
+    def _do_scenario_action(self, action, x,y,b,km):
+        argdict = {"k":km, "b":b, "x":x, "y":y}
         self._cur_scenario.scenario_action(action, argdict)
         butt = self.custbuttdict.get(action)
         if butt is not None:
             butt.text = self._cur_scenario.get_scenario_action_button_text( action, argdict )
 
     def _do_robot_action(self, action, x,y,b,m):
-        argdict = {"m":m, "b":b, "x":x, "y":y}
+        argdict = {"k":m, "b":b, "x":x, "y":y}
         self._cur_scenario.robot_action(action, argdict)
         self._refresh_robot_action_button_texts()
         # butt = self.custbuttdict.get(action)
