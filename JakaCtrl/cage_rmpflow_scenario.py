@@ -121,15 +121,18 @@ class CageRmpflowScenario(ScenarioBase):
         # tagets
         quat = euler_angles_to_quat([-np.pi/2,0,0])
         t0path = "/World/target0"
-        self._target0 = XFormPrim(t0path, scale=[.04,.04,.04], position=[0.15, 0.00, 0.02], orientation=quat)
+        self._target0 = FixedCuboid(t0path,size=.02,position=np.array([0.15, 0.0, 0.02]),color=np.array([0.,0.,1.]), orientation=quat)
+        
+        #XFormPrim(t0path, scale=[.04,.04,.04], position=[0.15, 0.00, 0.02], orientation=quat)
         (self.targ0top,_,_,_) = GetXformOpsFromPath(t0path)
-        add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", t0path)
+        #add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", t0path)
 
         quat = euler_angles_to_quat([-np.pi/2,0,np.pi])
         t1path = "/World/target1"
-        self._target1 = XFormPrim(t1path, scale=[.04,.04,.04], position=[-0.15, 0.00, 0.02], orientation=quat)
+        self._target1 = FixedCuboid(t1path,size=.02,position=np.array([-0.15, 0.00, 0.02]),color=np.array([1.,0.,0.]), orientation=quat)
         (self.targ1top,_,_,_) = GetXformOpsFromPath(t1path)
-        add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", t1path)
+
+
 
         # obstacles
         self._obstacle = FixedCuboid("/World/obstacle",size=.05,position=np.array([0.4, 0.0, 1.65]),color=np.array([0.,0.,1.]))
@@ -280,9 +283,9 @@ class CageRmpflowScenario(ScenarioBase):
             strs = ','.join(str(x) for x in (current_joint_positions0))
             print("joints:",strs)
             current_time_str = datetime.now().strftime ('%Y-%m-%d %H:%M:%S')
-            valRight = "[R,"+ current_time_str + ", "+ ", ".join(map(str, current_joint_positions0)) + "]"        
+            valRight = "[L,"+ current_time_str + ", "+ ", ".join(map(str, current_joint_positions0)) + "]"        
             asyncio.ensure_future(self.send_positions_by_websocket(valRight))
-            valLeft = "[L,"+ current_time_str + ", "+ ", ".join(map(str, current_joint_positions1)) + "]" 
+            valLeft = "[R,"+ current_time_str + ", "+ ", ".join(map(str, current_joint_positions1)) + "]" 
             asyncio.ensure_future(self.send_positions_by_websocket(valLeft))
             self.start = time.process_time()
   
