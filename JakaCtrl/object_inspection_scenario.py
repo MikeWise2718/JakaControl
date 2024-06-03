@@ -24,7 +24,7 @@ from omni.isaac.core.utils.rotations import euler_angles_to_quat
 
 from omni.asimov.jaka.minicobo import Minicobo
 
-from .senut import add_light_to_stage
+
 from .senut import calc_robot_circle_pose
 from .senut import apply_convex_decomposition_to_mesh_and_children, apply_material_to_prim_and_children
 from .senut import adjust_joint_values, set_stiffness_for_joints, set_damping_for_joints
@@ -44,24 +44,7 @@ ws = websocket
 open = False
 
 
-async def Connect2Websocket(self):
-    ws = websocket.WebSocketApp("wss://integrationhubwebsocket.azurewebsites.net/8888",
-                                on_message=on_message,
-                                on_error=on_error,
-                                on_close=on_close, on_open=on_open)
-    ws.on_open = on_open
-    ws.run_forever()
-def on_message(ws, message):
-    print(f"Received message: {message}")
-def on_open(ws):
-    print("Connection opened")
-    ws.send("Hello, Server!")
-    open = True
-def on_error(ws, error):
-    print(f"Encountered error: {error}")
 
-def on_close(ws, close_status_code, close_msg):
-    print("Connection closed")
 
 
 
@@ -72,7 +55,7 @@ class ObjectInspectionScenario(ScenarioBase):
     websocketWS = websockets
     open = False
     async def Connect2WebsocketWS(self):
-        self.websocketWS =  await websockets.connect("wss://integrationhubwebsocket.azurewebsites.net/8888", ping_interval=None)
+        self.websocketWS =  await websockets.connect("wss://imvplaygroundsockets.azurewebsites.net/8888", ping_interval=None)
         await self.websocketWS.send("OPEN")
         open = True
     async def send_positions_by_websocket(self,mess):
@@ -95,16 +78,19 @@ class ObjectInspectionScenario(ScenarioBase):
     def __init__(self):
         pass
 
-    def load_scenario(self, robot_name, ground_opt):
+    def load_scenario(self, robot_name, ground_opt, light_opt="dome_light"):
         super().load_scenario(robot_name, ground_opt)
         # self.get_robot_config(robot_name, ground_opt)
-        self._robcfg = self.get_robcfg(robot_name, ground_opt)
-        self._robcfg1 = self.get_robcfg(robot_name, ground_opt)
+        
+        #self._robcfg = self.get_robcfg(robot_name, ground_opt)
+        #self._robcfg1 = self.get_robcfg(robot_name, ground_opt)
+        self.create_robot_config(robot_name, "/World/roborg0")
+        self.create_robot_config(robot_name, "/World/roborg1")
 
         self._robot_name = robot_name
         self._ground_opt = ground_opt
 
-        add_light_to_stage()
+        #add_light_to_stage()
 
         world = World.instance()
         if self._ground_opt == "default":
@@ -217,7 +203,7 @@ class ObjectInspectionScenario(ScenarioBase):
             apply_material_to_prim_and_children(stage, self._matman, "Steel_Blued", cagepath)
 
         self._world = world
-        asyncio.ensure_future(self.Connect2WebsocketWS())
+  
         
         #ws.on_open = on_open
         #ws.run_forever()

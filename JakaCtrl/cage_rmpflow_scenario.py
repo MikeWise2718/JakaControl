@@ -1,9 +1,12 @@
 import numpy as np
 from pxr import Usd, UsdGeom, Gf, UsdPhysics, PhysxSchema
 from types import SimpleNamespace
-
+import time
 import omni
 import carb
+import websockets
+import asyncio
+from datetime import datetime
 
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.core.utils.stage import add_reference_to_stage
@@ -34,6 +37,9 @@ from .motomod import MotoMan
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 #
 
+
+
+
 class CageRmpflowScenario(ScenarioBase):
 
     _running_scenario = False
@@ -42,6 +48,21 @@ class CageRmpflowScenario(ScenarioBase):
     rotate_target1 = False
     target_rot_speed = 2*np.pi/10 # 10 seconds for a full rotation
     cagecamviews = None
+    websocketWS = websockets
+    open = False
+    async def Connect2WebsocketWS(self):
+        self.websocketWS =  await websockets.connect("ws://imvplaygroundsockets.azurewebsites.net/8888", ping_interval=None)
+        await self.websocketWS.send("OPEN")
+        open = True
+    
+
+    
+    async def send_positions_by_websocket(self,mess):
+        try:
+            await self.websocketWS.send(mess)
+        except websockets.ConnectionClosedError:
+            await self.Connect2WebsocketWS()
+
 
     def __init__(self, uibuilder=None):
         super().__init__()
@@ -50,6 +71,7 @@ class CageRmpflowScenario(ScenarioBase):
         self._nrobots = 2
         self.uibuilder = uibuilder
         self.current_robot_action = "FollowTarget"
+        self.start = time.process_time()
 
     def load_scenario(self, robot_name, ground_opt, light_opt="dome_light"):
         super().load_scenario(robot_name, ground_opt)
@@ -84,12 +106,13 @@ class CageRmpflowScenario(ScenarioBase):
         # self.load_robot_into_scene(1, pos1, rot1, order=order)
 
         order = "XYZ"
-        pre_rot = [0,0,-90]
+        #right arm
+        pre_rot = [0,0,0]
         (pos0, rot0) = ([0.14, 0, 0.77], [0, -150, 180])
         self.load_robot_into_scene(0, pos0, rot0, order=order, pre_rot=pre_rot)
 
-
-        pre_rot = [0,0,60]
+        #left arm
+        pre_rot = [0,0,0]
         (pos1, rot1) = ([-0.08, 0, 0.77], [0, 150, 180])
         self.load_robot_into_scene(1, pos1, rot1, order=order, pre_rot=pre_rot)
 
@@ -131,6 +154,7 @@ class CageRmpflowScenario(ScenarioBase):
         self.mototray2 = mm.AddMotoTray("tray2", "000000", rot=[a90,0,zang],pos=[-xoff,+yoff,0.0])
         self.mototray3 = mm.AddMotoTray("tray3", "myc000", rot=[a90,0,zang],pos=[-xoff,-yoff,0.0])
         self.mototray4 = mm.AddMotoTray("tray4", "000000", rot=[a90,0,zang],pos=[+xoff,-yoff,0.0])
+        asyncio.ensure_future(self.Connect2WebsocketWS())
 
     def add_grippers_to_robots(self):
         for i in range(self._nrobots):
@@ -185,6 +209,7 @@ class CageRmpflowScenario(ScenarioBase):
             self.forward_rmpflow_step_for_robots(step_size)
 
     lasttime = 0
+    
     def physics_step(self, step_size):
         self.global_time += step_size
 
@@ -242,6 +267,28 @@ class CageRmpflowScenario(ScenarioBase):
                     action.joint_efforts = None
                     rcfg._articulation.apply_action(action)
 
+        rcfg0 = self.get_robot_config(0)
+        current_joint_positions0 = rcfg0._articulation.get_joint_positions()
+
+        rcfg1 = self.get_robot_config(1)
+        current_joint_positions1 = rcfg1._articulation.get_joint_positions()
+
+     
+        elapsed_time = time.process_time() - self.start
+        #print(elapsed_time)
+        if(elapsed_time > 1):   
+            strs = ','.join(str(x) for x in (current_joint_positions0))
+            print("joints:",strs)
+            current_time_str = datetime.now().strftime ('%Y-%m-%d %H:%M:%S')
+            valRight = "[R,"+ current_time_str + ", "+ ", ".join(map(str, current_joint_positions0)) + "]"        
+            asyncio.ensure_future(self.send_positions_by_websocket(valRight))
+            valLeft = "[L,"+ current_time_str + ", "+ ", ".join(map(str, current_joint_positions1)) + "]" 
+            asyncio.ensure_future(self.send_positions_by_websocket(valLeft))
+            self.start = time.process_time()
+  
+
+
+    
     def update_scenario(self, step: float):
         if not self._running_scenario:
             return
