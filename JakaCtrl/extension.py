@@ -109,7 +109,6 @@ class Extension(omni.ext.IExt):
         gc.collect()
 
     def _on_window(self, visible):
-        print("extension _on_window")
         if self._window.visible:
             # Subscribe to Stage and Timeline Events
             self._usd_context = omni.usd.get_context()
@@ -126,7 +125,6 @@ class Extension(omni.ext.IExt):
             self.ui_builder.cleanup()
 
     def _build_ui(self):
-        print("extension _build_ui")
         with self._window.frame:
             with ui.VStack(spacing=5, height=0):
                 self._build_extension_ui()
@@ -151,7 +149,6 @@ class Extension(omni.ext.IExt):
     #################################################################
 
     def _menu_callback(self):
-        print("extension menu_callback")
         self._window.visible = not self._window.visible
         self.ui_builder.on_menu_callback()
 
