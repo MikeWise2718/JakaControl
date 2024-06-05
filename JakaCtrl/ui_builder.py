@@ -63,6 +63,8 @@ class UIBuilder:
     _joint_alarms = True
     _modes = ["CollisionSpheres","none"]
     _mode = "none"
+    _datum = ["Push","Pull"]
+    _data = "Push"
     _choices = ["choice 1","choice 2"]
     _choice = "choice 1"
     _scenario_action_list = ["--none--"]
@@ -280,6 +282,15 @@ class UIBuilder:
                         "Execute", mouse_pressed_fn=self._exec_action,
                         style={'background_color': self.dkred}
                     )
+                with ui.HStack(style=get_style(), spacing=5, height=0):
+                    ui.Label("Pull / Push Data:",
+                            style={'color': self.btyellow},
+                            width=50)
+                    self._data_btn = Button(
+                        "Push", mouse_pressed_fn=self._change_data_active,
+                        style={'background_color': self.dkred}
+                    )
+                    
                 # self.wrapped_ui_elements.append(self._robot_btn)
 
         scenario_actions_frame = CollapsableFrame("Scenario Actions", collapsed=False)
@@ -845,6 +856,11 @@ class UIBuilder:
     def _change_action(self, x, y, b, m):
         self._action = self.get_next_val_safe(self._scenario_action_list, self._action, self.binc[b])
         self._actionsel_btn.text = self._action
+
+    def _change_data_active(self, x, y, b, m):
+        self._data = self.get_next_val_safe(self._datum, self._data)
+        self._data_btn.text = self._data
+
 
     def _change_choice(self):
         self._choice = self.get_next_val_safe(self._choices, self._choice)
