@@ -2,8 +2,12 @@ import numpy as np
 from pxr import Usd, UsdGeom, Gf, UsdPhysics, PhysxSchema
 from types import SimpleNamespace
 
+import time
 import omni
 import carb
+import websockets
+import asyncio
+from datetime import datetime
 
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.core.utils.stage import add_reference_to_stage
@@ -46,6 +50,20 @@ class CageRmpflowScenario(ScenarioBase):
     cagecamviews = None
     load_remote_commands = False
     execute_remote_commands = False
+    websocketWS = websockets
+    open = False
+
+    async def Connect2WebsocketWS(self):
+        async with websockets.connect("wss://integrationhubwebsocket.azurewebsites.net/8888") as self.websocketWS:
+            print("OPEN")
+            await self.websocketWS.send("OPEN")
+        open = True
+
+    async def send_positions_by_websocket(self,mess):
+        try:
+            await self.websocketWS.send(mess)
+        except websockets.ConnectionClosedError:
+            await self.Connect2WebsocketWS()
 
     def __init__(self, uibuilder=None):
         super().__init__()
@@ -57,6 +75,7 @@ class CageRmpflowScenario(ScenarioBase):
         self.rmtcmdlist = None
         self.current_gtpcommand_file = ""
         self.current_gptcommand_options = []
+        self.start = time.process_time()
 
     def load_scenario(self, robot_name, ground_opt, light_opt="dome_light"):
         super().load_scenario(robot_name, ground_opt)
@@ -118,6 +137,7 @@ class CageRmpflowScenario(ScenarioBase):
         mm.AddMotoTray("tray2", "000000", rot=[a90,0,zang],pos=[-xoff,+yoff,0.0])
         mm.AddMotoTray("tray3", "myc000", rot=[a90,0,zang],pos=[-xoff,-yoff,0.0])
         mm.AddMotoTray("tray4", "000000", rot=[a90,0,zang],pos=[+xoff,-yoff,0.0])
+        asyncio.ensure_future(self.Connect2WebsocketWS())
 
     def add_grippers_to_robots(self):
         for i in range(self._nrobots):
@@ -264,6 +284,26 @@ class CageRmpflowScenario(ScenarioBase):
                                 carb.log_warn(line)
                                 self.lasttime1 = self.global_time
                     pass
+
+        rcfg0 = self.get_robot_config(0)
+        current_joint_positions0 = rcfg0._articulation.get_joint_positions()
+
+        rcfg1 = self.get_robot_config(1)
+        current_joint_positions1 = rcfg1._articulation.get_joint_positions()
+
+     
+        elapsed_time = time.process_time() - self.start
+        #print(elapsed_time)
+        if(elapsed_time > 1):   
+            strs = ','.join(str(x) for x in (current_joint_positions0))
+            print("joints:",strs)
+            current_time_str = datetime.now().strftime ('%Y-%m-%d %H:%M:%S')
+            valRight = "[L,"+ current_time_str + ", "+ ", ".join(map(str, current_joint_positions0)) + "]"        
+            asyncio.ensure_future(self.send_positions_by_websocket(valRight))
+            valLeft = "[R,"+ current_time_str + ", "+ ", ".join(map(str, current_joint_positions1)) + "]" 
+            asyncio.ensure_future(self.send_positions_by_websocket(valLeft))
+            self.start = time.process_time()
+
 
     def update_scenario(self, step: float):
         if not self._running_scenario:
