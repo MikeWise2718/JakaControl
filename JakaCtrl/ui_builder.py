@@ -205,16 +205,25 @@ class UIBuilder:
                     ui.Label("Scenario Name:",
                             style={'color': self.btyellow},
                             width=50)
-                    self._scenario_name_btn = Button(
-                        self._scenario_name, mouse_pressed_fn=self._change_scenario_name,
-                        style={'background_color': self.dkblue}
+
+                    self._scenario_name_combobox = ui.ComboBox(
+                        style={'background_color': self.dkblue, "font_size": 22},
+                        name="Scenario Name"
                     )
+                    for s_name in self._scenario_names:
+                        self._scenario_name_combobox.model.append_child_item(None, ui.SimpleStringModel(s_name))
+                    
+                    self._scenario_name_combobox.model.get_item_value_model().set_value(self._scenario_name)
+                    self._scenario_name_combobox.model.add_item_changed_fn(self._combobox_change_scenario_name)
+
                 with ui.HStack(style=get_style(), spacing=5, height=0):
                     ui.Label("Scenario Desc:",
                             style={'color': self.btyellow},
                             width=50)
-                    self._scenario_desc_lab = ui.Label(ScenarioBase.get_scenario_desc(self._scenario_name),
-                        style={'color': self.btwhite}
+                    self._scenario_desc_lab = ui.Label(
+                        ScenarioBase.get_scenario_desc(self._scenario_name),
+                        style={'color': self.btwhite},
+                        word_wrap=True
                     )
                 with ui.HStack(style=get_style(), spacing=5, height=0):
                     ui.Label("Robot Name:",
@@ -235,8 +244,10 @@ class UIBuilder:
                     ui.Label("Robot Desc:",
                             style={'color': self.btyellow},
                             width=50)
-                    self._robot_desc_lab = ui.Label(ScenarioBase.get_robot_desc(self._robot_name),
-                        style={'color': self.btwhite}
+                    self._robot_desc_lab = ui.Label(
+                        ScenarioBase.get_robot_desc(self._robot_name),
+                        style={'color': self.btwhite},
+                        word_wrap=True
                     )
                 with ui.HStack(style=get_style(), spacing=5, height=0):
                     ui.Label("Mode:",
@@ -882,8 +893,21 @@ class UIBuilder:
 
     def _change_scenario_name(self, x, y, b, m):
         self._scenario_name = self.get_next_val_safe(self._scenario_names, self._scenario_name, self.binc[b])
-        self._scenario_name_btn.text = self._scenario_name
+        # self._scenario_name_btn.text = self._scenario_name
         self._scenario_desc_lab.text = ScenarioBase.get_scenario_desc(self._scenario_name)
+        if not ScenarioBase.can_handle_robot(self._scenario_name, self._robot_name):
+            self._robot_name = self.find_valid_robot_name(self._scenario_name, self._robot_name, 1)
+            self._robot_btn.text = self._robot_name
+            self._robot_desc_lab.text = ScenarioBase.get_robot_desc(self._robot_name)
+
+    def _combobox_change_scenario_name(self, item_model, item):
+        item_index: int = item_model.get_item_value_model().get_value_as_int()
+        selected_scenario: str = self._scenario_names[item_index]
+
+        print(f"_combobox_change_scenario_name {selected_scenario}")
+        self._scenario_name = selected_scenario
+        # self._scenario_name_btn.text = selected_scenario
+        self._scenario_desc_lab.text = ScenarioBase.get_scenario_desc(selected_scenario)
         if not ScenarioBase.can_handle_robot(self._scenario_name, self._robot_name):
             self._robot_name = self.find_valid_robot_name(self._scenario_name, self._robot_name, 1)
             self._robot_btn.text = self._robot_name
