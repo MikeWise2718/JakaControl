@@ -507,6 +507,7 @@ class ScenarioBase:
             self.realize_joint_alarms_for_one(ridx, force=True)
         else:
             if rcfg.robmatskin == "default":
+                self.ensure_orimat()
                 # print("Reverting to original materials (default)")
                 apply_matdict_to_prim_and_children(self._stage, rcfg.orimat, rcfg.robot_prim_path)
             else:
