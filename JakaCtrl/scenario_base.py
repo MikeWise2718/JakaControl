@@ -38,7 +38,6 @@ from .senut import apply_convex_decomposition_to_mesh_and_children
 from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulationAPI_location_if_needed
 from .senut import add_sphere_light_to_stage, add_dome_light_to_stage
 from .senut import get_link_paths
-from .senut import make_rob_cam_view_window
 
 from .senut import apply_convex_decomposition_to_mesh_and_children
 from .senut import apply_collisionapis_to_mesh_and_children
@@ -80,6 +79,7 @@ class ScenarioBase:
         self._stage = get_current_stage()
         self.robcamlist = {}
         self.rmpactive = False
+        self.cam_snapshot_active = False
         self.current_extension_path = get_extension_path_from_name("JakaControl")
         init_configs()
         pass
@@ -933,16 +933,6 @@ class ScenarioBase:
             except:
                 pass
 
-    def make_rob_camera_views(self):
-        if self.robcamviews is not None:
-            self.robcamviews.destroy()
-            self.robcamviews = None
-        wintitle = "Robot Cameras"
-        wid = 1280
-        heit = 720
-        self.robcamviews = make_rob_cam_view_window(self.robcamlist, wintitle, wid, heit)
-        self.rob_wintitle = wintitle
-
     def set_stiffness_and_damping_for_all_joints(self, rcfg):
         if rcfg.stiffness>0:
             set_stiffness_for_joints(rcfg.dof_paths, rcfg.stiffness)
@@ -1001,19 +991,11 @@ class ScenarioBase:
 
     def scenario_action(self, action_name, action_args):
         match action_name:
-            case "Robot Cam Views":
-                if not hasattr(self, "robcamlist"):
-                    return
-                if len(self.robcamlist)==0:
-                    carb.log_warn("No cameras found in robcamlist")
-                    return
-                self.make_rob_camera_views()
-                # ui.Workspace.show_window(self.rob_wintitle,True)
             case "Show Joint Limits":
                 self.toggle_show_joint_limits()
 
     def get_scenario_actions(self):
-        rv =  ["Robot Cam Views","Show Joint Limits"]
+        rv =  ["Show Joint Limits"]
         return rv
 
     def robot_action(self, action_name, action_args):

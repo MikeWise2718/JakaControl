@@ -25,12 +25,12 @@ from .senut import apply_material_to_prim_and_children, GetXformOps, GetXformOps
 from .senut import add_rob_cam, pvk
 
 from .scenario_base import ScenarioBase
-from .senut import make_rob_cam_view_window
-
+from .viewport_cameras import ViewPortCameras
 
 from .remcmdmod import RemCmd, RemCmdList
 
 from .motomod import MotoMan
+
 # Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
@@ -52,16 +52,19 @@ class CageRmpflowScenario(ScenarioBase):
     execute_remote_commands = False
     websocketWS = websockets
     open = False
-
     async def Connect2WebsocketWS(self):
-        async with websockets.connect("wss://integrationhubwebsocket.azurewebsites.net/8888") as self.websocketWS:
-            print("OPEN")
-            await self.websocketWS.send("OPEN")
+        self.websocketWS = await websockets.connect("wss://integrationhubwebsocket.azurewebsites.net/2222")
+        print("OPEN")
+        await self.websocketWS.send("OPEN")
         open = True
 
     async def send_positions_by_websocket(self,mess):
         try:
             await self.websocketWS.send(mess)
+
+            if self.cam_snapshot_active:
+                self.viewport_cameras.take_snapshot()
+
         except websockets.ConnectionClosedError:
             await self.Connect2WebsocketWS()
 
@@ -76,6 +79,7 @@ class CageRmpflowScenario(ScenarioBase):
         self.current_gtpcommand_file = ""
         self.current_gptcommand_options = []
         self.start = time.process_time()
+        self.viewport_cameras = ViewPortCameras(self)
 
     def load_scenario(self, robot_name, ground_opt, light_opt="dome_light"):
         super().load_scenario(robot_name, ground_opt)
@@ -293,7 +297,7 @@ class CageRmpflowScenario(ScenarioBase):
 
      
         elapsed_time = time.process_time() - self.start
-        #print(elapsed_time)
+
         if(elapsed_time > 1):   
             strs = ','.join(str(x) for x in (current_joint_positions0))
             print("joints:",strs)
@@ -336,17 +340,15 @@ class CageRmpflowScenario(ScenarioBase):
             self.add_1_ccam(cagepath, "cage_cam_1", "Cage Cam 1", cc_rr, Gf.Vec3f([-cx,+cy,cz]), cc_pt)
             self.add_1_ccam(cagepath, "cage_cam_2", "Cage Cam 0", cc_rr, Gf.Vec3f([+cx,-cy,cz]), cc_pt)
             self.add_1_ccam(cagepath, "cage_cam_3", "Cage Cam 1", cc_rr, Gf.Vec3f([-cx,-cy,cz]), cc_pt)
-            # _, campath = add_rob_cam(cc_path, cc_ring_rot, cc_mount, cc_pt_quat)
-            # self.add_camera_to_cagecamlist(cc_name, cc_display_name, campath)
 
     def make_cage_cam_views(self):
         if self.cagecamviews is not None:
             self.cagecamviews.destroy()
             self.cagecamviews = None
-        wintitle = "Cage Cameras"
+        wintitle = "Cameras"
         wid = 1280
         heit = 720
-        self.cagecamviews = make_rob_cam_view_window(self.cagecamlist, wintitle, wid, heit)
+        self.cagecamviews = self.viewport_cameras.make_cage_cam_views(self.robcamlist, wintitle, wid, heit)
         self.cage_wintitle = wintitle
 
     def toggle_load_preset_remote_commands(self):
@@ -401,13 +403,26 @@ class CageRmpflowScenario(ScenarioBase):
         if action_name in self.base_scenario_actions:
             rv = super().scenario_action(action_name, action_args)
             return rv
-        button = action_args.get("b",0)
-        keymod = action_args.get("k",0)
-        x = action_args.get("x",0)
-        y = action_args.get("y",0)
+        try:
+            button = action_args.get("b",0)
+            keymod = action_args.get("k",0)
+            x = action_args.get("x",0)
+            y = action_args.get("y",0)
+        except:
+            print("error")
+
         match action_name:
+            case "Robot Cam Views":
+                if not hasattr(self, "robcamlist"):
+                    return
+                if len(self.robcamlist)==0:
+                    carb.log_warn("No cameras found in robcamlist")
+                    return
+                self.make_cage_cam_views()
             case "RotateRmp":
                 self.rmpactive = not self.rmpactive
+            case "StartStopSnapshot":
+                self.cam_snapshot_active = not self.cam_snapshot_active
             case "RotateTarget0":
                 self.rotate_target0 = not self.rotate_target0
             case "RotateTarget1":
@@ -450,6 +465,11 @@ class CageRmpflowScenario(ScenarioBase):
                     rv = "Stop RMP"
                 else:
                     rv = "Start RMP"
+            case "StartStopSnapshot":
+                if self.cam_snapshot_active:
+                    rv = "Stop Camera Snapshots"
+                else:
+                    rv = "Start Camera Snapshots"
             case "RotateTarget0":
                 rv = "Rotate Target 0"
             case "RotateTarget1":
@@ -499,10 +519,10 @@ class CageRmpflowScenario(ScenarioBase):
 
     def get_scenario_actions(self):
         self.base_scenario_actions = super().get_scenario_actions()
-        combo  = self.base_scenario_actions + ["RotateRmp","RotateTarget0", "RotateTarget1",
+        combo  = self.base_scenario_actions + ["RotateRmp","StartStopSnapshot","RotateTarget0", "RotateTarget1",
                                       "ChangeSpeed","CageCamViews",
                                       "LoadPresetRemoteCommands", "LoadRemoteCommands", "ReverseRemoteCommands",
-                                      "DumpRemoteCommands","ExecRemoteCommands"]
+                                      "DumpRemoteCommands","ExecRemoteCommands","Robot Cam Views"]
         return combo
 
     def robot_action(self, action_name, action_args):
