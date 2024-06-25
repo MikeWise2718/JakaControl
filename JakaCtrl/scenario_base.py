@@ -221,11 +221,11 @@ class ScenarioBase:
             self._ground=world.scene.add_default_ground_plane(z_position=-1.02)
 
         elif self._ground_opt == "groundplane":
-            self._ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.5, 0.5, 0.5]),position=[0,0,-1.03313])
+            self._ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.5, 0.5, 0.5]))
             world.scene.add(self._ground)
 
         elif self._ground_opt == "groundplane-blue":
-            self._ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]),position=[0,0,-1.03313])
+            self._ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]))
             world.scene.add(self._ground)
 
     def activate_ee_collision(self, robidx, active):
