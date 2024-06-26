@@ -80,6 +80,7 @@ class ScenarioBase:
         self.robcamlist = {}
         self.rmpactive = False
         self.cam_snapshot_active = False
+        self.websocket_send_message_active = False
         self.current_extension_path = get_extension_path_from_name("JakaControl")
         init_configs()
         pass

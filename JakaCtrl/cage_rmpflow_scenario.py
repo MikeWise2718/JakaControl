@@ -5,7 +5,6 @@ from types import SimpleNamespace
 import time
 import omni
 import carb
-import websockets
 import asyncio
 from datetime import datetime
 
@@ -26,6 +25,7 @@ from .senut import add_rob_cam, pvk
 
 from .scenario_base import ScenarioBase
 from .viewport_cameras import ViewPortCameras
+from .message_bus import MessageBus
 
 from .remcmdmod import RemCmd, RemCmdList
 
@@ -50,24 +50,7 @@ class CageRmpflowScenario(ScenarioBase):
     cagecamviews = None
     load_remote_commands = False
     execute_remote_commands = False
-    websocketWS = websockets
-    open = False
-    async def Connect2WebsocketWS(self):
-        self.websocketWS = await websockets.connect("wss://integrationhubwebsocket.azurewebsites.net/2222")
-        print("OPEN")
-        await self.websocketWS.send("OPEN")
-        open = True
-
-    async def send_positions_by_websocket(self,mess):
-        try:
-            await self.websocketWS.send(mess)
-
-            if self.cam_snapshot_active:
-                self.viewport_cameras.take_snapshot()
-
-        except websockets.ConnectionClosedError:
-            await self.Connect2WebsocketWS()
-
+    
     def __init__(self, uibuilder=None):
         super().__init__()
         self._scenario_name = "cage-rmpflow"
@@ -80,6 +63,7 @@ class CageRmpflowScenario(ScenarioBase):
         self.current_gptcommand_options = []
         self.start = time.process_time()
         self.viewport_cameras = ViewPortCameras(self)
+        self.message_bus=MessageBus(self)
 
     def load_scenario(self, robot_name, ground_opt, light_opt="dome_light"):
         super().load_scenario(robot_name, ground_opt)
@@ -141,7 +125,7 @@ class CageRmpflowScenario(ScenarioBase):
         mm.AddMotoTray("tray2", "000000", rot=[a90,0,zang],pos=[-xoff,+yoff,0.0])
         mm.AddMotoTray("tray3", "myc000", rot=[a90,0,zang],pos=[-xoff,-yoff,0.0])
         mm.AddMotoTray("tray4", "000000", rot=[a90,0,zang],pos=[+xoff,-yoff,0.0])
-        asyncio.ensure_future(self.Connect2WebsocketWS())
+        
 
     def add_grippers_to_robots(self):
         for i in range(self._nrobots):
@@ -303,10 +287,15 @@ class CageRmpflowScenario(ScenarioBase):
             print("joints:",strs)
             current_time_str = datetime.now().strftime ('%Y-%m-%d %H:%M:%S')
             valRight = "[L,"+ current_time_str + ", "+ ", ".join(map(str, current_joint_positions0)) + "]"        
-            asyncio.ensure_future(self.send_positions_by_websocket(valRight))
+            
+            asyncio.ensure_future(self.message_bus.send_positions_by_websocket(valRight))
             valLeft = "[R,"+ current_time_str + ", "+ ", ".join(map(str, current_joint_positions1)) + "]" 
-            asyncio.ensure_future(self.send_positions_by_websocket(valLeft))
+            
+            asyncio.ensure_future(self.message_bus.send_positions_by_websocket(valLeft))
             self.start = time.process_time()
+
+            if self.cam_snapshot_active:
+                self.viewport_cameras.take_snapshot()
 
 
     def update_scenario(self, step: float):
@@ -423,6 +412,8 @@ class CageRmpflowScenario(ScenarioBase):
                 self.rmpactive = not self.rmpactive
             case "StartStopSnapshot":
                 self.cam_snapshot_active = not self.cam_snapshot_active
+            case "StartStopWebsocketMessages":
+                self.websocket_send_message_active = not self.websocket_send_message_active
             case "RotateTarget0":
                 self.rotate_target0 = not self.rotate_target0
             case "RotateTarget1":
@@ -470,6 +461,13 @@ class CageRmpflowScenario(ScenarioBase):
                     rv = "Stop Camera Snapshots"
                 else:
                     rv = "Start Camera Snapshots"
+            case "StartStopWebsocketMessages":
+                if self.websocket_send_message_active:                  
+                    rv = "Stop Websockets Messages"
+                    self.message_bus.start_messages()
+                else:
+                    rv = "Start Websockets Messages"
+                    self.message_bus.stop_messages()
             case "RotateTarget0":
                 rv = "Rotate Target 0"
             case "RotateTarget1":
@@ -519,7 +517,7 @@ class CageRmpflowScenario(ScenarioBase):
 
     def get_scenario_actions(self):
         self.base_scenario_actions = super().get_scenario_actions()
-        combo  = self.base_scenario_actions + ["RotateRmp","StartStopSnapshot","RotateTarget0", "RotateTarget1",
+        combo  = self.base_scenario_actions + ["RotateRmp","StartStopSnapshot","StartStopWebsocketMessages","RotateTarget0", "RotateTarget1",
                                       "ChangeSpeed","CageCamViews",
                                       "LoadPresetRemoteCommands", "LoadRemoteCommands", "ReverseRemoteCommands",
                                       "DumpRemoteCommands","ExecRemoteCommands","Robot Cam Views"]
