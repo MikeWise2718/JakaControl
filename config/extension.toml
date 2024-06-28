@@ -1,25 +1,32 @@
 [core]
-reloadable = true
-order = 0
+# reloadable = true
+# ensure it is loaded AFTER omni.asimov.* extensions
+order = 1
 
 [package]
 version = "1.0.0"
-category = "Simulation"
+category = "simulation"
 title = "Jaka Control"
 description = ""
-authors = ["NVIDIA"]
-repository = ""
-keywords = []
+authors = ["Mike Wise"]
+repository = "https://github.com/MikeWise2718/JakaControl"
+keywords = ["Microsoft", "MCAPs", "Jaka"]
 changelog = "docs/CHANGELOG.md"
 readme = "docs/README.md"
 preview_image = "data/preview.png"
 icon = "data/icon.png"
 
-
 [dependencies]
 "omni.kit.uiapp" = {}
 "omni.isaac.ui" = {}
 "omni.isaac.core" = {}
+"omni.asimov.manipulator" = {}
+"omni.asimov.jaka" = {}
 
 [[python.module]]
 name = "JakaCtrl"
+
+[[test]]
+dependencies = [
+    "omni.kit.ui_test"
+]

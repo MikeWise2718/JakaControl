@@ -101,7 +101,7 @@ class UIBuilder:
         self._on_init()
 
     def SaveSettings(self):
-        print("SaveSettings")
+        # print("SaveSettings")
         try:
             save_setting("p_robot_name", self._robot_name)
             save_setting("p_ground_opt", self._ground_opt)
@@ -111,18 +111,18 @@ class UIBuilder:
             save_setting("p_choice", self._choice)
             save_setting("p_action", self._action)
             save_setting("p_joint_alarms", self._joint_alarms)
-            print(f"SaveSettings p_joint_alarms:{self._joint_alarms}")
+            # print(f"SaveSettings p_joint_alarms:{self._joint_alarms}")
 
         except Exception as e:
             carb.log_error(f"Exception in SaveSettings: {e}")
 
     def LoadSettings(self):
-        print("LoadSettings")
+        # print("LoadSettings")
         self._robot_name = get_setting("p_robot_name", self._robot_name)
         self._ground_opt = get_setting("p_ground_opt", self._ground_opt)
         self._robskin_opt = get_setting("p_robskin_opt", self._robskin_opt)
         self._joint_alarms = get_setting("p_joint_alarms", self._joint_alarms)
-        print(f"LoadSettings p_joint_alarms:{self._joint_alarms}")
+        # print(f"LoadSettings p_joint_alarms:{self._joint_alarms}")
 
         self._scenario_name = get_setting("p_scenario_name", self._scenario_name)
         self._base_scenario_action_list = ScenarioBase.get_scenario_actions(self._scenario_name)
@@ -136,7 +136,7 @@ class UIBuilder:
 
         self._mode = get_setting("p_mode", self._mode)
         self._choice = get_setting("p_choice", self._choice)
-        print("Done LoadSettings")
+        # print("Done LoadSettings")
 
     ###################################################################################
     #           The Functions Below Are Called Automatically By extension.py
@@ -197,7 +197,7 @@ class UIBuilder:
         Build a custom UI tool to run your extension.
         This function will be called any time the UI window is closed and reopened.
         """
-        print("build_ui")
+        # print("build_ui")
         world_config_frame = CollapsableFrame("World Config", collapsed=False)
         self.world_config_frame = world_config_frame
 
@@ -207,16 +207,25 @@ class UIBuilder:
                     ui.Label("Scenario Name:",
                             style={'color': self.btyellow},
                             width=50)
-                    self._scenario_name_btn = Button(
-                        self._scenario_name, mouse_pressed_fn=self._change_scenario_name,
-                        style={'background_color': self.dkblue}
+
+                    self._scenario_name_combobox = ui.ComboBox(
+                        style={'background_color': self.dkblue, "font_size": 22},
+                        name="Scenario Name"
                     )
+                    for s_name in self._scenario_names:
+                        self._scenario_name_combobox.model.append_child_item(None, ui.SimpleStringModel(s_name))
+                    
+                    self._scenario_name_combobox.model.get_item_value_model().set_value(self._scenario_name)
+                    self._scenario_name_combobox.model.add_item_changed_fn(self._combobox_change_scenario_name)
+
                 with ui.HStack(style=get_style(), spacing=5, height=0):
                     ui.Label("Scenario Desc:",
                             style={'color': self.btyellow},
                             width=50)
-                    self._scenario_desc_lab = ui.Label(ScenarioBase.get_scenario_desc(self._scenario_name),
-                        style={'color': self.btwhite}
+                    self._scenario_desc_lab = ui.Label(
+                        ScenarioBase.get_scenario_desc(self._scenario_name),
+                        style={'color': self.btwhite},
+                        word_wrap=True
                     )
                 with ui.HStack(style=get_style(), spacing=5, height=0):
                     ui.Label("Robot Name:",
@@ -237,8 +246,10 @@ class UIBuilder:
                     ui.Label("Robot Desc:",
                             style={'color': self.btyellow},
                             width=50)
-                    self._robot_desc_lab = ui.Label(ScenarioBase.get_robot_desc(self._robot_name),
-                        style={'color': self.btwhite}
+                    self._robot_desc_lab = ui.Label(
+                        ScenarioBase.get_robot_desc(self._robot_name),
+                        style={'color': self.btwhite},
+                        word_wrap=True
                     )
                 with ui.HStack(style=get_style(), spacing=5, height=0):
                     ui.Label("Mode:",
@@ -260,7 +271,7 @@ class UIBuilder:
                             style={'color': self.btyellow},
                             width=50)
                     self._rmpactive_btn = Button(
-                        "active", mouse_pressed_fn=self._change_rmp_active,
+                        "stopped", mouse_pressed_fn=self._change_rmp_active,
                         style={'background_color': self.dkred}
                     )
                     ui.Label("Rotate:",
@@ -518,9 +529,9 @@ class UIBuilder:
         return self._cur_scenario.get_robot_config(index)
 
     def _show_robot_config(self, index=0):
-        print(f"_show_robot_config {index}")
+        # print(f"_show_robot_config {index}")
         rc = self.get_robot_config(index)
-        print(f"  rc {rc.robot_name} {rc.robot_id} {rc.robmatskin}")
+        # print(f"  rc {rc.robot_name} {rc.robot_id} {rc.robmatskin}")
         self.rob_config_vstack.clear()
         self.cfg_lab_dict = {}
         self.config_line_list = []
@@ -566,7 +577,7 @@ class UIBuilder:
         self._load_one_param(rc, "rdf_path", yt)
         self._load_one_param(rc, "rmp_config_path", yt)
         self._load_one_param(rc, "robot_usd_file_path", yt)
-        print("done _show_robot_config")
+        # print("done _show_robot_config")
 
     def _rot_robot_joint(self, robot_idx, joint_idx, jname, inc):
         rc = self.get_robot_config(robot_idx)
@@ -579,7 +590,7 @@ class UIBuilder:
         art.set_joint_positions(joint_indices=jidxlist, positions=[newjpos])
         self.refresh_robot_joint_values(robot_idx, joint_idx)
 
-        print(f"_rot_robot_joint robot_idx:{robot_idx} joint_idx {joint_idx} ({jname}) by {rinc} degrees")
+        # print(f"_rot_robot_joint robot_idx:{robot_idx} joint_idx {joint_idx} ({jname}) by {rinc} degrees")
 
     def add_spheres_to_joints(self, x, y, b, m, ridx=0):
         self._cur_scenario.add_spheres_to_joints(ridx)
@@ -594,9 +605,9 @@ class UIBuilder:
             butt1 = butts[0]
             butt1.text = txt
         else:
-            print(f"show_joint_limit_warnings - no button found for robot {ridx}")
+            carb.log.error(f"show_joint_limit_warnings - no button found for robot {ridx}")
         # self._show_joint_limit_warnings_btn.text = txt
-        print(f"{txt} - {rc.robot_id} - {rc.show_joints_close_to_limits}")
+        # print(f"{txt} - {rc.robot_id} - {rc.show_joints_close_to_limits}")
 
     def _change_joint_inc(self, x, y, b, m):
         if b == 0:
@@ -625,27 +636,27 @@ class UIBuilder:
 
     joint_ui_dict = {}
     def clear_ui_dict_of_robot(self, robot_idx):
-        print(f"clear_ui_dict_of_robot {robot_idx} nkeys {len(self.joint_ui_dict)} ")
+        # print(f"clear_ui_dict_of_robot {robot_idx} nkeys {len(self.joint_ui_dict)} ")
         kez = list(self.joint_ui_dict.keys())
         for k in kez:
             (k_ridx, _, _) = k
             if k_ridx == robot_idx:
                 del self.joint_ui_dict[k]
-        print(f"clear_ui_dict_of_robot - done -  {robot_idx} nkeys {len(self.joint_ui_dict)} ")
+        # print(f"clear_ui_dict_of_robot - done -  {robot_idx} nkeys {len(self.joint_ui_dict)} ")
 
     def _show_joint_values_for_robot(self, robot_idx=0, robvstack=None):
         if robvstack is None:
             robvstack = self.rob_joints_vstack
         robvstack.clear()
-        print(f"_show_joint_values_for_robot {robot_idx}")
+        # print(f"_show_joint_values_for_robot {robot_idx}")
         rc = self.get_robot_config(robot_idx)
         if rc is None:
             msg = f"Robot {robot_idx} not found - probably not initialized with \"Create\" yet"
-            print(msg)
+            # print(msg)
             carb.log_warn(msg)
             robvstack.add_child(ui.Label(msg, style={'color': self.btred}))
             return
-        print(f"  rc {rc.robot_name} {rc.robot_id} {rc.robmatskin}")
+        # print(f"  rc {rc.robot_name} {rc.robot_id} {rc.robmatskin}")
         self.rob_config_stack = ui.VStack(style=get_style(), spacing=5, height=0)
         self.clear_ui_dict_of_robot(robot_idx)
         self.joint_inc_step = 5
@@ -719,7 +730,7 @@ class UIBuilder:
             self.joint_ui_dict[(robot_idx,j,jn)] = (labtime, lab1, lab2, lab3, but1, but2, lab4)
             robvstack.add_child(hstack)
             self.refresh_robot_joint_values(robot_idx, j)
-        print("done _show_joint_values_for_robot")
+        # print("done _show_joint_values_for_robot")
 
     def refresh_robot_joint_values(self, robot_idx, joint_idx):
         rc = self.get_robot_config(robot_idx)
@@ -798,10 +809,10 @@ class UIBuilder:
         # self._cuboid = None
         self.LoadSettings()
         self.pick_scenario(self._scenario_name)
-        print("Done _on_init")
+        # print("Done _on_init")
 
     def _setup_scene(self):
-        print("ui_builder._setup_scene")
+        # print("ui_builder._setup_scene")
         self.pick_scenario(self._scenario_name)
 
         create_new_stage()
@@ -832,15 +843,15 @@ class UIBuilder:
 
     binc = [-1, 1]
 
-    def _do_scenario_action(self, action, x,y,b,m):
-        argdict = {"m":m, "b":b, "x":x, "y":y}
+    def _do_scenario_action(self, action, x,y,b,km):
+        argdict = {"k":km, "b":b, "x":x, "y":y}
         self._cur_scenario.scenario_action(action, argdict)
         butt = self.custbuttdict.get(action)
         if butt is not None:
             butt.text = self._cur_scenario.get_scenario_action_button_text( action, argdict )
 
     def _do_robot_action(self, action, x,y,b,m):
-        argdict = {"m":m, "b":b, "x":x, "y":y}
+        argdict = {"k":m, "b":b, "x":x, "y":y}
         self._cur_scenario.robot_action(action, argdict)
         self._refresh_robot_action_button_texts()
         # butt = self.custbuttdict.get(action)
@@ -898,8 +909,21 @@ class UIBuilder:
 
     def _change_scenario_name(self, x, y, b, m):
         self._scenario_name = self.get_next_val_safe(self._scenario_names, self._scenario_name, self.binc[b])
-        self._scenario_name_btn.text = self._scenario_name
+        # self._scenario_name_btn.text = self._scenario_name
         self._scenario_desc_lab.text = ScenarioBase.get_scenario_desc(self._scenario_name)
+        if not ScenarioBase.can_handle_robot(self._scenario_name, self._robot_name):
+            self._robot_name = self.find_valid_robot_name(self._scenario_name, self._robot_name, 1)
+            self._robot_btn.text = self._robot_name
+            self._robot_desc_lab.text = ScenarioBase.get_robot_desc(self._robot_name)
+
+    def _combobox_change_scenario_name(self, item_model, item):
+        item_index: int = item_model.get_item_value_model().get_value_as_int()
+        selected_scenario: str = self._scenario_names[item_index]
+
+        print(f"_combobox_change_scenario_name {selected_scenario}")
+        self._scenario_name = selected_scenario
+        # self._scenario_name_btn.text = selected_scenario
+        self._scenario_desc_lab.text = ScenarioBase.get_scenario_desc(selected_scenario)
         if not ScenarioBase.can_handle_robot(self._scenario_name, self._robot_name):
             self._robot_name = self.find_valid_robot_name(self._scenario_name, self._robot_name, 1)
             self._robot_btn.text = self._robot_name
@@ -953,7 +977,7 @@ class UIBuilder:
         In this example, a scenario is initialized which will move each robot joint one at a time in a loop while moving the
         provided prim in a circle around the robot.
         """
-        print("ui_builder._setup_post_load")
+        # print("ui_builder._setup_post_load")
         # self._reset_scenario() # we can't reset before post_load .... not sure what the intent was
         self._colprims = None
 
@@ -971,20 +995,20 @@ class UIBuilder:
         self._scenario_state_btn.reset()
         self._scenario_state_btn.enabled = True
         self._reset_btn.enabled = True
-        print("ui_builder._setup_post_load almost done")
+        # print("ui_builder._setup_post_load almost done")
         self.build_ui_scenario_dependent()
-        print("ui_builder._setup_post_load done")
+        # print("ui_builder._setup_post_load done")
 
 
     def _reset_scenario(self):
-        print("ui_builder._reset_scenario")
+        # print("ui_builder._reset_scenario")
         # self._ppc.reset()
         self._colprims = None
         self._cur_scenario.teardown_scenario()
         self._cur_scenario.setup_scenario()
 
         self._cur_scenario.reset_scenario()
-        print("ui_builder._reset_scenario done")
+        # print("ui_builder._reset_scenario done")
 
 
     def _on_post_reset_btn(self):

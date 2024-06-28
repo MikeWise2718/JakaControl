@@ -378,4 +378,63 @@ class ObjectInspectionScenario(ScenarioBase):
     def update_scenario(self, step: float):
         if not self._running_scenario:
             return
+<<<<<<< HEAD
    
+=======
+        self.physics_step(step)
+
+    def scenario_action(self, action_name, action_args):
+        if action_name in self.base_scenario_actions:
+            rv = super().scenario_action(action_name, action_args)
+            return rv
+        match action_name:
+            case "RotateTarget0":
+                self.rotate_target0 = not self.rotate_target0
+            case "RotateTarget1":
+                self.rotate_target1 = not self.rotate_target1
+            case "ChangeSpeed":
+                keymod = action_args.get("k",0)
+                mbutt = action_args.get("b",0)
+                if keymod!=0: # no shift, ctrl, or alt was pushed
+                    self.target_rot_speed *= -1
+                else:
+                    if b>0:
+                        self.target_rot_speed /= 2
+                    else:
+                        self.target_rot_speed *= 2
+            case _:
+                print(f"Action {action_name} not implemented")
+                return False
+
+    def get_scenario_action_button_text(self, action_name, action_args=None):
+        if action_name in self.base_scenario_actions:
+            rv = super().get_scenario_action_button_text(action_name, action_args)
+            return rv
+        match action_name:
+            case "RotateTarget0":
+                rv = "Rotate Target 0"
+            case "RotateTarget1":
+                rv = "Rotate Target 1"
+            case "ChangeSpeed":
+                rv = f"Change Speed {self.target_rot_speed:.1f}"
+            case _:
+                rv = f"{action_name} TBD"
+        return rv
+
+    def get_scenario_action_button_tooltip(self, action_name, action_args=None):
+        if action_name in self.base_scenario_actions:
+            rv = super().get_scenario_action_button_tooltip(action_name, action_args)
+            return rv
+        match action_name:
+            case "ChangeSpeed":
+                rv = f"L*2,R /2, Ctrl to reverse"
+            case _:
+                rv = f"No tooltip for action {action_name}"
+        return rv
+
+    def get_scenario_actions(self):
+        self.base_scenario_actions = super().get_scenario_actions()
+        combo  = self.base_scenario_actions + ["RotateTarget0", "RotateTarget1",
+                                      "ChangeSpeed"]
+        return combo
+>>>>>>> updated-cage

@@ -50,6 +50,20 @@ def save_setting(name, value):
     key = f"{SETTING_NAME}/{name}"
     settings.set(key, value)
 
+
+def pvk(vek, fmt="{:0.3f}"):
+    core = [fmt.format(x) for x in vek]
+    # other possibl
+    typ = type(vek)
+    if typ is list:
+        rv = "[" + ", ".join(core) + "]"
+    elif typ is tuple:
+        rv = "(" + ", ".join(core) + ")"
+    elif typ is Gf.Vec3f:
+        rv = "g(" + ", ".join(core) + ")"
+    else:
+        rv = "[" + ", ".join(core) + "]"
+    return rv
 # Misc Utilities
 
 def truncf(number, digits) -> float:
@@ -457,33 +471,6 @@ def interp(x, x1, x2, y1, y2):
     if (y1==y2):
         return y1
     return y1 + (x-x1)*(y2-y1)/(x2-x1)
-
-def make_rob_cam_view_window(robcamlst, wintitle="Robot Cameras", wid=1280, heit=720):
-    # https://docs.omniverse.nvidia.com/kit/docs/omni.kit.viewport.docs/latest/overview.html
-    nrobcam = len(robcamlst)
-    camviews = omni.ui.Window(wintitle, width=wid, height=heit+20) # Add 20 for the title-bar
-
-    with camviews.frame:
-        if nrobcam==0:
-            omni.ui.Label("No Robot Cameras Found (camlst is empty)")
-        else:
-            with omni.ui.VStack():
-                vh = heit / nrobcam
-                for camname in robcamlst:
-                    cam = robcamlst[camname]
-                    viewport_widget = ViewportWidget(resolution = (wid, vh))
-
-                    # Control of the ViewportTexture happens through the object held in the viewport_api property
-                    viewport_api = viewport_widget.viewport_api
-
-                    # We can reduce the resolution of the render easily
-                    viewport_api.resolution = (wid, vh)
-
-                    # We can also switch to a different camera if we know the path to one that exists
-                    viewport_api.camera_path = cam["usdpath"]
-
-    return camviews
-
 
     #camera_ring_path = "/World/roborg/minicobo_v1_4/dummy_tcp/ring"
 def add_rob_cam(cam_root, ring_rot, mount_trans, point_quat, camname="camera"):

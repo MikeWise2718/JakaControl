@@ -38,7 +38,6 @@ from .senut import apply_convex_decomposition_to_mesh_and_children
 from .senut import apply_diable_gravity_to_rigid_bodies, adjust_articulationAPI_location_if_needed
 from .senut import add_sphere_light_to_stage, add_dome_light_to_stage
 from .senut import get_link_paths
-from .senut import make_rob_cam_view_window
 
 from .senut import apply_convex_decomposition_to_mesh_and_children
 from .senut import apply_collisionapis_to_mesh_and_children
@@ -80,6 +79,8 @@ class ScenarioBase:
         self._stage = get_current_stage()
         self.robcamlist = {}
         self.rmpactive = False
+        self.cam_snapshot_active = False
+        self.websocket_send_message_active = False
         self.current_extension_path = get_extension_path_from_name("JakaControl")
         init_configs()
         pass
@@ -221,11 +222,11 @@ class ScenarioBase:
             self._ground=world.scene.add_default_ground_plane(z_position=-1.02)
 
         elif self._ground_opt == "groundplane":
-            self._ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.5, 0.5, 0.5]),position=[0,0,-1.03313])
+            self._ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.5, 0.5, 0.5]))
             world.scene.add(self._ground)
 
         elif self._ground_opt == "groundplane-blue":
-            self._ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]),position=[0,0,-1.03313])
+            self._ground = GroundPlane(prim_path="/World/groundPlane", size=10, color=np.array([0.0, 0.0, 0.5]))
             world.scene.add(self._ground)
 
     def activate_ee_collision(self, robidx, active):
@@ -260,7 +261,7 @@ class ScenarioBase:
             rcfg.grip_eeoff = np.array([0,0,0])
             grippername = rcfg.grippername
 
-            #if self._robot_name in ["franka","fancy_franka"]:   # franka gripper
+            # if self._robot_name in ["franka","fancy_franka"]:   # franka gripper
             if grippername=="franka gripper":   # franka gripper
                 eepp = "/World/roborg/franka/panda_rightfinger"
                 jpn = ["panda_finger_joint1", "panda_finger_joint2"]
@@ -336,7 +337,7 @@ class ScenarioBase:
                     grip_threshold = 0.1
                     grip_translate = 0.17
                     rcfg.grip_eeori = euler_angles_to_quat(np.array([-np.pi/2,0,0]))
-                elif rcfg.robot_name in ["jaka-minicobo-1a","minicobo-dual-sucker"]:
+                elif rcfg.robot_name in ["jaka-minicobo-1a", "minicobo-dual-sucker"]:
                     # eepp = "/World/roborg/minicobo_v1_4/tool0"
                     eepp = f"{rcfg.robot_prim_path}/{rcfg.eeframe_name}"
                     grip_direction = "y"
@@ -347,8 +348,10 @@ class ScenarioBase:
 
                 elif rcfg.robot_name == "jaka-minicobo-1":
                     eepp = "/World/roborg/minicobo_v1_4/Link6/jaka_camera_endpoint/JAKA___MOTO_200mp_v4/ZPR25CNK10_06_A10_v007"
-                    rcfg._end_effector = RigidPrim(prim_path=eepp, name= "jaka-minicobo-1" + "_end_effector")
-                    rcfg._end_effector.initialize(rcfg.physics_sim_view)
+                    # eepp = f"{rcfg.robot_prim_path}/{rcfg.eeframe_name}"
+                    # rcfg._end_effector = RigidPrim(prim_path=eepp, name= "jaka-minicobo-1" + "_end_effector")
+
+                    # rcfg._end_effector.initialize(rcfg.physics_sim_view)
                 else:
                     print("Unknown robot name for suction gripper")
                 art._policy_robot_name = "UR10"
@@ -505,6 +508,7 @@ class ScenarioBase:
             self.realize_joint_alarms_for_one(ridx, force=True)
         else:
             if rcfg.robmatskin == "default":
+                self.ensure_orimat()
                 # print("Reverting to original materials (default)")
                 apply_matdict_to_prim_and_children(self._stage, rcfg.orimat, rcfg.robot_prim_path)
             else:
@@ -541,6 +545,7 @@ class ScenarioBase:
                     else:
                         # print(f"Joint {jn} is not close to limit for {rcfg.robot_name} {rcfg.robot_id} link_path:{link_path}")
                         if rcfg.robmatskin == "default":
+                            self.ensure_orimat()
                             # print(f"   changing {link_path} to rcfg.orimat - inalarm:{joint_in_alarm}")
                             apply_matdict_to_prim_and_children(self._stage, rcfg.orimat, link_path)
                         else:
@@ -657,7 +662,10 @@ class ScenarioBase:
         for i in range(self._nrobots):
             rcfg = self.get_robot_config(i)
             if rcfg is not None:
-                rcfg._articulation.set_joint_positions(rcfg.dof_zero_pos)
+                if i==0:
+                    rcfg._articulation.set_joint_positions([1.5385753,-0.067451306,1.8509837,-0.017295461,-1.2601038,-1.5375034])
+                else:
+                    rcfg._articulation.set_joint_positions([-1.0036137,-1.5866233,1.9273415,-0.028864592,-0.86408925,1.5516889])    
 
     def get_robot_world_pose(self, robidx):
         rcfg = self.get_robot_config(robidx)
@@ -929,16 +937,6 @@ class ScenarioBase:
             except:
                 pass
 
-    def make_rob_camera_views(self):
-        if self.robcamviews is not None:
-            self.robcamviews.destroy()
-            self.robcamviews = None
-        wintitle = "Robot Cameras"
-        wid = 1280
-        heit = 720
-        self.robcamviews = make_rob_cam_view_window(self.robcamlist, wintitle, wid, heit)
-        self.rob_wintitle = wintitle
-
     def set_stiffness_and_damping_for_all_joints(self, rcfg):
         if rcfg.stiffness>0:
             set_stiffness_for_joints(rcfg.dof_paths, rcfg.stiffness)
@@ -997,19 +995,11 @@ class ScenarioBase:
 
     def scenario_action(self, action_name, action_args):
         match action_name:
-            case "Robot Cam Views":
-                if not hasattr(self, "robcamlist"):
-                    return
-                if len(self.robcamlist)==0:
-                    carb.log_warn("No cameras found in robcamlist")
-                    return
-                self.make_rob_camera_views()
-                # ui.Workspace.show_window(self.rob_wintitle,True)
             case "Show Joint Limits":
                 self.toggle_show_joint_limits()
 
     def get_scenario_actions(self):
-        rv =  ["Robot Cam Views","Show Joint Limits"]
+        rv =  ["Show Joint Limits"]
         return rv
 
     def robot_action(self, action_name, action_args):

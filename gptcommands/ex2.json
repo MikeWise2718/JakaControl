@@ -1,0 +1,31 @@
+{
+    "robots": [
+        "ARM0",
+        "ARM1"
+    ],
+    "objects": [
+        "phone0",
+        "phone1",
+        "phone2"
+    ],
+    "assets": {
+        "tray0_slot0": ["IN_RANGE_ARM0"],
+        "tray0_slot1": ["IN_RANGE_ARM0"],
+        "tray0_slot2": ["IN_RANGE_ARM0", "IN_RANGE_ARM1"],
+        "tray0_slot3": ["IN_RANGE_ARM0", "IN_RANGE_ARM1"],
+        "tray1_slot0": ["IN_RANGE_ARM0", "IN_RANGE_ARM1"],
+        "tray1_slot1": ["IN_RANGE_ARM0", "IN_RANGE_ARM1"],
+        "tray1_slot2": ["IN_RANGE_ARM1"],
+        "tray1_slot3": ["IN_RANGE_ARM1"]
+    },
+    "asset_object_relations": {
+        "tray0_slot0": [],
+        "tray0_slot1": ["phone0"],
+        "tray0_slot2": [],
+        "tray0_slot3": [],
+        "tray1_slot0": ["phone1"],
+        "tray1_slot1": [],
+        "tray1_slot2": ["phone2"],
+        "tray1_slot3": []
+    }
+}

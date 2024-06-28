@@ -172,6 +172,12 @@ class MotoTray:
         ih = idx // 3
         return iw,ih
 
+    def get_phone_by_index(self, idx):
+        if idx<0 or 5<idx:
+            carb.log_error(f"get_phone_by_index: idx {idx} out of range")
+            return None
+        return self.phone_list[idx]
+
     def get_first_phone(self):
         for m in self.phone_list:
             if m is not None:
@@ -255,6 +261,17 @@ class MotoTray:
         rv = np.array([xp,yp,zp])
         return rv
 
+    def get_trayslot_pose_idx(self, idx):
+        iw,ih = self.get_iw_ih(idx)
+        pos, ori = self.get_trayslot_pose(iw,ih)
+        return pos, ori
+
+    def get_trayslot_pose(self, iw, ih):
+        pos = self.get_trayslot_pos(iw,ih)
+        ori = self.rot
+        return pos, ori
+
+
     def get_trayslot_pos_idx(self, idx):
         iw,ih = self.get_iw_ih(idx)
         rv = self.get_trayslot_pos(iw,ih)
@@ -333,11 +350,11 @@ class MotoMan:
         return None
 
     def AddCage(self):
-        usdpath = "/World/cage_v1"
+        usdpath = "/World/cage_v2"
         # cagevariant = "cage_with_static_colliders"
-        cagevariant = "cage_v1"
-        if cagevariant == "cage_v1":
-            filepath_to_cage_usd = f"{self.current_extension_path}/usd/cage_v1.usda"
+        cagevariant = "cage_v2"
+        if cagevariant == "cage_v2":
+            filepath_to_cage_usd = f"{self.current_extension_path}/usd/cage_v2.usda"
             self._cage = XFormPrim(usdpath, scale=[1,1,1], position=[0,0,0])
         else:
             filepath_to_cage_usd = f"{self.current_extension_path}/usd/cage_with_static_colliders.usda"
@@ -348,16 +365,16 @@ class MotoMan:
         add_reference_to_stage(filepath_to_cage_usd, usdpath)
 
         # adjust collision shapes
-        if cagevariant == "cage_v1":
-            meth = UsdPhysics.Tokens.convexHull
-            apply_collisionapis_to_mesh_and_children(self._stage, usdpath, method=meth )
-        else:
-            ppath1 = "ACRYLIC___FIXTURE_V1_v8_1/ACRYLIC___FIXTURE_V1_v8/Body1/Body1"
-            ppath2 = "ACRYLIC___FIXTURE_V1_v8_2/ACRYLIC___FIXTURE_V1_v8/Body1/Body1"
+        #if cagevariant == "cage_v2":
+            #meth = UsdPhysics.Tokens.convexHull
+            #apply_collisionapis_to_mesh_and_children(self._stage, usdpath, method=meth )
+        #else:
+            #ppath1 = "ACRYLIC___FIXTURE_V1_v8_1/ACRYLIC___FIXTURE_V1_v8/Body1/Body1"
+            #ppath2 = "ACRYLIC___FIXTURE_V1_v8_2/ACRYLIC___FIXTURE_V1_v8/Body1/Body1"
 
             # options are: boundingCube, convexHull, convexDecomposition and probably a few more
-            meth = UsdPhysics.Tokens.boundingCube
-            apply_collisionapis_to_mesh_and_children(self._stage, usdpath, include=[ppath1,ppath2],method=meth )
+            #meth = UsdPhysics.Tokens.boundingCube
+            #apply_collisionapis_to_mesh_and_children(self._stage, usdpath, include=[ppath1,ppath2],method=meth )
 
-        apply_material_to_prim_and_children(self._stage, self._matman, "Steel_Blued", usdpath)
+        #apply_material_to_prim_and_children(self._stage, self._matman, "Steel_Blued", usdpath)
         self.cagepath = usdpath
