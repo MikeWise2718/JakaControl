@@ -90,13 +90,13 @@ class CageRmpflowScenario(ScenarioBase):
         # tagets - cage floor is at around -0.05 so we need to raise the targets
         quat = euler_angles_to_quat([-np.pi/2,0,0])
         t0path = "/World/target0"
-        self._target0 = XFormPrim(t0path, scale=[.04,.04,.04], position=[0.15, 0.00, 0.05], orientation=quat)
+        self._target0 = XFormPrim(t0path, scale=[.04,.04,.04], position=[0.15, 0.00, 0.08], orientation=quat)
         (self.targ0top,_,_,_) = GetXformOpsFromPath(t0path)
         add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", t0path)
 
         quat = euler_angles_to_quat([-np.pi/2,0,np.pi])
         t1path = "/World/target1"
-        self._target1 = XFormPrim(t1path, scale=[.04,.04,.04], position=[-0.15, 0.00, 0.05], orientation=quat)
+        self._target1 = XFormPrim(t1path, scale=[.04,.04,.04], position=[-0.15, 0.00, 0.08], orientation=quat)
         (self.targ1top,_,_,_) = GetXformOpsFromPath(t1path)
         add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", t1path)
 
@@ -121,10 +121,10 @@ class CageRmpflowScenario(ScenarioBase):
         xoff = 0.20
         yoff = 0.15
 
-        mm.AddMotoTray("tray1", "rgb000", rot=[a90,0,zang],pos=[+xoff,+yoff,0.0])
-        mm.AddMotoTray("tray2", "000000", rot=[a90,0,zang],pos=[-xoff,+yoff,0.0])
-        mm.AddMotoTray("tray3", "myc000", rot=[a90,0,zang],pos=[-xoff,-yoff,0.0])
-        mm.AddMotoTray("tray4", "000000", rot=[a90,0,zang],pos=[+xoff,-yoff,0.0])
+        mm.AddMotoTray("tray1", "rgb000", rot=[a90,0,zang],pos=[+xoff,+yoff,0])
+        mm.AddMotoTray("tray2", "000000", rot=[a90,0,zang],pos=[-xoff,+yoff,0])
+        mm.AddMotoTray("tray3", "myc000", rot=[a90,0,zang],pos=[-xoff,-yoff,0])
+        mm.AddMotoTray("tray4", "000000", rot=[a90,0,zang],pos=[+xoff,-yoff,0])
         
 
     def add_grippers_to_robots(self):
@@ -167,7 +167,8 @@ class CageRmpflowScenario(ScenarioBase):
         (xp,yp,zp) = cen
         # newpos = np.array([radius*np.cos(ang), radius*np.sin(ang), zp])
         self.gang += self.target_rot_speed*step_size
-        newpos = Gf.Vec3d([xp+radius*np.cos(self.gang), yp+radius*np.sin(self.gang), zp])
+        newpos = Gf.Vec3d([xp+radius*np.cos(self.gang), yp+radius*np.sin(self.gang), .08])
+        print(str(zp))
         top.Set(newpos)
 
     def physics_step_old(self, step_size):
@@ -177,9 +178,9 @@ class CageRmpflowScenario(ScenarioBase):
             self.rmpflow_update_world_for_all()
 
         if self.rotate_target0:
-            self.rotate_target(self._target0, self.targ0top, [+0.3, 0.00, 0.02], 0.15, step_size)
+            self.rotate_target(self._target0, self.targ0top, [+0.3, 0.00, 0.08], 0.15, step_size)
         if self.rotate_target1:
-            self.rotate_target(self._target1, self.targ1top, [-0.3, 0.00, 0.02], 0.15, step_size)
+            self.rotate_target(self._target1, self.targ1top, [-0.3, 0.00, 0.08], 0.15, step_size)
 
         target0_position, target0_orientation = self._target0.get_world_pose()
         target1_position, target1_orientation = self._target1.get_world_pose()
