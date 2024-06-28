@@ -87,18 +87,19 @@ class CageRmpflowScenario(ScenarioBase):
 
         self.add_cameras_to_robots()
 
-        # tagets - cage floor is at around -0.05 so we need to raise the targets
+        # tagets
         quat = euler_angles_to_quat([-np.pi/2,0,0])
         t0path = "/World/target0"
-        self._target0 = XFormPrim(t0path, scale=[.04,.04,.04], position=[0.15, 0.00, 0.08], orientation=quat)
+        self._target0 = FixedCuboid(t0path,size=.02,position=np.array([0.15, 0.0, 0.06]),color=np.array([0.,0.,1.]), orientation=quat)
+       
+        #XFormPrim(t0path, scale=[.04,.04,.04], position=[0.15, 0.00, 0.02], orientation=quat)
         (self.targ0top,_,_,_) = GetXformOpsFromPath(t0path)
-        add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", t0path)
-
+        #add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", t0path)
+ 
         quat = euler_angles_to_quat([-np.pi/2,0,np.pi])
         t1path = "/World/target1"
-        self._target1 = XFormPrim(t1path, scale=[.04,.04,.04], position=[-0.15, 0.00, 0.08], orientation=quat)
+        self._target1 = FixedCuboid(t1path,size=.02,position=np.array([-0.15, 0.00, 0.06]),color=np.array([1.,0.,0.]), orientation=quat)
         (self.targ1top,_,_,_) = GetXformOpsFromPath(t1path)
-        add_reference_to_stage(get_assets_root_path() + "/Isaac/Props/UIElements/frame_prim.usd", t1path)
 
         # obstacles
         self._obstacle = FixedCuboid("/World/obstacle",size=.05,position=np.array([0.4, 0.0, 1.65]),color=np.array([0.,0.,1.]))
@@ -121,10 +122,10 @@ class CageRmpflowScenario(ScenarioBase):
         xoff = 0.20
         yoff = 0.15
 
-        mm.AddMotoTray("tray1", "rgb000", rot=[a90,0,zang],pos=[+xoff,+yoff,0])
-        mm.AddMotoTray("tray2", "000000", rot=[a90,0,zang],pos=[-xoff,+yoff,0])
-        mm.AddMotoTray("tray3", "myc000", rot=[a90,0,zang],pos=[-xoff,-yoff,0])
-        mm.AddMotoTray("tray4", "000000", rot=[a90,0,zang],pos=[+xoff,-yoff,0])
+        mm.AddMotoTray("tray1", "rgb000", rot=[a90,0,zang],pos=[+xoff,+yoff,0.03])
+        mm.AddMotoTray("tray2", "000000", rot=[a90,0,zang],pos=[-xoff,+yoff,0.03])
+        mm.AddMotoTray("tray3", "myc000", rot=[a90,0,zang],pos=[-xoff,-yoff,0.03])
+        mm.AddMotoTray("tray4", "000000", rot=[a90,0,zang],pos=[+xoff,-yoff,0.03])
         
 
     def add_grippers_to_robots(self):
@@ -138,7 +139,7 @@ class CageRmpflowScenario(ScenarioBase):
         self.teleport_robots_to_zeropos()
 
         self.make_robot_mpflows([self._obstacle])
-
+ 
         self.add_grippers_to_robots()
         self.add_pp_controllers_to_robots()
 
@@ -167,8 +168,7 @@ class CageRmpflowScenario(ScenarioBase):
         (xp,yp,zp) = cen
         # newpos = np.array([radius*np.cos(ang), radius*np.sin(ang), zp])
         self.gang += self.target_rot_speed*step_size
-        newpos = Gf.Vec3d([xp+radius*np.cos(self.gang), yp+radius*np.sin(self.gang), .08])
-        print(str(zp))
+        newpos = Gf.Vec3d([xp+radius*np.cos(self.gang), yp+radius*np.sin(self.gang), .06])
         top.Set(newpos)
 
     def physics_step_old(self, step_size):
@@ -286,6 +286,9 @@ class CageRmpflowScenario(ScenarioBase):
         if(elapsed_time > 1):   
             strs = ','.join(str(x) for x in (current_joint_positions0))
             print("joints:",strs)
+
+            strs2 = ','.join(str(x) for x in (current_joint_positions1))
+            print("joints 2:",strs2)
             current_time_str = datetime.now().strftime ('%Y-%m-%d %H:%M:%S')
             valRight = "[L,"+ current_time_str + ", "+ ", ".join(map(str, current_joint_positions0)) + "]"        
             

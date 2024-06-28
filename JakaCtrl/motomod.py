@@ -355,7 +355,7 @@ class MotoMan:
         cagevariant = "cage_v2"
         if cagevariant == "cage_v2":
             filepath_to_cage_usd = f"{self.current_extension_path}/usd/cage_v2.usda"
-            self._cage = XFormPrim(usdpath, scale=[1,1,1], position=[0.047,0,-0.014])
+            self._cage = XFormPrim(usdpath, scale=[1,1,1], position=[0,0,0])
         else:
             filepath_to_cage_usd = f"{self.current_extension_path}/usd/cage_with_static_colliders.usda"
             sz = 0.0254
