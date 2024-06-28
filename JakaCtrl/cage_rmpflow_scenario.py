@@ -1,17 +1,10 @@
 import numpy as np
 from pxr import Usd, UsdGeom, Gf, UsdPhysics, PhysxSchema
 from types import SimpleNamespace
-<<<<<<< HEAD
 import time
 import omni
 import carb
 import websockets
-=======
-
-import time
-import omni
-import carb
->>>>>>> updated-cage
 import asyncio
 from datetime import datetime
 
