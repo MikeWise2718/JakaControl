@@ -378,9 +378,6 @@ class ObjectInspectionScenario(ScenarioBase):
     def update_scenario(self, step: float):
         if not self._running_scenario:
             return
-<<<<<<< HEAD
-   
-=======
         self.physics_step(step)
 
     def scenario_action(self, action_name, action_args):
@@ -437,4 +434,3 @@ class ObjectInspectionScenario(ScenarioBase):
         combo  = self.base_scenario_actions + ["RotateTarget0", "RotateTarget1",
                                       "ChangeSpeed"]
         return combo
->>>>>>> updated-cage
