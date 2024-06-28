@@ -50,12 +50,24 @@ class CageRmpflowScenario(ScenarioBase):
     cagecamviews = None
     websocketWS = websockets
     open = False
+    leftMessage = ""
+    rightMessage = ""
     async def Connect2WebsocketWS(self):
-        self.websocketWS =  await websockets.connect("ws://imvplaygroundsockets.azurewebsites.net/8888", ping_interval=None)
+        #self.websocketWS =  await websockets.connect("ws://imvplaygroundsockets.azurewebsites.net/8888", ping_interval=None)
+        self.websocketWS =  await websockets.connect("ws://localhost:3000/8888", ping_interval=None)
         await self.websocketWS.send("OPEN")
+        asyncio.ensure_future(self.handler())
         open = True
     
-
+    async def handler(self):
+        while True:
+            message = await self.websocketWS.recv()
+            if "Omni" in message:
+                if "L" in message:
+                    self.leftMessage = message
+                if "R" in message:
+                    self.rightMessage = message
+            print(message)
     
     async def send_positions_by_websocket(self,mess):
         try:
@@ -216,6 +228,7 @@ class CageRmpflowScenario(ScenarioBase):
     def physics_step(self, step_size):
         self.global_time += step_size
 
+    
         if self.rotate_target0:
             self.rotate_target(self._target0, self.targ0top, [+0.3, 0.00, 0.02], 0.15, step_size)
         if self.rotate_target1:
@@ -262,24 +275,43 @@ class CageRmpflowScenario(ScenarioBase):
                     if elap>0.5:
                         print(f"ee_pos:{ee_pos}  phone:{cp}  targpos:{rcfg.targpos}  elap:{elap:.2f}")
                         self.lasttime = self.global_time
-                elif rcfg.current_robot_action == "MoveToZero":
-                    action = SimpleNamespace()
-                    action.joint_indices = [0,1,2,3,4,5]
-                    action.joint_positions = rcfg.dof_zero_pos
-                    action.joint_velocities = None
-                    action.joint_efforts = None
-                    rcfg._articulation.apply_action(action)
+                #elif rcfg.current_robot_action == "MoveToZero":
+                #    action = SimpleNamespace()
+                #    action.joint_indices = [0,1,2,3,4,5]
+                #    action.joint_positions = rcfg.dof_zero_pos
+                #    action.joint_velocities = None
+                #    action.joint_efforts = None
+                #    rcfg._articulation.apply_action(action)
 
         rcfg0 = self.get_robot_config(0)
+        if rcfg0.current_robot_action == "MoveToZero":
+            messageParsed = self.leftMessage.split(',')
+            action1 = SimpleNamespace()
+            action1.joint_indices = [0,1,2,3,4,5]
+            action1.joint_positions = messageParsed[2:]
+            action1.joint_velocities = None
+            action1.joint_efforts = None
+            rcfg0._articulation.apply_action(action1)
+
+      
         current_joint_positions0 = rcfg0._articulation.get_joint_positions()
 
         rcfg1 = self.get_robot_config(1)
+        if rcfg1.current_robot_action == "MoveToZero":
+            messageParsed = self.rightMessage.split(',')
+            action = SimpleNamespace()
+            action.joint_indices = [0,1,2,3,4,5]
+            action.joint_positions = messageParsed[2:]
+            action.joint_velocities = None
+            action.joint_efforts = None
+            rcfg1._articulation.apply_action(action)
+
         current_joint_positions1 = rcfg1._articulation.get_joint_positions()
 
      
         elapsed_time = time.process_time() - self.start
         #print(elapsed_time)
-        if(elapsed_time > 1):   
+        if(elapsed_time > 0.5):   
             strs = ','.join(str(x) for x in (current_joint_positions0))
             print("joints:",strs)
             current_time_str = datetime.now().strftime ('%Y-%m-%d %H:%M:%S')
