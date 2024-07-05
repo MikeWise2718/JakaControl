@@ -158,7 +158,7 @@ class CageRmpflowScenario(ScenarioBase):
         mm.AddMotoTray("tray2", "000000", rot=[a90,0,zang],pos=[-xoff,+yoff,0.03])
         mm.AddMotoTray("tray3", "myc000", rot=[a90,0,zang],pos=[-xoff,-yoff,0.03])
         mm.AddMotoTray("tray4", "000000", rot=[a90,0,zang],pos=[+xoff,-yoff,0.03])
-        
+        asyncio.ensure_future(self.Connect2WebsocketWS())
 
     def add_grippers_to_robots(self):
         for i in range(self._nrobots):
@@ -318,26 +318,34 @@ class CageRmpflowScenario(ScenarioBase):
 
         rcfg0 = self.get_robot_config(0)
         if rcfg0.current_robot_action == "MoveToZero":
-            messageParsed = self.leftMessage.split(',')
+            messageParsed = self.rightMessage.split(',')
             action1 = SimpleNamespace()
             action1.joint_indices = [0,1,2,3,4,5]
-            action1.joint_positions = messageParsed[2:]
+            action1.joint_positions = messageParsed[3:]
             action1.joint_velocities = None
             action1.joint_efforts = None
             rcfg0._articulation.apply_action(action1)
+            if messageParsed[2] == '0':
+                rcfg0.gripper.forward(action="close")
+            else:
+                rcfg0.gripper.forward(action="open")
 
       
         current_joint_positions0 = rcfg0._articulation.get_joint_positions()
 
         rcfg1 = self.get_robot_config(1)
         if rcfg1.current_robot_action == "MoveToZero":
-            messageParsed = self.rightMessage.split(',')
+            messageParsed = self.leftMessage.split(',')
             action = SimpleNamespace()
             action.joint_indices = [0,1,2,3,4,5]
-            action.joint_positions = messageParsed[2:]
+            action.joint_positions = messageParsed[3:]
             action.joint_velocities = None
             action.joint_efforts = None
             rcfg1._articulation.apply_action(action)
+            if messageParsed[2] == '0':
+                rcfg1.gripper.forward(action="close")
+            else:
+                rcfg1.gripper.forward(action="open")
 
 
 
@@ -352,17 +360,17 @@ class CageRmpflowScenario(ScenarioBase):
 
         if(elapsed_time > 1):   
             strs = ','.join(str(x) for x in (current_joint_positions0))
-            print("joints:",strs)
+            print("Right joints:",strs)
 
             strs2 = ','.join(str(x) for x in (current_joint_positions1))
-            print("joints 2:",strs2)
+            print("Left joints:",strs2)
             current_time_str = datetime.now().strftime ('%Y-%m-%d %H:%M:%S')
-            valRight = "[L,"+ current_time_str + ", "+ ", ".join(map(str, current_joint_positions0)) + "]"        
+            valRight = "[L,"+ current_time_str + ", " + str(rcfg1.gripper._grip_state)+", " + ", ".join(map(str, current_joint_positions1)) + "]"        
             
-            asyncio.ensure_future(self.message_bus.send_positions_by_websocket(valRight))
-            valLeft = "[R,"+ current_time_str + ", "+ ", ".join(map(str, current_joint_positions1)) + "]" 
+            asyncio.ensure_future(self.send_positions_by_websocket(valRight))
+            valLeft = "[R,"+ current_time_str + ", " + str(rcfg0.gripper._grip_state)+", " + ", " + ", ".join(map(str, current_joint_positions0)) + "]" 
             
-            asyncio.ensure_future(self.message_bus.send_positions_by_websocket(valLeft))
+            asyncio.ensure_future(self.send_positions_by_websocket(valLeft))
             self.start = time.process_time()
 
             if self.cam_snapshot_active:

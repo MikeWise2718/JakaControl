@@ -10,7 +10,7 @@ class MessageBus():
         super().__init__()
         self.websocketWS = websockets
         self.websocket_id = random.randint(1000, 9999)
-        self.websocket_url= "wss://integrationhubwebsocket.azurewebsites.net/" + str(self.websocket_id)
+        self.websocket_url= "ws://localhost:3000/" + str(self.websocket_id)
         self.send_messages = False
         asyncio.ensure_future(self.connect_websocket())
         
