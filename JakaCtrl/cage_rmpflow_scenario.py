@@ -4,8 +4,8 @@ from types import SimpleNamespace
 import time
 import omni
 import carb
-import websockets
-import asyncio
+# import websockets
+# import asyncio
 from datetime import datetime
 
 from omni.isaac.core.utils.nucleus import get_assets_root_path
@@ -25,7 +25,7 @@ from .senut import add_rob_cam, pvk
 
 from .scenario_base import ScenarioBase
 from .viewport_cameras import ViewPortCameras
-from .message_bus import MessageBus
+#from .message_bus import MessageBus
 
 from .remcmdmod import RemCmd, RemCmdList
 
@@ -40,7 +40,7 @@ from .motomod import MotoMan
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 #
 
-
+import roslibpy
 
 
 class CageRmpflowScenario(ScenarioBase):
@@ -51,37 +51,42 @@ class CageRmpflowScenario(ScenarioBase):
     rotate_target1 = False
     target_rot_speed = 2*np.pi/10 # 10 seconds for a full rotation
     cagecamviews = None
-    websocketWS = websockets
+    # websocketWS = websockets
     open = False
     leftMessage = ""
     rightMessage = ""
-    async def Connect2WebsocketWS(self):
-        #self.websocketWS =  await websockets.connect("ws://imvplaygroundsockets.azurewebsites.net/8888", ping_interval=None)
-        self.websocketWS =  await websockets.connect("ws://localhost:3000/8888", ping_interval=None)
-        await self.websocketWS.send("OPEN")
-        asyncio.ensure_future(self.handler())
-        open = True
+    # async def Connect2WebsocketWS(self):
+    #     #self.websocketWS =  await websockets.connect("ws://imvplaygroundsockets.azurewebsites.net/8888", ping_interval=None)
+    #     self.websocketWS =  await websockets.connect("ws://localhost:3000/8888", ping_interval=None)
+    #     await self.websocketWS.send("OPEN")
+    #     asyncio.ensure_future(self.handler())
+    #     open = True
     
-    async def handler(self):
-        while True:
-            message = await self.websocketWS.recv()
-            if "Omni" in message:
-                if "L" in message:
-                    self.leftMessage = message
-                if "R" in message:
-                    self.rightMessage = message
-            print(message)
+    # async def handler(self):
+    #     while True:
+    #         message = await self.websocketWS.recv()
+    #         if "Omni" in message:
+    #             if "L" in message:
+    #                 self.leftMessage = message
+    #             if "R" in message:
+    #                 self.rightMessage = message
+    #         print(message)
     
-    async def send_positions_by_websocket(self,mess):
-        try:
-            await self.websocketWS.send(mess)
-        except websockets.ConnectionClosedError:
-            await self.Connect2WebsocketWS()
+    # async def send_positions_by_websocket(self,mess):
+    #     try:
+    #         await self.websocketWS.send(mess)
+    #     except websockets.ConnectionClosedError:
+    #         await self.Connect2WebsocketWS()
 
 
     load_remote_commands = False
     execute_remote_commands = False
-    
+
+    """for ROS"""
+    connect_to_ros = True
+    connect_to_jaka = False
+
+
     def __init__(self, uibuilder=None):
         super().__init__()
         self._scenario_name = "cage-rmpflow"
@@ -94,7 +99,7 @@ class CageRmpflowScenario(ScenarioBase):
         self.current_gptcommand_options = []
         self.start = time.process_time()
         self.viewport_cameras = ViewPortCameras(self)
-        self.message_bus=MessageBus(self)
+        #self.message_bus=MessageBus(self)
 
     def load_scenario(self, robot_name, ground_opt, light_opt="dome_light"):
         super().load_scenario(robot_name, ground_opt)
@@ -113,7 +118,7 @@ class CageRmpflowScenario(ScenarioBase):
         self.load_robot_into_scene(0, pos0, rot0, order=order, pre_rot=pre_rot)
 
         #left arm
-        pre_rot = [0,0,0]
+        pre_rot = [0,0,180]
         (pos1, rot1) = ([-0.08, 0, 0.77], [0, 150, 180])
         self.load_robot_into_scene(1, pos1, rot1, order=order, pre_rot=pre_rot)
 
@@ -158,7 +163,66 @@ class CageRmpflowScenario(ScenarioBase):
         mm.AddMotoTray("tray2", "000000", rot=[a90,0,zang],pos=[-xoff,+yoff,0.03])
         mm.AddMotoTray("tray3", "myc000", rot=[a90,0,zang],pos=[-xoff,-yoff,0.03])
         mm.AddMotoTray("tray4", "000000", rot=[a90,0,zang],pos=[+xoff,-yoff,0.03])
-        asyncio.ensure_future(self.Connect2WebsocketWS())
+        # asyncio.ensure_future(self.Connect2WebsocketWS())
+
+        """
+        ==========================================
+        below for ROS connection
+        ==========================================
+        """
+        if self.connect_to_ros:
+            self.rosclient = roslibpy.Ros("localhost", 9090)
+            print("try connecting to ROS ...")
+            try: self.rosclient.run(30)
+            except: print("could not connect")
+            if self.rosclient.is_connected:
+                print("connected!")
+                # Client (Jaka)
+                if self.connect_to_jaka: self.send_fk = roslibpy.Service(self.rosclient, '/jaka_driver/joint_move', 'jaka_msgs/Move')
+                # Subscribers (Jaka)
+                self.sub_joint_states = roslibpy.Topic(self.rosclient, '/jaka_driver/joint_states', 'sensor_msgs/JointState')
+                self.sub_joint_states.subscribe(lambda msg: self.js_listen(msg))
+
+                # Publishers (for demo integration)
+                self.pub_request_finish = roslibpy.Topic(self.rosclient, '/isaacsim/complete', 'std_msgs/String')
+                # Subscribers (for demo integration)
+                self.sub_fowardk_request = roslibpy.Topic(self.rosclient, '/isaacsim/set_forward_kinematics', 'trajectory_msgs/JointTrajectory')
+                self.sub_fowardk_request.subscribe(lambda msg: self.fkreq_listen(msg))
+                self.sub_inversek_request = roslibpy.Topic(self.rosclient, '/isaacsim/set_inverse_kinematics', 'geometry_msgs/TransformStamped')
+                self.sub_inversek_request.subscribe(lambda msg: self.ikreq_listen(msg))
+                self.sub_set_current_state_request = roslibpy.Topic(self.rosclient, '/isaacsim/set_current_state', 'std_msgs/String')
+                self.sub_set_current_state_request.subscribe(lambda msg: self.setcsreq_listen(msg))
+        else:
+            print("not connecting through ROS as connect_to_ros flag is set to False in cage_rmpflow_scenario")
+
+    """
+    ==========================================
+    ROS callbacks
+    ==========================================
+    """
+    def js_listen(self, msg):
+        self._joint_states = msg['position']
+    """
+    Some callbacks to set sim states from ROS messages.
+    Note, when connected connect_to_jaka is True, the SolveFK and SolveIK will send results to the real robot.
+    """
+    def fkreq_listen(self, msg):
+        print("fk message: ", msg)
+        self._arm_request = int(msg['header']['frame_id'] == "arm1")
+        self._command = "SolveFK"
+        self._parameters = [msg['points'][0]['positions']]  # TODO: use duration
+    def ikreq_listen(self, msg):
+        print("ik message: ", msg)
+        self._arm_request = int(msg['header']['frame_id'] == "arm1")
+        self._command = "SolveIK"
+        self._parameters = [msg['transform']['translation']['x'], msg['transform']['translation']['y'], msg['transform']['translation']['z']]
+        # not using rotation, always facing-downwards (TODO: apply rotation request if needed)
+    def setcsreq_listen(self, msg):
+        print("set cur state message: ", msg)
+        self._arm_request = int(msg['data'] == "arm1")
+        self._command = "SetCurrentState"
+        self._parameters = self._joint_states
+
 
     def add_grippers_to_robots(self):
         for i in range(self._nrobots):
@@ -184,6 +248,15 @@ class CageRmpflowScenario(ScenarioBase):
     def reset_scenario(self):
         self.reset_robot_rmpflows()
         self.init_remote_commands()
+
+        """ensure resets to default command wait state"""
+        for i in range(self._nrobots):
+            rcfg = self.get_robot_config(i)
+            rcfg.current_robot_action = "NoAction"
+        self._command = ""
+        self._arm_request = -1
+        self._parameters = {}
+        self._test_iter = 0  # for debug only
 
     def init_remote_commands(self):
         self.rmtcmdlist = RemCmdList()
@@ -225,6 +298,7 @@ class CageRmpflowScenario(ScenarioBase):
     lasttime1 = 0
     lasttime2 = 0
     def physics_step(self, step_size):
+        if not self.rmpactive: print("not active!")  # ROS mode will not work if not active
         self.global_time += step_size
 
     
@@ -285,96 +359,178 @@ class CageRmpflowScenario(ScenarioBase):
                         cp_s = pvk(cp)
                         print(f"ee_pos:{eepos_s}  phone:{cp_s}  targpos:{rcfg.targpos}  elap:{elap:.2f}")
                         self.lasttime1 = self.global_time
-                #elif rcfg.current_robot_action == "MoveToZero":
-                #    action = SimpleNamespace()
-                #    action.joint_indices = [0,1,2,3,4,5]
-                #    action.joint_positions = rcfg.dof_zero_pos
-                #    action.joint_velocities = None
-                #    action.joint_efforts = None
-                #    rcfg._articulation.apply_action(action)
 
                 elif rcfg.current_robot_action == "NoAction":
-                    if self.execute_remote_commands and self.rmtcmdlist is not None:
-                        cmd = self.rmtcmdlist.get_next_command(i)
-                        if cmd is not None:
-                            ok = self.setup_pick_and_place(i, cmd)
-                        if cmd is None or not ok:
-                            elap = self.global_time - self.lasttime1
-                            if elap>5:
-                                ncmd, nexe, npend, ndone, ninv =  self.rmtcmdlist.get_cmd_stats()
-                                line = f"No pending messages found - time:{self.global_time:.1f}"
-                                line += f" ncmd:{ncmd} nexe:{nexe} npend:{npend} ndone:{ndone} ninv:{ninv}"
-                                print(line)
-                                carb.log_warn(line)
-                                self.lasttime1 = self.global_time
-                    pass
-                #elif rcfg.current_robot_action == "MoveToZero":
-                #    action = SimpleNamespace()
-                #    action.joint_indices = [0,1,2,3,4,5]
-                #    action.joint_positions = rcfg.dof_zero_pos
-                #    action.joint_velocities = None
-                #    action.joint_efforts = None
-                #    rcfg._articulation.apply_action(action)
+                    # if self.execute_remote_commands and self.rmtcmdlist is not None:
+                    #     cmd = self.rmtcmdlist.get_next_command(i)
+                    #     if cmd is not None:
+                    #         ok = self.setup_pick_and_place(i, cmd)
+                    #     if cmd is None or not ok:
+                    #         elap = self.global_time - self.lasttime1
+                    #         if elap>5:
+                    #             ncmd, nexe, npend, ndone, ninv =  self.rmtcmdlist.get_cmd_stats()
+                    #             line = f"No pending messages found - time:{self.global_time:.1f}"
+                    #             line += f" ncmd:{ncmd} nexe:{nexe} npend:{npend} ndone:{ndone} ninv:{ninv}"
+                    #             print(line)
+                    #             carb.log_warn(line)
+                    #             self.lasttime1 = self.global_time
+                    if self._command != "":
+                        if self._arm_request != i: continue  # check if corresponding id
 
-        rcfg0 = self.get_robot_config(0)
-        if rcfg0.current_robot_action == "MoveToZero":
-            messageParsed = self.rightMessage.split(',')
-            action1 = SimpleNamespace()
-            action1.joint_indices = [0,1,2,3,4,5]
-            action1.joint_positions = messageParsed[3:]
-            action1.joint_velocities = None
-            action1.joint_efforts = None
-            rcfg0._articulation.apply_action(action1)
-            if messageParsed[2] == '0':
-                rcfg0.gripper.forward(action="close")
-            else:
-                rcfg0.gripper.forward(action="open")
+                        if self._command == "SolveFK": rcfg.current_robot_action = "SolveFK"
+                        elif self._command == "SolveIK": rcfg.current_robot_action = "SolveIK"
+                        elif self._command == "SetCurrentState": rcfg.current_robot_action = "SolveFK"
+                        else: print("unexpected command: ", self._command)
+                        self._command = ""
+                        print("switching to ... ", rcfg.current_robot_action, self._parameters)
+                        self.start = time.process_time()
+
+                    """for testing"""
+                    # self._debug_code(rcfg, i)
+
+                elif rcfg.current_robot_action == "SolveFK":
+                    if self._arm_request != i: continue
+                    action = SimpleNamespace()
+                    action.joint_indices = [0,1,2,3,4,5]
+                    action.joint_positions = self._parameters  # [j0,j1,j2,j3,j4,j5]
+                    action.joint_velocities = None
+                    action.joint_efforts = None
+                    rcfg._articulation.apply_action(action)
+                    j_pos = rcfg._articulation.get_joint_positions()
+                    j_goal = self._parameters
+                    print(j_pos, j_goal, np.linalg.norm(np.array(j_pos) - np.array(j_goal)))
+                    if np.linalg.norm(np.array(j_pos) - np.array(j_goal)) < 0.1:
+                        if self.connect_to_jaka:
+                            send_pos = [float(x) for x in list(j_pos)]
+                            # send_pos = jp
+                            print("sending to the real robot!!!!!!!!!!!!!!!!!!!!!!!!!", send_pos)
+                            request = roslibpy.ServiceRequest({'pose': send_pos, 'has_ref': False, 'ref_joint': [0], 'mvvelo': 0.1, 'mvacc': 0.1, 'mvtime': 0.0, 'mvradii': 0.0, 'coord_mode': 0, 'index': 0})
+                            self.send_fk.call(request)
+                            print("finished sending!!!!!!!!!!!!!!!")
+                            """for real robot"""
+                        self.pub_request_finish.publish({'data': "complete SolveFK"})
+                        print('done test iter ', self._test_iter)
+                        rcfg._controller.reset()
+                        self._test_iter += 1  # for debug only
+                        rcfg.current_robot_action = "NoAction"
+
+                elif rcfg.current_robot_action == "SolveIK":
+                    if self._arm_request != i: continue
+                    pos = np.array(self._parameters)  # [x,y,z]
+                    ori = rcfg.grip_eeori
+                    self.set_end_effector_target_for_robot(i, pos, ori)
+                    action = rcfg.articulation_rmpflow.get_next_articulation_action(step_size)
+                    rcfg._articulation.apply_action(action)
+                    ee_pos, ee_rot = rcfg.rmpflow.get_end_effector_as_prim().get_world_pose()
+                    # ee_pos_, ee_rot_ = rcfg._articulation_kinematics_solver.compute_end_effector_pose()
+                    print(rcfg._articulation_kinematics_solver._ee_frame, ee_pos, pos, np.linalg.norm(np.array(ee_pos) - np.array(pos)), ee_rot, ori)
+                    if np.linalg.norm(np.array(ee_pos) - np.array(pos)) < 0.005:  # senf final result
+                        if self.connect_to_jaka:
+                            j_pos = rcfg._articulation.get_joint_positions()
+                            print("sending to the real robot!!!!!!!!!!!!!!!!!!!!!!!!!", j_pos)
+                            send_pos = [float(x) for x in list(j_pos)]
+                            request = roslibpy.ServiceRequest({'pose': send_pos, 'has_ref': False, 'ref_joint': [0], 'mvvelo': 0.1, 'mvacc': 0.1, 'mvtime': 0.0, 'mvradii': 0.0, 'coord_mode': 0, 'index': 0})
+                            self.send_fk.call(request)
+                        self.pub_request_finish.publish({'data': "complete SolveIK"})
+                        print('done test iter ', self._test_iter)
+                        rcfg._controller.reset()
+                        self._test_iter += 1  # for debug only
+                        rcfg.current_robot_action = "NoAction"
+                    else:
+                        elapsed_time = time.process_time() - self.start
+                        print("elapsed time: ", elapsed_time)
+                        if (elapsed_time > 0.1):  # send intermediate result
+                            if self.connect_to_jaka:
+                                j_pos = rcfg._articulation.get_joint_positions()
+                                print("sending to the real robot!!!!!!!!!!!!!!!!!!!!!!!!!", j_pos)
+                                send_pos = [float(x) for x in list(j_pos)]
+                                request = roslibpy.ServiceRequest({'pose': send_pos, 'has_ref': False, 'ref_joint': [0], 'mvvelo': 0.1, 'mvacc': 0.1, 'mvtime': 0.0, 'mvradii': 0.0, 'coord_mode': 0, 'index': 0})
+                                self.send_fk.call(request)
+                            self.start = time.process_time()
+
+                # elif rcfg.current_robot_action == "MoveToZero":
+                #     action = SimpleNamespace()
+                #     action.joint_indices = [0,1,2,3,4,5]
+                #     action.joint_positions = rcfg.dof_zero_pos
+                #     action.joint_velocities = None
+                #     action.joint_efforts = None
+                #     rcfg._articulation.apply_action(action)
+
+        # rcfg0 = self.get_robot_config(0)
+        # if rcfg0.current_robot_action == "MoveToZero":
+        #     messageParsed = self.rightMessage.split(',')
+        #     action1 = SimpleNamespace()
+        #     action1.joint_indices = [0,1,2,3,4,5]
+        #     action1.joint_positions = messageParsed[3:]
+        #     action1.joint_velocities = None
+        #     action1.joint_efforts = None
+        #     rcfg0._articulation.apply_action(action1)
+        #     if messageParsed[2] == '0':
+        #         rcfg0.gripper.forward(action="close")
+        #     else:
+        #         rcfg0.gripper.forward(action="open")
 
       
-        current_joint_positions0 = rcfg0._articulation.get_joint_positions()
+        # current_joint_positions0 = rcfg0._articulation.get_joint_positions()
 
-        rcfg1 = self.get_robot_config(1)
-        if rcfg1.current_robot_action == "MoveToZero":
-            messageParsed = self.leftMessage.split(',')
-            action = SimpleNamespace()
-            action.joint_indices = [0,1,2,3,4,5]
-            action.joint_positions = messageParsed[3:]
-            action.joint_velocities = None
-            action.joint_efforts = None
-            rcfg1._articulation.apply_action(action)
-            if messageParsed[2] == '0':
-                rcfg1.gripper.forward(action="close")
-            else:
-                rcfg1.gripper.forward(action="open")
+        # rcfg1 = self.get_robot_config(1)
+        # if rcfg1.current_robot_action == "MoveToZero":
+        #     messageParsed = self.leftMessage.split(',')
+        #     action = SimpleNamespace()
+        #     action.joint_indices = [0,1,2,3,4,5]
+        #     action.joint_positions = messageParsed[3:]
+        #     action.joint_velocities = None
+        #     action.joint_efforts = None
+        #     rcfg1._articulation.apply_action(action)
+        #     if messageParsed[2] == '0':
+        #         rcfg1.gripper.forward(action="close")
+        #     else:
+        #         rcfg1.gripper.forward(action="open")
 
 
 
-        rcfg0 = self.get_robot_config(0)
-        current_joint_positions0 = rcfg0._articulation.get_joint_positions()
+        # rcfg0 = self.get_robot_config(0)
+        # current_joint_positions0 = rcfg0._articulation.get_joint_positions()
 
-        rcfg1 = self.get_robot_config(1)
-        current_joint_positions1 = rcfg1._articulation.get_joint_positions()
+        # rcfg1 = self.get_robot_config(1)
+        # current_joint_positions1 = rcfg1._articulation.get_joint_positions()
 
      
-        elapsed_time = time.process_time() - self.start
+        # elapsed_time = time.process_time() - self.start
 
-        if(elapsed_time > 1):   
-            strs = ','.join(str(x) for x in (current_joint_positions0))
-            print("Right joints:",strs)
+        # if(elapsed_time > 1):   
+        #     strs = ','.join(str(x) for x in (current_joint_positions0))
+        #     print("Right joints:",strs)
 
-            strs2 = ','.join(str(x) for x in (current_joint_positions1))
-            print("Left joints:",strs2)
-            current_time_str = datetime.now().strftime ('%Y-%m-%d %H:%M:%S')
-            valRight = "[L,"+ current_time_str + ", " + str(rcfg1.gripper._grip_state)+", " + ", ".join(map(str, current_joint_positions1)) + "]"        
+        #     strs2 = ','.join(str(x) for x in (current_joint_positions1))
+        #     print("Left joints:",strs2)
+        #     current_time_str = datetime.now().strftime ('%Y-%m-%d %H:%M:%S')
+        #     valRight = "[L,"+ current_time_str + ", " + str(rcfg1.gripper._grip_state)+", " + ", ".join(map(str, current_joint_positions1)) + "]"        
             
-            asyncio.ensure_future(self.send_positions_by_websocket(valRight))
-            valLeft = "[R,"+ current_time_str + ", " + str(rcfg0.gripper._grip_state)+", " + ", " + ", ".join(map(str, current_joint_positions0)) + "]" 
+        #     asyncio.ensure_future(self.send_positions_by_websocket(valRight))
+        #     valLeft = "[R,"+ current_time_str + ", " + str(rcfg0.gripper._grip_state)+", " + ", " + ", ".join(map(str, current_joint_positions0)) + "]" 
             
-            asyncio.ensure_future(self.send_positions_by_websocket(valLeft))
-            self.start = time.process_time()
+        #     asyncio.ensure_future(self.send_positions_by_websocket(valLeft))
+        #     self.start = time.process_time()
 
-            if self.cam_snapshot_active:
-                self.viewport_cameras.take_snapshot()
+        #     if self.cam_snapshot_active:
+        #         self.viewport_cameras.take_snapshot()
+
+    """
+    ==========================================
+    For debugging
+    ==========================================
+    """
+    def _debug_code(self, rcfg, i):
+        if i == 1:
+            if self._test_iter == 0:
+                self._arm_request = 1
+                self._parameters = [1.44, -1.22, 0.904, 2.123, -0.6325, -2.419]
+                rcfg.current_robot_action = "SolveFK"
+            elif self._test_iter == 1:
+                self._arm_request = 1
+                self._parameters = [-0.28578, -0.06618, 0.18]
+                rcfg.current_robot_action = "SolveIK"
 
 
     def update_scenario(self, step: float):
@@ -540,13 +696,13 @@ class CageRmpflowScenario(ScenarioBase):
                     rv = "Stop Camera Snapshots"
                 else:
                     rv = "Start Camera Snapshots"
-            case "StartStopWebsocketMessages":
-                if self.websocket_send_message_active:                  
-                    rv = "Stop Websockets Messages"
-                    self.message_bus.start_messages()
-                else:
-                    rv = "Start Websockets Messages"
-                    self.message_bus.stop_messages()
+            # case "StartStopWebsocketMessages":
+            #     if self.websocket_send_message_active:                  
+            #         rv = "Stop Websockets Messages"
+            #         self.message_bus.start_messages()
+            #     else:
+            #         rv = "Start Websockets Messages"
+            #         self.message_bus.stop_messages()
             case "RotateTarget0":
                 rv = "Rotate Target 0"
             case "RotateTarget1":

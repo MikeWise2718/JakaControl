@@ -665,7 +665,7 @@ class ScenarioBase:
                 if i==0:
                     rcfg._articulation.set_joint_positions([0,0,0,0,-1.0472,0])
                 else:
-                    rcfg._articulation.set_joint_positions([3.1416,0,0,0,-1.0472,0])    
+                    rcfg._articulation.set_joint_positions([0,0,0,0,-1.0472,0])
 
     def get_robot_world_pose(self, robidx):
         rcfg = self.get_robot_config(robidx)
