@@ -368,7 +368,7 @@ class CageRmpflowScenario(ScenarioBase):
             valRight = "[L,"+ current_time_str + ", " + str(rcfg1.gripper._grip_state)+", " + ", ".join(map(str, current_joint_positions1)) + "]"        
             
             asyncio.ensure_future(self.send_positions_by_websocket(valRight))
-            valLeft = "[R,"+ current_time_str + ", " + str(rcfg0.gripper._grip_state)+", " + ", " + ", ".join(map(str, current_joint_positions0)) + "]" 
+            valLeft = "[R,"+ current_time_str + ", " + str(rcfg0.gripper._grip_state)+", " + ", ".join(map(str, current_joint_positions0)) + "]" 
             
             asyncio.ensure_future(self.send_positions_by_websocket(valLeft))
             self.start = time.process_time()
